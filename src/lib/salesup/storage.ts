@@ -153,6 +153,27 @@ export function copyBlocksFromDate(fromDate: string, toDate: string): number {
   return copies.length;
 }
 
+export function copyBlocksFromWeek(fromWeekDays: string[], toWeekDays: string[]): number {
+  if (fromWeekDays.length !== 7 || toWeekDays.length !== 7) return 0;
+  const list = read<TimeBlock[]>(TB_KEY, []);
+  const fromSet = new Set(fromWeekDays);
+  const toSet = new Set(toWeekDays);
+  const source = list.filter((b) => fromSet.has(b.date));
+  const now = nowIso();
+  const copies: TimeBlock[] = source.map((b) => {
+    const idx = fromWeekDays.indexOf(b.date);
+    return {
+      ...b,
+      id: uid(),
+      date: toWeekDays[idx],
+      created_at: now,
+      updated_at: now,
+    };
+  });
+  const remaining = list.filter((b) => !toSet.has(b.date));
+  write(TB_KEY, [...remaining, ...copies]);
+  return copies.length;
+
 // -------- Daily review --------
 
 const DR_KEY = "daily_reviews";
