@@ -47,9 +47,18 @@ export function MonthCalendar({ monthAnchor, blocks, onChangeMonth, onSelectDay 
   const perDay = useMemo(() => {
     const map: Record<
       string,
-      { total: number; customer: number; byType: Record<string, number> }
+      {
+        total: number;
+        customer: number;
+        byType: Record<string, number>;
+        customers: string[];
+      }
     > = {};
-    for (const d of days) map[d] = { total: 0, customer: 0, byType: {} };
+    const customerSets: Record<string, Set<string>> = {};
+    for (const d of days) {
+      map[d] = { total: 0, customer: 0, byType: {}, customers: [] };
+      customerSets[d] = new Set();
+    }
     for (const b of blocks) {
       if (!map[b.date]) continue;
       const mins = Math.max(0, b.end_slot - b.start_slot) * SLOT_MINUTES;
@@ -60,6 +69,10 @@ export function MonthCalendar({ monthAnchor, blocks, onChangeMonth, onSelectDay 
         map[b.date].customer += mins;
       }
       map[b.date].byType[b.work_type] = (map[b.date].byType[b.work_type] ?? 0) + mins;
+      if (b.customer) customerSets[b.date].add(b.customer);
+    }
+    for (const d of days) {
+      map[d].customers = Array.from(customerSets[d]);
     }
     return map;
   }, [days, blocks]);
@@ -171,6 +184,24 @@ export function MonthCalendar({ monthAnchor, blocks, onChangeMonth, onSelectDay 
               {stat.customer > 0 && (
                 <div className="text-[10px] text-muted-foreground">
                   客户 {formatDuration(stat.customer)}
+                </div>
+              )}
+              {stat.customers.length > 0 && (
+                <div className="flex flex-wrap gap-0.5 overflow-hidden">
+                  {stat.customers.slice(0, 3).map((name) => (
+                    <span
+                      key={name}
+                      className="text-[10px] leading-tight px-1 rounded bg-muted/60 text-foreground/80 truncate max-w-full"
+                      title={name}
+                    >
+                      {name}
+                    </span>
+                  ))}
+                  {stat.customers.length > 3 && (
+                    <span className="text-[10px] leading-tight text-muted-foreground">
+                      +{stat.customers.length - 3}
+                    </span>
+                  )}
                 </div>
               )}
               <div className="mt-auto h-1.5 rounded-full overflow-hidden bg-muted flex">
