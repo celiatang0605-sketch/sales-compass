@@ -303,15 +303,40 @@ function TimelinePage() {
 
             <WorkTypeLegend value={filter} onChange={setFilter} />
 
+            {activeWorkType && (
+              <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg border border-foreground/20 bg-foreground/[0.04]">
+                <span
+                  className="w-3 h-3 rounded-sm ring-1 ring-foreground/20"
+                  style={{ background: `var(${WORK_TYPE_MAP[activeWorkType].colorVar})` }}
+                />
+                <span className="text-xs font-medium">
+                  当前正在创建：{WORK_TYPE_MAP[activeWorkType].label}
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  点击或拖动时间格即可创建色块
+                </span>
+                <div className="flex-1" />
+                <button
+                  onClick={() => setFilter("all")}
+                  className="px-2.5 py-1 rounded-md border border-border bg-card text-xs hover:bg-secondary"
+                >
+                  结束选择
+                </button>
+              </div>
+            )}
+
             <WeekTimeline
               weekDays={week.days}
               blocks={visibleWeekBlocks}
               filter={filter}
+              activeWorkType={activeWorkType}
               highlightDate={highlightDate}
               onCreateRange={onCreateRange}
               onSelectBlock={onSelectBlock}
+              onInlineSaveTitle={onInlineSaveTitle}
             />
           </>
+
         ) : (
           <>
             <div className="flex flex-wrap items-center gap-2">
