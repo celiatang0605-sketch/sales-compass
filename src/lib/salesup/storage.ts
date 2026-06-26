@@ -1,9 +1,13 @@
-// LocalStorage data layer for Sales Up.
+// Storage layer for Sales Up.
 //
-// Designed to be swapped for Supabase later: all read/write helpers are
-// keyed by user_id (currently null), use string IDs, and store ISO timestamps.
-// Each collection exposes list/get/upsert/remove + a subscribe() hook for
-// cross-component reactivity.
+// Data flow:
+// - Local cache (localStorage) is the source of truth for the UI; subscribers
+//   re-read it on notify.
+// - When signed in, the cache is namespaced per user (`<key>:u:<uid>`) and
+//   every mutation is mirrored to Supabase via `sync.ts`. On auth state
+//   change, `sync.ts` pulls authoritative data into the cache.
+// - When signed out, the cache falls back to the legacy unnamespaced key, so
+//   prototype data captured before login is preserved for migration.
 
 import { useEffect, useState, useCallback } from "react";
 import type {
@@ -14,20 +18,22 @@ import type {
   Reminder,
 } from "./types";
 import { uid, nowIso } from "./date";
-
-const KEY_PREFIX = "salesup:v1:";
-
-type Listener = () => void;
-const listeners = new Map<string, Set<Listener>>();
-
-function notify(key: string) {
-  listeners.get(key)?.forEach((l) => l());
-}
+import {
+  scopedKey,
+  _registerListener,
+  _notify,
+  pushTimeBlock,
+  pushDeleteTimeBlock,
+  pushTimeBlocksBulk,
+  pushDeleteTimeBlocksByDates,
+  pushReminder,
+  pushDeleteReminder,
+} from "./sync";
 
 function read<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
   try {
-    const raw = window.localStorage.getItem(KEY_PREFIX + key);
+    const raw = window.localStorage.getItem(scopedKey(key));
     if (!raw) return fallback;
     return JSON.parse(raw) as T;
   } catch {
@@ -37,27 +43,22 @@ function read<T>(key: string, fallback: T): T {
 
 function write<T>(key: string, value: T) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(KEY_PREFIX + key, JSON.stringify(value));
-  notify(key);
+  window.localStorage.setItem(scopedKey(key), JSON.stringify(value));
+  _notify(key);
 }
 
 function useCollection<T>(key: string, fallback: T): T {
   const [state, setState] = useState<T>(() => read<T>(key, fallback));
   useEffect(() => {
     const listener = () => setState(read<T>(key, fallback));
-    let set = listeners.get(key);
-    if (!set) {
-      set = new Set();
-      listeners.set(key, set);
-    }
-    set.add(listener);
+    const unregister = _registerListener(key, listener);
     listener();
     const onStorage = (e: StorageEvent) => {
-      if (e.key === KEY_PREFIX + key) listener();
+      if (e.key && e.key.startsWith("salesup:v1:" + key)) listener();
     };
     window.addEventListener("storage", onStorage);
     return () => {
-      set?.delete(listener);
+      unregister();
       window.removeEventListener("storage", onStorage);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -86,7 +87,9 @@ export function useTimeBlocksForDates(dates: string[]): TimeBlock[] {
     .sort((a, b) => (a.date === b.date ? a.start_slot - b.start_slot : a.date.localeCompare(b.date)));
 }
 
-export function upsertTimeBlock(block: Partial<TimeBlock> & Pick<TimeBlock, "date" | "start_slot" | "end_slot" | "work_type">): TimeBlock {
+export function upsertTimeBlock(
+  block: Partial<TimeBlock> & Pick<TimeBlock, "date" | "start_slot" | "end_slot" | "work_type">,
+): TimeBlock {
   const list = read<TimeBlock[]>(TB_KEY, []);
   const now = nowIso();
   let saved: TimeBlock;
@@ -104,6 +107,7 @@ export function upsertTimeBlock(block: Partial<TimeBlock> & Pick<TimeBlock, "dat
     list.push(saved);
   }
   write(TB_KEY, list);
+  pushTimeBlock(saved);
   return saved;
 }
 
@@ -134,6 +138,7 @@ function newBlock(block: Partial<TimeBlock>, now: string): TimeBlock {
 export function deleteTimeBlock(id: string) {
   const list = read<TimeBlock[]>(TB_KEY, []).filter((b) => b.id !== id);
   write(TB_KEY, list);
+  pushDeleteTimeBlock(id);
 }
 
 export function copyBlocksFromDate(fromDate: string, toDate: string): number {
@@ -147,9 +152,10 @@ export function copyBlocksFromDate(fromDate: string, toDate: string): number {
     created_at: now,
     updated_at: now,
   }));
-  // Replace existing blocks for target date
   const remaining = list.filter((b) => b.date !== toDate);
   write(TB_KEY, [...remaining, ...copies]);
+  pushDeleteTimeBlocksByDates([toDate]);
+  pushTimeBlocksBulk(copies);
   return copies.length;
 }
 
@@ -172,12 +178,12 @@ export function copyBlocksFromWeek(fromWeekDays: string[], toWeekDays: string[])
   });
   const remaining = list.filter((b) => !toSet.has(b.date));
   write(TB_KEY, [...remaining, ...copies]);
+  pushDeleteTimeBlocksByDates(toWeekDays);
+  pushTimeBlocksBulk(copies);
   return copies.length;
 }
 
-
-
-// -------- Daily review --------
+// -------- Daily review (local only for now) --------
 
 const DR_KEY = "daily_reviews";
 
@@ -208,7 +214,7 @@ export function saveDailyReview(date: string, patch: Partial<DailyReview>) {
   write(DR_KEY, list);
 }
 
-// -------- Weekly review --------
+// -------- Weekly review (local only for now) --------
 
 const WR_KEY = "weekly_reviews";
 
@@ -240,7 +246,7 @@ export function saveWeeklyReview(weekKey: string, patch: Partial<WeeklyReview>) 
   write(WR_KEY, list);
 }
 
-// -------- Monthly review --------
+// -------- Monthly review (local only for now) --------
 
 const MR_KEY = "monthly_reviews";
 
@@ -297,6 +303,7 @@ export function upsertReminder(reminder: Partial<Reminder> & Pick<Reminder, "tit
     list.push(saved);
   }
   write(RM_KEY, list);
+  pushReminder(saved);
   return saved;
 }
 
@@ -321,6 +328,7 @@ function newReminder(r: Partial<Reminder>, now: string): Reminder {
 export function deleteReminder(id: string) {
   const list = read<Reminder[]>(RM_KEY, []).filter((r) => r.id !== id);
   write(RM_KEY, list);
+  pushDeleteReminder(id);
 }
 
 export function useToggleStatus() {

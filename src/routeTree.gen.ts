@@ -13,6 +13,7 @@ import { Route as WeeklyRouteImport } from './routes/weekly'
 import { Route as RemindersRouteImport } from './routes/reminders'
 import { Route as MonthlyRouteImport } from './routes/monthly'
 import { Route as DailyRouteImport } from './routes/daily'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 
 const WeeklyRoute = WeeklyRouteImport.update({
@@ -35,6 +36,11 @@ const DailyRoute = DailyRouteImport.update({
   path: '/daily',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -43,6 +49,7 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/daily': typeof DailyRoute
   '/monthly': typeof MonthlyRoute
   '/reminders': typeof RemindersRoute
@@ -50,6 +57,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/daily': typeof DailyRoute
   '/monthly': typeof MonthlyRoute
   '/reminders': typeof RemindersRoute
@@ -58,6 +66,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/daily': typeof DailyRoute
   '/monthly': typeof MonthlyRoute
   '/reminders': typeof RemindersRoute
@@ -65,14 +74,22 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/daily' | '/monthly' | '/reminders' | '/weekly'
+  fullPaths: '/' | '/auth' | '/daily' | '/monthly' | '/reminders' | '/weekly'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/daily' | '/monthly' | '/reminders' | '/weekly'
-  id: '__root__' | '/' | '/daily' | '/monthly' | '/reminders' | '/weekly'
+  to: '/' | '/auth' | '/daily' | '/monthly' | '/reminders' | '/weekly'
+  id:
+    | '__root__'
+    | '/'
+    | '/auth'
+    | '/daily'
+    | '/monthly'
+    | '/reminders'
+    | '/weekly'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthRoute: typeof AuthRoute
   DailyRoute: typeof DailyRoute
   MonthlyRoute: typeof MonthlyRoute
   RemindersRoute: typeof RemindersRoute
@@ -109,6 +126,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DailyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -121,6 +145,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthRoute: AuthRoute,
   DailyRoute: DailyRoute,
   MonthlyRoute: MonthlyRoute,
   RemindersRoute: RemindersRoute,

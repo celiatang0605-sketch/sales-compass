@@ -121,7 +121,13 @@ export function monthDaysOf(key: string): string[] {
 }
 
 export function uid(): string {
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  // RFC4122 v4 fallback
+  const r = (n: number) => Math.floor(Math.random() * n);
+  const hex = (n: number) => r(16).toString(16).padStart(1, "0").repeat(n);
+  return `${hex(8)}-${hex(4)}-4${hex(3)}-${(8 + r(4)).toString(16)}${hex(3)}-${hex(12)}`;
 }
 
 export function nowIso(): string {
