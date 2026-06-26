@@ -375,7 +375,7 @@ function TimelinePage() {
         )}
       </div>
 
-      <BlockDetailPanel draft={draft} onClose={() => setDraft(null)} />
+      <BlockDetailPanel draft={draft} lightweight={draftLightweight} onClose={() => setDraft(null)} />
       {/* allBlocks reference keeps subscription warm for cross-view sync */}
       <span className="hidden">{allBlocks.length}</span>
     </AppShell>
