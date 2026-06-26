@@ -25,6 +25,7 @@ interface CellInfo {
 }
 
 export function Timeline({ date, blocks, filter, onSelectBlock, onCreateRange }: Props) {
+  const { settings } = useWorkTypeSettings();
   const cells: CellInfo[] = Array.from({ length: TOTAL_SLOTS }, () => ({ isFirstOfBlock: false }));
   for (const b of blocks) {
     for (let s = b.start_slot; s < b.end_slot && s < TOTAL_SLOTS; s++) {
