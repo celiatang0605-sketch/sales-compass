@@ -96,10 +96,10 @@ export function BlockDetailPanel({ draft, onClose }: Props) {
       <aside
         className={cn(
           "fixed z-50 bg-card border-border shadow-xl flex flex-col",
-          // Mobile: bottom sheet
-          "left-0 right-0 bottom-0 top-16 rounded-t-2xl border-t",
+          // Mobile: full-screen sheet
+          "inset-0 md:inset-auto",
           // Desktop: right rail
-          "md:top-0 md:right-0 md:bottom-0 md:left-auto md:w-[420px] md:rounded-none md:border-l md:border-t-0",
+          "md:top-0 md:right-0 md:bottom-0 md:left-auto md:w-[420px] md:border-l",
         )}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
