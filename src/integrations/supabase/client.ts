@@ -1,17 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 
-const SUPABASE_URL =
-  (import.meta.env as any).SALESUP_SUPABASE_URL ||
-  "https://skvgqaaiohviycidxnsb.supabase.co";
-
-const SUPABASE_ANON_KEY = (import.meta.env as any).SALESUP_SUPABASE_ANON_KEY || "";
-
-if (!SUPABASE_ANON_KEY) {
-  // eslint-disable-next-line no-console
-  console.warn(
-    "[Sales Up] Supabase anon key is missing. Set SALESUP_SUPABASE_ANON_KEY in project secrets.",
-  );
-}
+// Publishable (anon) key — safe to ship in client code. RLS enforces data isolation.
+const SUPABASE_URL = "https://skvgqaaiohviycidxnsb.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_-9gI_fg3xlAdBG1B_z839Q_zhupLW6L";
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
