@@ -15,9 +15,11 @@ interface Props {
   weekDays: string[]; // 7 date keys, Monday first
   blocks: TimeBlock[];
   filter: WorkTypeId | "all";
+  activeWorkType?: WorkTypeId | null; // when set, drag creates with this type
   highlightDate?: string;
   onSelectBlock: (block: TimeBlock) => void;
   onCreateRange: (date: string, startSlot: number, endSlot: number) => void;
+  onInlineSaveTitle?: (block: TimeBlock, title: string) => void;
 }
 
 interface CellInfo {
@@ -31,11 +33,12 @@ export function WeekTimeline({
   weekDays,
   blocks,
   filter,
+  activeWorkType,
   highlightDate,
   onSelectBlock,
   onCreateRange,
+  onInlineSaveTitle,
 }: Props) {
-  // Build per-day cell arrays
   const cellsByDay: Record<string, CellInfo[]> = {};
   for (const d of weekDays) {
     cellsByDay[d] = Array.from({ length: TOTAL_SLOTS }, () => ({ isFirstOfBlock: false }));
@@ -53,6 +56,32 @@ export function WeekTimeline({
   const [dragEnd, setDragEnd] = useState<number | null>(null);
   const draggingRef = useRef(false);
 
+  // Inline title editing
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
+  const clickTimerRef = useRef<number | null>(null);
+  const editInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (editingId && editInputRef.current) {
+      const el = editInputRef.current;
+      el.focus();
+      const len = el.value.length;
+      el.setSelectionRange(len, len);
+    }
+  }, [editingId]);
+
+  const commitInline = (block: TimeBlock | undefined) => {
+    if (!block) {
+      setEditingId(null);
+      return;
+    }
+    if (onInlineSaveTitle && editingTitle !== block.title) {
+      onInlineSaveTitle(block, editingTitle);
+    }
+    setEditingId(null);
+  };
+
   const inRange = (day: string, slot: number) => {
     if (dragDay !== day || dragStart == null || dragEnd == null) return false;
     const lo = Math.min(dragStart, dragEnd);
@@ -60,10 +89,27 @@ export function WeekTimeline({
     return slot >= lo && slot <= hi;
   };
 
+  const handleBlockClick = (block: TimeBlock) => {
+    // Distinguish single vs double click via short timeout
+    if (clickTimerRef.current != null) {
+      window.clearTimeout(clickTimerRef.current);
+      clickTimerRef.current = null;
+      // Double click → inline edit
+      setEditingTitle(block.title || "");
+      setEditingId(block.id);
+      return;
+    }
+    clickTimerRef.current = window.setTimeout(() => {
+      clickTimerRef.current = null;
+      onSelectBlock(block);
+    }, 230);
+  };
+
   const handlePointerDown = (day: string, slot: number) => {
+    if (editingId) return;
     const cell = cellsByDay[day][slot];
     if (cell.block) {
-      onSelectBlock(cell.block);
+      handleBlockClick(cell.block);
       return;
     }
     draggingRef.current = true;
@@ -103,9 +149,13 @@ export function WeekTimeline({
 
   const hours = 24 - DAY_START_HOUR;
   const today = todayKey();
+  const createCursor = activeWorkType ? "crosshair" : "default";
 
   return (
-    <div className="bg-card rounded-xl border border-border overflow-hidden select-none">
+    <div
+      className="bg-card rounded-xl border border-border overflow-hidden select-none"
+      style={{ cursor: createCursor }}
+    >
       <div className="overflow-x-auto">
         <div
           className="grid min-w-[760px]"
@@ -165,6 +215,7 @@ export function WeekTimeline({
                     const wt = block ? WORK_TYPE_MAP[block.work_type] : null;
                     const isSelected = inRange(day, slot);
                     const dimmed = block && filter !== "all" && block.work_type !== filter;
+                    const isEditing = block && editingId === block.id && cell.isFirstOfBlock;
                     const bg = block && wt
                       ? `var(${wt.colorVar})`
                       : isSelected
@@ -175,6 +226,7 @@ export function WeekTimeline({
                         type="button"
                         key={day + slot}
                         onPointerDown={(e) => {
+                          if (editingId) return;
                           e.preventDefault();
                           handlePointerDown(day, slot);
                         }}
@@ -187,11 +239,33 @@ export function WeekTimeline({
                         style={{ height: 14, background: bg }}
                         aria-label={`${day} ${slotToTimeString(slot)} ${block ? block.title || wt?.label : "空闲"}`}
                       >
-                        {cell.isFirstOfBlock && block && (
+                        {cell.isFirstOfBlock && block && !isEditing && (
                           <span className="absolute inset-x-1 top-0 truncate font-medium text-[10px] leading-[14px] text-foreground/85 pointer-events-none">
                             {block.title || WORK_TYPE_MAP[block.work_type]?.label}
                             {block.customer ? ` · ${block.customer}` : ""}
                           </span>
+                        )}
+                        {isEditing && block && (
+                          <input
+                            ref={editInputRef}
+                            value={editingTitle}
+                            onChange={(e) => setEditingTitle(e.target.value)}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onClick={(e) => e.stopPropagation()}
+                            onBlur={() => commitInline(block)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                commitInline(block);
+                              } else if (e.key === "Escape") {
+                                e.preventDefault();
+                                setEditingId(null);
+                              }
+                            }}
+                            placeholder={WORK_TYPE_MAP[block.work_type]?.label}
+                            className="absolute left-0 right-0 z-20 px-1 text-[11px] font-medium bg-card border border-foreground/40 rounded-sm shadow"
+                            style={{ top: -2, height: 20 }}
+                          />
                         )}
                       </button>
                     );
@@ -203,7 +277,9 @@ export function WeekTimeline({
         </div>
       </div>
       <div className="px-3 py-2 border-t border-border text-[11px] text-muted-foreground bg-muted/40">
-        点击或拖动任意一天的空白色块创建时间段，点击已有色块编辑详情
+        {activeWorkType
+          ? "点击单格创建 15 分钟，按住拖动创建连续时间段；双击已有色块可快速改标题"
+          : "先在上方选择一个工作类型再创建；双击已有色块可快速改标题"}
       </div>
     </div>
   );
