@@ -223,6 +223,7 @@ export function WeekTimeline({
               dayBlocks={blocksByDay[day]}
               filter={filter}
               settings={settings}
+              selectedBlockId={selectedBlockId ?? null}
               dragRange={dragRange?.day === day ? { lo: dragRange.lo, hi: dragRange.hi } : null}
               editingId={editingId}
               editingTitle={editingTitle}
@@ -238,8 +239,8 @@ export function WeekTimeline({
       </div>
       <div className="px-3 py-2 border-t border-border text-[11px] text-muted-foreground bg-muted/40">
         {activeWorkType
-          ? "点击单格创建 15 分钟，按住拖动创建连续时间段；双击已有色块可快速改标题"
-          : "先在上方选择一个工作类型再创建；双击已有色块可快速改标题"}
+          ? "点击单格创建 15 分钟，按住拖动创建连续时间段；Enter 确认，Backspace 删除，Esc 取消选中"
+          : "先在上方选择一个工作类型再创建；点选色块可在右侧面板编辑详情"}
       </div>
     </div>
   );
