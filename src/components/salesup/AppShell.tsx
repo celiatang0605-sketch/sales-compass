@@ -1,9 +1,9 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
-import { Clock, CalendarCheck, CalendarRange, CalendarDays, Bell, Lock, LogOut, Upload, Loader2 } from "lucide-react";
+import { Clock, CalendarCheck, CalendarRange, CalendarDays, Bell, Lock, LogOut, Upload, Loader2, Cloud, CloudOff, CheckCircle2, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth, signOut } from "@/lib/salesup/auth";
-import { initSync, migrateLocalToCloud, hasLegacyLocalData } from "@/lib/salesup/sync";
+import { initSync, migrateLocalToCloud, hasLegacyLocalData, onSyncState, type SyncState } from "@/lib/salesup/sync";
 
 const NAV_ITEMS: { to: string; label: string; icon: typeof Clock }[] = [
   { to: "/", label: "时间轴", icon: Clock },
@@ -25,9 +25,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { session, user, loading } = useAuth();
   const [hasLegacy, setHasLegacy] = useState(false);
   const [migrating, setMigrating] = useState(false);
+  const [sync, setSync] = useState<SyncState | null>(null);
 
   useEffect(() => {
     initSync();
+    const unsub = onSyncState(setSync);
+    return () => { unsub(); };
   }, []);
 
   useEffect(() => {
@@ -129,6 +132,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               导入本地数据
             </button>
           )}
+          <SyncStatusBadge sync={sync} />
           <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
             <span className="truncate flex-1" title={user?.email ?? ""}>{user?.email}</span>
             <button
@@ -140,7 +144,6 @@ export function AppShell({ children }: { children: ReactNode }) {
               <LogOut className="w-3.5 h-3.5" />
             </button>
           </div>
-          <div className="text-[10px] text-muted-foreground/70">数据保存于 Supabase · 本机作为缓存</div>
         </div>
       </aside>
 
@@ -194,6 +197,42 @@ export function AppShell({ children }: { children: ReactNode }) {
       <main className="md:pl-60">
         <div className="px-4 md:px-8 py-4 md:py-6 max-w-[1400px] mx-auto">{children}</div>
       </main>
+    </div>
+  );
+}
+
+function SyncStatusBadge({ sync }: { sync: SyncState | null }) {
+  const s = sync;
+  const source = s?.source === "supabase" ? "Supabase" : "本地";
+  let icon = <Cloud className="w-3 h-3" />;
+  let label = "已同步";
+  let cls = "text-emerald-600 dark:text-emerald-400";
+  if (!s || s.source !== "supabase") {
+    icon = <CloudOff className="w-3 h-3" />;
+    label = "未登录";
+    cls = "text-muted-foreground";
+  } else if (s.status === "syncing") {
+    icon = <Loader2 className="w-3 h-3 animate-spin" />;
+    label = "正在同步";
+    cls = "text-primary";
+  } else if (s.status === "error") {
+    icon = <AlertCircle className="w-3 h-3" />;
+    label = "保存失败";
+    cls = "text-destructive";
+  } else if (s.status === "saved") {
+    icon = <CheckCircle2 className="w-3 h-3" />;
+    label = "已保存到 Supabase";
+    cls = "text-emerald-600 dark:text-emerald-400";
+  }
+  return (
+    <div className="rounded-md border border-border bg-background/50 px-2 py-1.5 space-y-0.5">
+      <div className="flex items-center gap-1.5 text-[11px]">
+        <span className={cls + " inline-flex items-center gap-1"}>{icon}{label}</span>
+        <span className="ml-auto text-[10px] text-muted-foreground/70">源：{source}</span>
+      </div>
+      {s?.lastError && (
+        <div className="text-[10px] text-destructive truncate" title={s.lastError}>{s.lastError}</div>
+      )}
     </div>
   );
 }

@@ -3,9 +3,10 @@
 // - On sign-in, pulls time_blocks + reminders into the localStorage cache
 //   (namespaced per user) and notifies the storage subscribers.
 // - Mutations from storage.ts fire-and-forget upsert/delete calls here.
-// - Exposes a one-shot migration that copies legacy (unnamespaced) local data
-//   to the cloud for the current user.
+// - Toasts on write success/failure so writes never fail silently.
+// - Exposes a sync status store and a one-shot legacy migration.
 
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { TimeBlock, Reminder } from "./types";
 
@@ -14,7 +15,6 @@ const KEY_PREFIX = "salesup:v1:";
 type Listener = () => void;
 const listeners = new Map<string, Set<Listener>>();
 
-// Re-export a minimal notify so storage can share the same registry.
 export function _registerListener(key: string, l: Listener) {
   let set = listeners.get(key);
   if (!set) {
@@ -29,8 +29,44 @@ export function _notify(key: string) {
 }
 
 let _userId: string | null = null;
+let _userEmail: string | null = null;
 let _initStarted = false;
 const userListeners = new Set<(uid: string | null) => void>();
+
+// -------- Sync status (data source: Supabase) --------
+
+export type SyncStatus = "idle" | "syncing" | "saved" | "error";
+export type SyncState = {
+  source: "supabase" | "local";
+  status: SyncStatus;
+  lastError: string | null;
+  lastSavedAt: number | null;
+  email: string | null;
+  inflight: number;
+};
+
+let _state: SyncState = {
+  source: "local",
+  status: "idle",
+  lastError: null,
+  lastSavedAt: null,
+  email: null,
+  inflight: 0,
+};
+const stateListeners = new Set<(s: SyncState) => void>();
+
+function setState(patch: Partial<SyncState>) {
+  _state = { ..._state, ...patch };
+  stateListeners.forEach((l) => l(_state));
+}
+export function getSyncState(): SyncState {
+  return _state;
+}
+export function onSyncState(cb: (s: SyncState) => void) {
+  stateListeners.add(cb);
+  cb(_state);
+  return () => stateListeners.delete(cb);
+}
 
 export function currentUserId(): string | null {
   return _userId;
@@ -53,11 +89,12 @@ const ALL_KEYS = [
   "monthly_reviews",
 ];
 
-function setUserId(uid: string | null) {
-  if (_userId === uid) return;
+function setUser(uid: string | null, email: string | null) {
+  if (_userId === uid && _userEmail === email) return;
   _userId = uid;
+  _userEmail = email;
+  setState({ source: uid ? "supabase" : "local", email });
   userListeners.forEach((l) => l(uid));
-  // Notify all collections so subscribers re-read under the new scope.
   ALL_KEYS.forEach(_notify);
 }
 
@@ -67,17 +104,6 @@ function writeScoped<T>(bare: string, value: T) {
   _notify(bare);
 }
 
-function readScoped<T>(bare: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
-  try {
-    const raw = window.localStorage.getItem(scopedKey(bare));
-    if (!raw) return fallback;
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
-}
-
 // -------- Initialization --------
 
 export function initSync() {
@@ -85,16 +111,16 @@ export function initSync() {
   _initStarted = true;
 
   supabase.auth.getSession().then(({ data }) => {
-    const uid = data.session?.user.id ?? null;
-    setUserId(uid);
-    if (uid) pullAll(uid).catch((e) => console.error("[salesup] initial pull failed", e));
+    const u = data.session?.user ?? null;
+    setUser(u?.id ?? null, u?.email ?? null);
+    if (u) pullAll(u.id);
   });
 
   supabase.auth.onAuthStateChange((event, session) => {
-    const uid = session?.user.id ?? null;
-    setUserId(uid);
-    if (uid && (event === "SIGNED_IN" || event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED")) {
-      pullAll(uid).catch((e) => console.error("[salesup] pull failed", e));
+    const u = session?.user ?? null;
+    setUser(u?.id ?? null, u?.email ?? null);
+    if (u && (event === "SIGNED_IN" || event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED")) {
+      pullAll(u.id);
     }
   });
 }
@@ -102,15 +128,30 @@ export function initSync() {
 // -------- Pull (cloud → local cache) --------
 
 async function pullAll(uid: string) {
+  setState({ status: "syncing" });
   const [tb, rm] = await Promise.all([
     supabase.from("time_blocks").select("*").eq("user_id", uid),
     supabase.from("reminders").select("*").eq("user_id", uid),
   ]);
-  // On error (e.g. table missing), do NOT overwrite the local cache with [].
-  if (tb.error) console.error("[salesup] time_blocks pull", tb.error);
-  else writeScoped<TimeBlock[]>("time_blocks", (tb.data ?? []) as TimeBlock[]);
-  if (rm.error) console.error("[salesup] reminders pull", rm.error);
-  else writeScoped<Reminder[]>("reminders", (rm.data ?? []) as Reminder[]);
+  const errors: string[] = [];
+  if (tb.error) {
+    errors.push(`time_blocks: ${tb.error.message}`);
+    console.error("[salesup] time_blocks pull", tb.error);
+  } else {
+    writeScoped<TimeBlock[]>("time_blocks", (tb.data ?? []) as TimeBlock[]);
+  }
+  if (rm.error) {
+    errors.push(`reminders: ${rm.error.message}`);
+    console.error("[salesup] reminders pull", rm.error);
+  } else {
+    writeScoped<Reminder[]>("reminders", (rm.data ?? []) as Reminder[]);
+  }
+  if (errors.length > 0) {
+    setState({ status: "error", lastError: errors.join("；") });
+    toast.error("从 Supabase 读取失败", { description: errors.join("；") });
+  } else {
+    setState({ status: "saved", lastSavedAt: Date.now(), lastError: null });
+  }
 }
 
 export async function refreshFromCloud() {
@@ -133,7 +174,7 @@ function tbRow(b: TimeBlock, uid: string) {
     summary: b.summary,
     key_info: b.key_info,
     next_action: b.next_action,
-    next_action_date: b.next_action_date,
+    next_action_date: b.next_action_date || null,
     problem_tags: b.problem_tags,
     notes: b.notes,
     value_level: b.value_level,
@@ -151,7 +192,7 @@ function rmRow(r: Reminder, uid: string) {
     title: r.title,
     type: r.type,
     frequency: r.frequency,
-    related_date: r.related_date,
+    related_date: r.related_date || null,
     customer: r.customer,
     related_block_id: r.related_block_id,
     priority: r.priority,
@@ -162,39 +203,76 @@ function rmRow(r: Reminder, uid: string) {
   };
 }
 
+function beginWrite() {
+  setState({ status: "syncing", inflight: _state.inflight + 1 });
+}
+function endWrite(error?: { message: string } | null, label?: string) {
+  const inflight = Math.max(0, _state.inflight - 1);
+  if (error) {
+    setState({ inflight, status: "error", lastError: error.message });
+    toast.error(`保存失败${label ? `（${label}）` : ""}`, { description: error.message });
+  } else {
+    setState({
+      inflight,
+      status: inflight === 0 ? "saved" : "syncing",
+      lastSavedAt: Date.now(),
+      lastError: null,
+    });
+  }
+}
+
+function notSignedInToast() {
+  toast.message("当前未登录，数据暂存本地", {
+    description: "登录后会自动同步到 Supabase。",
+  });
+}
+
 export function pushTimeBlock(b: TimeBlock) {
-  if (!_userId) return;
+  if (!_userId) {
+    notSignedInToast();
+    return;
+  }
+  beginWrite();
   supabase
     .from("time_blocks")
-    .upsert(tbRow(b, _userId))
+    .upsert(tbRow(b, _userId), { onConflict: "id" })
     .then(({ error }) => {
       if (error) console.error("[salesup] upsert time_block", error);
+      endWrite(error, "时间块");
     });
 }
 
 export function pushDeleteTimeBlock(id: string) {
-  if (!_userId) return;
+  if (!_userId) {
+    notSignedInToast();
+    return;
+  }
+  beginWrite();
   supabase
     .from("time_blocks")
     .delete()
     .eq("id", id)
     .then(({ error }) => {
       if (error) console.error("[salesup] delete time_block", error);
+      endWrite(error, "删除时间块");
     });
 }
 
 export function pushTimeBlocksBulk(blocks: TimeBlock[]) {
   if (!_userId || blocks.length === 0) return;
+  beginWrite();
   supabase
     .from("time_blocks")
-    .upsert(blocks.map((b) => tbRow(b, _userId!)))
+    .upsert(blocks.map((b) => tbRow(b, _userId!)), { onConflict: "id" })
     .then(({ error }) => {
       if (error) console.error("[salesup] bulk upsert time_blocks", error);
+      endWrite(error, "批量时间块");
     });
 }
 
 export function pushDeleteTimeBlocksByDates(dates: string[]) {
   if (!_userId || dates.length === 0) return;
+  beginWrite();
   supabase
     .from("time_blocks")
     .delete()
@@ -202,27 +280,38 @@ export function pushDeleteTimeBlocksByDates(dates: string[]) {
     .in("date", dates)
     .then(({ error }) => {
       if (error) console.error("[salesup] bulk delete time_blocks", error);
+      endWrite(error, "批量删除");
     });
 }
 
 export function pushReminder(r: Reminder) {
-  if (!_userId) return;
+  if (!_userId) {
+    notSignedInToast();
+    return;
+  }
+  beginWrite();
   supabase
     .from("reminders")
-    .upsert(rmRow(r, _userId))
+    .upsert(rmRow(r, _userId), { onConflict: "id" })
     .then(({ error }) => {
       if (error) console.error("[salesup] upsert reminder", error);
+      endWrite(error, "提醒");
     });
 }
 
 export function pushDeleteReminder(id: string) {
-  if (!_userId) return;
+  if (!_userId) {
+    notSignedInToast();
+    return;
+  }
+  beginWrite();
   supabase
     .from("reminders")
     .delete()
     .eq("id", id)
     .then(({ error }) => {
       if (error) console.error("[salesup] delete reminder", error);
+      endWrite(error, "删除提醒");
     });
 }
 
@@ -242,34 +331,38 @@ export async function migrateLocalToCloud(): Promise<MigrationResult> {
   }
   const uid = _userId;
 
-  // Read legacy unnamespaced data (the prototype's original keys).
   const legacyBlocksRaw = window.localStorage.getItem(`${KEY_PREFIX}time_blocks`);
   const legacyRemindersRaw = window.localStorage.getItem(`${KEY_PREFIX}reminders`);
 
   const legacyBlocks: TimeBlock[] = legacyBlocksRaw ? safeParse(legacyBlocksRaw, []) : [];
   const legacyReminders: Reminder[] = legacyRemindersRaw ? safeParse(legacyRemindersRaw, []) : [];
 
-  // Ensure UUIDs (legacy ids were `${ts}-${rand}` — not valid UUIDs).
   const blocks = legacyBlocks.map((b) => ({ ...b, id: ensureUuid(b.id), user_id: uid }));
   const reminders = legacyReminders.map((r) => ({ ...r, id: ensureUuid(r.id), user_id: uid }));
 
   if (blocks.length > 0) {
-    const { error } = await supabase.from("time_blocks").upsert(blocks.map((b) => tbRow(b, uid)));
+    const { error } = await supabase
+      .from("time_blocks")
+      .upsert(blocks.map((b) => tbRow(b, uid)), { onConflict: "id" });
     if (error) result.errors.push(`time_blocks: ${error.message}`);
     else result.blocks = blocks.length;
   }
   if (reminders.length > 0) {
-    const { error } = await supabase.from("reminders").upsert(reminders.map((r) => rmRow(r, uid)));
+    const { error } = await supabase
+      .from("reminders")
+      .upsert(reminders.map((r) => rmRow(r, uid)), { onConflict: "id" });
     if (error) result.errors.push(`reminders: ${error.message}`);
     else result.reminders = reminders.length;
   }
 
-  // Refresh from cloud so the scoped cache reflects authoritative data.
   await pullAll(uid);
-
-  // Mark legacy data as migrated to avoid prompting again.
   window.localStorage.setItem(`${KEY_PREFIX}_migrated_at`, new Date().toISOString());
 
+  if (result.errors.length === 0) {
+    toast.success(`已导入 ${result.blocks} 条时间块 / ${result.reminders} 条提醒`);
+  } else {
+    toast.error("导入存在错误", { description: result.errors.join("；") });
+  }
   return result;
 }
 
