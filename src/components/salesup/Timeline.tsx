@@ -6,6 +6,8 @@ import {
   slotToTimeString,
 } from "@/lib/salesup/date";
 import { WORK_TYPES, WORK_TYPE_MAP, type WorkTypeId } from "@/lib/salesup/workTypes";
+import { colorOf, useWorkTypeSettings } from "@/lib/salesup/workTypeSettings";
+import { WorkTypeColorPopover } from "./WorkTypeColorPopover";
 import type { TimeBlock } from "@/lib/salesup/types";
 import { cn } from "@/lib/utils";
 
