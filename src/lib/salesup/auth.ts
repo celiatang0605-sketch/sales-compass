@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Session, User } from "@supabase/supabase-js";
+import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
 export function useAuth() {
@@ -23,7 +23,7 @@ export function useAuth() {
     };
   }, []);
 
-  return { session, user: session?.user ?? null as User | null, loading };
+  return { session, user: session?.user ?? null, loading };
 }
 
 export async function signInWithPassword(email: string, password: string) {
