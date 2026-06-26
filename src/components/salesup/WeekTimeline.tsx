@@ -339,11 +339,13 @@ function DayColumn({
         if (!wt) return null;
         const dimmed = filter !== "all" && block.work_type !== filter;
         const isEditing = editingId === block.id;
+        const isSelected = selectedBlockId === block.id;
         const top = block.start_slot * SLOT_HEIGHT;
         const height = Math.max(SLOT_HEIGHT, (block.end_slot - block.start_slot) * SLOT_HEIGHT);
         const bg = colorOf(block.work_type, settings);
         const fg = textOn(block.work_type, settings);
         const sub = subTextOn(block.work_type, settings);
+        const wtLabel = labelOf(block.work_type, settings);
 
         return (
           <div
@@ -351,6 +353,7 @@ function DayColumn({
             className={cn(
               "absolute left-0.5 right-0.5 rounded-md shadow-sm overflow-hidden transition-opacity",
               dimmed && "opacity-30",
+              isSelected && "ring-2 ring-foreground ring-offset-1 ring-offset-card z-10",
             )}
             style={{
               top: top + 1,
@@ -366,7 +369,7 @@ function DayColumn({
             }}
           >
             {!isEditing && (
-              <BlockContent block={block} wtLabel={wt.label} height={height} fg={fg} sub={sub} />
+              <BlockContent block={block} wtLabel={wtLabel} height={height} fg={fg} sub={sub} />
             )}
             {isEditing && (
               <BlockEditor
