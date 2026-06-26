@@ -186,6 +186,24 @@ export function MonthCalendar({ monthAnchor, blocks, onChangeMonth, onSelectDay 
                   客户 {formatDuration(stat.customer)}
                 </div>
               )}
+              {stat.customers.length > 0 && (
+                <div className="flex flex-wrap gap-0.5 overflow-hidden">
+                  {stat.customers.slice(0, 3).map((name) => (
+                    <span
+                      key={name}
+                      className="text-[10px] leading-tight px-1 rounded bg-muted/60 text-foreground/80 truncate max-w-full"
+                      title={name}
+                    >
+                      {name}
+                    </span>
+                  ))}
+                  {stat.customers.length > 3 && (
+                    <span className="text-[10px] leading-tight text-muted-foreground">
+                      +{stat.customers.length - 3}
+                    </span>
+                  )}
+                </div>
+              )}
               <div className="mt-auto h-1.5 rounded-full overflow-hidden bg-muted flex">
                 {segments.map(([wtId, v]) => {
                   const wt = WORK_TYPE_MAP[wtId as WorkTypeId];
