@@ -303,14 +303,16 @@ export function BlockDetailPanel({ draft, lightweight = false, onClose }: Props)
             </>
           )}
 
-          <Field label="注意事项">
-            <textarea
-              className="input min-h-[60px] resize-y"
-              placeholder="需要留意的细节，例如客户偏好、合规要求"
-              value={form.notes}
-              onChange={(e) => update("notes", e.target.value)}
-            />
-          </Field>
+          {!lightweight && (
+            <Field label="注意事项">
+              <textarea
+                className="input min-h-[60px] resize-y"
+                placeholder="需要留意的细节，例如客户偏好、合规要求"
+                value={form.notes}
+                onChange={(e) => update("notes", e.target.value)}
+              />
+            </Field>
+          )}
         </div>
 
         <div className="border-t border-border px-4 py-3 flex items-center gap-2 bg-card">
