@@ -8,7 +8,8 @@ import {
   SLOT_MINUTES,
   formatDuration,
 } from "@/lib/salesup/date";
-import { WORK_TYPE_MAP } from "@/lib/salesup/workTypes";
+import { WORK_TYPE_MAP, type WorkTypeId } from "@/lib/salesup/workTypes";
+import { colorOf, useWorkTypeSettings } from "@/lib/salesup/workTypeSettings";
 import type { TimeBlock } from "@/lib/salesup/types";
 import { cn } from "@/lib/utils";
 
@@ -33,6 +34,7 @@ function firstOfMonth(key: string): string {
 }
 
 export function MonthCalendar({ monthAnchor, blocks, onChangeMonth, onSelectDay }: Props) {
+  const { settings } = useWorkTypeSettings();
   const days = monthDaysOf(monthAnchor);
   const firstDay = fromDateKey(days[0]);
   const yyyy = firstDay.getFullYear();
@@ -173,14 +175,14 @@ export function MonthCalendar({ monthAnchor, blocks, onChangeMonth, onSelectDay 
               )}
               <div className="mt-auto h-1.5 rounded-full overflow-hidden bg-muted flex">
                 {segments.map(([wtId, v]) => {
-                  const wt = WORK_TYPE_MAP[wtId as keyof typeof WORK_TYPE_MAP];
+                  const wt = WORK_TYPE_MAP[wtId as WorkTypeId];
                   if (!wt) return null;
                   return (
                     <span
                       key={wtId}
                       style={{
                         width: `${(v / total) * 100}%`,
-                        background: `var(${wt.colorVar})`,
+                        background: colorOf(wtId as WorkTypeId, settings),
                       }}
                     />
                   );

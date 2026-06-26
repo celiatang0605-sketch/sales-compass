@@ -6,6 +6,8 @@ import {
   slotToTimeString,
 } from "@/lib/salesup/date";
 import { WORK_TYPES, WORK_TYPE_MAP, type WorkTypeId } from "@/lib/salesup/workTypes";
+import { colorOf, useWorkTypeSettings } from "@/lib/salesup/workTypeSettings";
+import { WorkTypeColorPopover } from "./WorkTypeColorPopover";
 import type { TimeBlock } from "@/lib/salesup/types";
 import { cn } from "@/lib/utils";
 
@@ -23,6 +25,7 @@ interface CellInfo {
 }
 
 export function Timeline({ date, blocks, filter, onSelectBlock, onCreateRange }: Props) {
+  const { settings } = useWorkTypeSettings();
   const cells: CellInfo[] = Array.from({ length: TOTAL_SLOTS }, () => ({ isFirstOfBlock: false }));
   for (const b of blocks) {
     for (let s = b.start_slot; s < b.end_slot && s < TOTAL_SLOTS; s++) {
@@ -102,7 +105,7 @@ export function Timeline({ date, blocks, filter, onSelectBlock, onCreateRange }:
                   const wt = block ? WORK_TYPE_MAP[block.work_type] : null;
                   const dimmed = block && filter !== "all" && block.work_type !== filter;
                   const bg = block && wt
-                    ? `var(${wt.colorVar})`
+                    ? colorOf(block.work_type, settings)
                     : isSelected
                       ? "var(--accent)"
                       : "transparent";
@@ -161,6 +164,8 @@ export function WorkTypeLegend({
   value: WorkTypeId | "all";
   onChange: (v: WorkTypeId | "all") => void;
 }) {
+  const { settings } = useWorkTypeSettings();
+  const [picker, setPicker] = useState<{ id: WorkTypeId; rect: DOMRect } | null>(null);
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       <button
@@ -180,6 +185,13 @@ export function WorkTypeLegend({
           <button
             key={wt.id}
             onClick={() => onChange(selected ? "all" : wt.id)}
+            onDoubleClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+              setPicker({ id: wt.id, rect });
+            }}
+            title="双击编辑颜色"
             className={cn(
               "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border transition-all",
               selected
@@ -189,7 +201,7 @@ export function WorkTypeLegend({
           >
             <span
               className="w-2.5 h-2.5 rounded-sm ring-1 ring-background/40"
-              style={{ background: `var(${wt.colorVar})` }}
+              style={{ background: colorOf(wt.id, settings) }}
             />
             {wt.label}
           </button>
@@ -202,6 +214,13 @@ export function WorkTypeLegend({
         >
           结束选择
         </button>
+      )}
+      {picker && (
+        <WorkTypeColorPopover
+          workTypeId={picker.id}
+          anchorRect={picker.rect}
+          onClose={() => setPicker(null)}
+        />
       )}
     </div>
   );
