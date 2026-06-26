@@ -8,6 +8,12 @@ import {
   todayKey,
 } from "@/lib/salesup/date";
 import { WORK_TYPE_MAP, type WorkTypeId } from "@/lib/salesup/workTypes";
+import {
+  colorOf,
+  subTextOn,
+  textOn,
+  useWorkTypeSettings,
+} from "@/lib/salesup/workTypeSettings";
 import type { TimeBlock } from "@/lib/salesup/types";
 import { cn } from "@/lib/utils";
 
@@ -15,19 +21,16 @@ interface Props {
   weekDays: string[]; // 7 date keys, Monday first
   blocks: TimeBlock[];
   filter: WorkTypeId | "all";
-  activeWorkType?: WorkTypeId | null; // when set, drag creates with this type
+  activeWorkType?: WorkTypeId | null;
   highlightDate?: string;
   onSelectBlock: (block: TimeBlock) => void;
   onCreateRange: (date: string, startSlot: number, endSlot: number) => void;
   onInlineSaveTitle?: (block: TimeBlock, title: string) => void;
 }
 
-interface CellInfo {
-  block?: TimeBlock;
-  isFirstOfBlock: boolean;
-}
-
 const WEEKDAY_LABELS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
+const SLOT_HEIGHT = 14; // px per 15-min slot
+const HOUR_HEIGHT = SLOT_HEIGHT * SLOTS_PER_HOUR; // 56px
 
 export function WeekTimeline({
   weekDays,
@@ -39,24 +42,30 @@ export function WeekTimeline({
   onCreateRange,
   onInlineSaveTitle,
 }: Props) {
-  const cellsByDay: Record<string, CellInfo[]> = {};
+  const { settings } = useWorkTypeSettings();
+
+  // Map blocks per day; also build occupancy for drag collision.
+  const blocksByDay: Record<string, TimeBlock[]> = {};
+  const occupancyByDay: Record<string, (TimeBlock | undefined)[]> = {};
   for (const d of weekDays) {
-    cellsByDay[d] = Array.from({ length: TOTAL_SLOTS }, () => ({ isFirstOfBlock: false }));
+    blocksByDay[d] = [];
+    occupancyByDay[d] = Array.from({ length: TOTAL_SLOTS }, () => undefined);
   }
   for (const b of blocks) {
-    const arr = cellsByDay[b.date];
-    if (!arr) continue;
+    if (!blocksByDay[b.date]) continue;
+    blocksByDay[b.date].push(b);
     for (let s = b.start_slot; s < b.end_slot && s < TOTAL_SLOTS; s++) {
-      arr[s] = { block: b, isFirstOfBlock: s === b.start_slot };
+      occupancyByDay[b.date][s] = b;
     }
   }
 
+  // ---- drag state for creation ----
   const [dragDay, setDragDay] = useState<string | null>(null);
   const [dragStart, setDragStart] = useState<number | null>(null);
   const [dragEnd, setDragEnd] = useState<number | null>(null);
   const draggingRef = useRef(false);
 
-  // Inline title editing
+  // ---- inline edit state ----
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const clickTimerRef = useRef<number | null>(null);
@@ -82,15 +91,7 @@ export function WeekTimeline({
     setEditingId(null);
   };
 
-  const inRange = (day: string, slot: number) => {
-    if (dragDay !== day || dragStart == null || dragEnd == null) return false;
-    const lo = Math.min(dragStart, dragEnd);
-    const hi = Math.max(dragStart, dragEnd);
-    return slot >= lo && slot <= hi;
-  };
-
   const handleBlockClick = (block: TimeBlock) => {
-    // Distinguish single vs double click via short timeout
     if (clickTimerRef.current != null) {
       window.clearTimeout(clickTimerRef.current);
       clickTimerRef.current = null;
@@ -107,9 +108,9 @@ export function WeekTimeline({
 
   const handlePointerDown = (day: string, slot: number) => {
     if (editingId) return;
-    const cell = cellsByDay[day][slot];
-    if (cell.block) {
-      handleBlockClick(cell.block);
+    const occupied = occupancyByDay[day][slot];
+    if (occupied) {
+      handleBlockClick(occupied);
       return;
     }
     draggingRef.current = true;
@@ -120,7 +121,7 @@ export function WeekTimeline({
 
   const handlePointerEnter = (day: string, slot: number) => {
     if (!draggingRef.current || dragDay !== day) return;
-    if (cellsByDay[day][slot].block) return;
+    if (occupancyByDay[day][slot]) return;
     setDragEnd(slot);
   };
 
@@ -148,8 +149,14 @@ export function WeekTimeline({
   }, [commit]);
 
   const hours = 24 - DAY_START_HOUR;
+  const totalHeight = TOTAL_SLOTS * SLOT_HEIGHT;
   const today = todayKey();
   const createCursor = activeWorkType ? "crosshair" : "default";
+
+  const dragRange =
+    dragDay && dragStart != null && dragEnd != null
+      ? { day: dragDay, lo: Math.min(dragStart, dragEnd), hi: Math.max(dragStart, dragEnd) }
+      : null;
 
   return (
     <div
@@ -180,100 +187,50 @@ export function WeekTimeline({
                 )}
               >
                 <div className="text-[11px] text-muted-foreground">{WEEKDAY_LABELS[idx]}</div>
-                <div
-                  className={cn(
-                    "text-sm font-semibold mt-0.5",
-                    isToday && "text-primary",
-                  )}
-                >
+                <div className={cn("text-sm font-semibold mt-0.5", isToday && "text-primary")}>
                   {dt.getMonth() + 1}/{dt.getDate()}
                 </div>
               </div>
             );
           })}
 
-          {/* Slot rows */}
-          {Array.from({ length: hours }).map((_, hourIdx) =>
-            Array.from({ length: SLOTS_PER_HOUR }).map((_, q) => {
-              const slot = hourIdx * SLOTS_PER_HOUR + q;
-              const isHourStart = q === 0;
-              const hourLabel = String(DAY_START_HOUR + hourIdx).padStart(2, "0") + ":00";
-              return (
-                <div key={slot} className="contents">
-                  <div
-                    className={cn(
-                      "text-[10px] text-muted-foreground pr-1 text-right",
-                      isHourStart ? "border-t border-border pt-0.5" : "",
-                    )}
-                    style={{ height: 14 }}
-                  >
-                    {isHourStart ? hourLabel : ""}
-                  </div>
-                  {weekDays.map((day) => {
-                    const cell = cellsByDay[day][slot];
-                    const block = cell.block;
-                    const wt = block ? WORK_TYPE_MAP[block.work_type] : null;
-                    const isSelected = inRange(day, slot);
-                    const dimmed = block && filter !== "all" && block.work_type !== filter;
-                    const isEditing = block && editingId === block.id && cell.isFirstOfBlock;
-                    const bg = block && wt
-                      ? `var(${wt.colorVar})`
-                      : isSelected
-                        ? "var(--accent)"
-                        : "transparent";
-                    return (
-                      <button
-                        type="button"
-                        key={day + slot}
-                        onPointerDown={(e) => {
-                          if (editingId) return;
-                          e.preventDefault();
-                          handlePointerDown(day, slot);
-                        }}
-                        onPointerEnter={() => handlePointerEnter(day, slot)}
-                        className={cn(
-                          "relative text-left border-l border-border transition-opacity hover:brightness-95",
-                          isHourStart ? "border-t" : "",
-                          dimmed && "opacity-30",
-                        )}
-                        style={{ height: 14, background: bg }}
-                        aria-label={`${day} ${slotToTimeString(slot)} ${block ? block.title || wt?.label : "空闲"}`}
-                      >
-                        {cell.isFirstOfBlock && block && !isEditing && (
-                          <span className="absolute inset-x-1 top-0 truncate font-medium text-[10px] leading-[14px] text-foreground/85 pointer-events-none">
-                            {block.title || WORK_TYPE_MAP[block.work_type]?.label}
-                            {block.customer ? ` · ${block.customer}` : ""}
-                          </span>
-                        )}
-                        {isEditing && block && (
-                          <input
-                            ref={editInputRef}
-                            value={editingTitle}
-                            onChange={(e) => setEditingTitle(e.target.value)}
-                            onPointerDown={(e) => e.stopPropagation()}
-                            onClick={(e) => e.stopPropagation()}
-                            onBlur={() => commitInline(block)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                commitInline(block);
-                              } else if (e.key === "Escape") {
-                                e.preventDefault();
-                                setEditingId(null);
-                              }
-                            }}
-                            placeholder={WORK_TYPE_MAP[block.work_type]?.label}
-                            className="absolute left-0 right-0 z-20 px-1 text-[11px] font-medium bg-card border border-foreground/40 rounded-sm shadow"
-                            style={{ top: -2, height: 20 }}
-                          />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              );
-            }),
-          )}
+          {/* Body row: hour-labels column + 7 day columns */}
+          <div
+            className="relative border-r border-border"
+            style={{ height: totalHeight }}
+            aria-hidden
+          >
+            {Array.from({ length: hours }).map((_, hourIdx) => (
+              <div
+                key={hourIdx}
+                className="absolute right-1 text-[10px] text-muted-foreground text-right"
+                style={{ top: hourIdx * HOUR_HEIGHT, lineHeight: "12px" }}
+              >
+                {String(DAY_START_HOUR + hourIdx).padStart(2, "0")}:00
+              </div>
+            ))}
+          </div>
+
+          {weekDays.map((day) => (
+            <DayColumn
+              key={day}
+              day={day}
+              hours={hours}
+              totalHeight={totalHeight}
+              dayBlocks={blocksByDay[day]}
+              filter={filter}
+              settings={settings}
+              dragRange={dragRange?.day === day ? { lo: dragRange.lo, hi: dragRange.hi } : null}
+              editingId={editingId}
+              editingTitle={editingTitle}
+              editInputRef={editInputRef}
+              onInputChange={setEditingTitle}
+              onCommitInline={commitInline}
+              onCancelInline={() => setEditingId(null)}
+              onPointerDown={handlePointerDown}
+              onPointerEnter={handlePointerEnter}
+            />
+          ))}
         </div>
       </div>
       <div className="px-3 py-2 border-t border-border text-[11px] text-muted-foreground bg-muted/40">
@@ -281,6 +238,251 @@ export function WeekTimeline({
           ? "点击单格创建 15 分钟，按住拖动创建连续时间段；双击已有色块可快速改标题"
           : "先在上方选择一个工作类型再创建；双击已有色块可快速改标题"}
       </div>
+    </div>
+  );
+}
+
+// ---------------- DayColumn ----------------
+
+interface DayColumnProps {
+  day: string;
+  hours: number;
+  totalHeight: number;
+  dayBlocks: TimeBlock[];
+  filter: WorkTypeId | "all";
+  settings: ReturnType<typeof useWorkTypeSettings>["settings"];
+  dragRange: { lo: number; hi: number } | null;
+  editingId: string | null;
+  editingTitle: string;
+  editInputRef: React.RefObject<HTMLInputElement | null>;
+  onInputChange: (v: string) => void;
+  onCommitInline: (b: TimeBlock | undefined) => void;
+  onCancelInline: () => void;
+  onPointerDown: (day: string, slot: number) => void;
+  onPointerEnter: (day: string, slot: number) => void;
+}
+
+function DayColumn({
+  day,
+  hours,
+  totalHeight,
+  dayBlocks,
+  filter,
+  settings,
+  dragRange,
+  editingId,
+  editingTitle,
+  editInputRef,
+  onInputChange,
+  onCommitInline,
+  onCancelInline,
+  onPointerDown,
+  onPointerEnter,
+}: DayColumnProps) {
+  return (
+    <div className="relative border-l border-border" style={{ height: totalHeight }}>
+      {/* Hour grid lines */}
+      {Array.from({ length: hours }).map((_, hourIdx) => (
+        <div
+          key={hourIdx}
+          className="absolute left-0 right-0 border-t border-border"
+          style={{ top: hourIdx * HOUR_HEIGHT }}
+        />
+      ))}
+      {/* Quarter-hour minor lines */}
+      {Array.from({ length: TOTAL_SLOTS }).map((_, slot) =>
+        slot % SLOTS_PER_HOUR !== 0 ? (
+          <div
+            key={`q-${slot}`}
+            className="absolute left-0 right-0 border-t border-border/40"
+            style={{ top: slot * SLOT_HEIGHT }}
+          />
+        ) : null,
+      )}
+
+      {/* Drag selection overlay */}
+      {dragRange && (
+        <div
+          className="absolute left-0 right-0 bg-accent/70 pointer-events-none"
+          style={{
+            top: dragRange.lo * SLOT_HEIGHT,
+            height: (dragRange.hi - dragRange.lo + 1) * SLOT_HEIGHT,
+          }}
+        />
+      )}
+
+      {/* Pointer-event capture: invisible 15-min cells */}
+      {Array.from({ length: TOTAL_SLOTS }).map((_, slot) => (
+        <button
+          type="button"
+          key={slot}
+          onPointerDown={(e) => {
+            e.preventDefault();
+            onPointerDown(day, slot);
+          }}
+          onPointerEnter={() => onPointerEnter(day, slot)}
+          className="absolute left-0 right-0 bg-transparent"
+          style={{ top: slot * SLOT_HEIGHT, height: SLOT_HEIGHT }}
+          aria-label={`${day} ${slotToTimeString(slot)}`}
+        />
+      ))}
+
+      {/* Merged block overlays */}
+      {dayBlocks.map((block) => {
+        const wt = WORK_TYPE_MAP[block.work_type];
+        if (!wt) return null;
+        const dimmed = filter !== "all" && block.work_type !== filter;
+        const isEditing = editingId === block.id;
+        const top = block.start_slot * SLOT_HEIGHT;
+        const height = Math.max(SLOT_HEIGHT, (block.end_slot - block.start_slot) * SLOT_HEIGHT);
+        const bg = colorOf(block.work_type, settings);
+        const fg = textOn(block.work_type, settings);
+        const sub = subTextOn(block.work_type, settings);
+
+        return (
+          <div
+            key={block.id}
+            className={cn(
+              "absolute left-0.5 right-0.5 rounded-md shadow-sm overflow-hidden transition-opacity",
+              dimmed && "opacity-30",
+            )}
+            style={{
+              top: top + 1,
+              height: height - 2,
+              background: bg,
+              cursor: "pointer",
+            }}
+            onPointerDown={(e) => {
+              if (isEditing) return;
+              e.preventDefault();
+              e.stopPropagation();
+              onPointerDown(day, block.start_slot);
+            }}
+          >
+            {!isEditing && (
+              <BlockContent block={block} wtLabel={wt.label} height={height} fg={fg} sub={sub} />
+            )}
+            {isEditing && (
+              <BlockEditor
+                block={block}
+                value={editingTitle}
+                inputRef={editInputRef}
+                fg={fg}
+                onChange={onInputChange}
+                onCommit={() => onCommitInline(block)}
+                onCancel={onCancelInline}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---------------- Block content (read mode) ----------------
+
+function BlockContent({
+  block,
+  wtLabel,
+  height,
+  fg,
+  sub,
+}: {
+  block: TimeBlock;
+  wtLabel: string;
+  height: number;
+  fg: string;
+  sub: string;
+}) {
+  const title = block.title || wtLabel;
+  const showSummary = height >= SLOT_HEIGHT * 4; // ≥ 1h: room for summary line(s)
+  const showCustomer = block.customer && height >= SLOT_HEIGHT * 2;
+  const compact = height < SLOT_HEIGHT * 2;
+
+  return (
+    <div
+      className={cn(
+        "h-full w-full px-1.5 flex flex-col gap-0.5 overflow-hidden",
+        compact ? "py-0" : "py-1",
+      )}
+      style={{ color: fg }}
+    >
+      <div
+        className={cn(
+          "font-medium leading-tight break-words",
+          compact ? "text-[10px] truncate" : "text-[11px]",
+        )}
+      >
+        {title}
+      </div>
+      {showCustomer && (
+        <div
+          className="text-[10px] leading-tight break-words truncate"
+          style={{ color: sub }}
+        >
+          @{block.customer}
+        </div>
+      )}
+      {showSummary && block.summary && (
+        <div
+          className="text-[10px] leading-snug break-words overflow-hidden"
+          style={{
+            color: sub,
+            display: "-webkit-box",
+            WebkitLineClamp: Math.max(1, Math.floor((height - 28) / 12)),
+            WebkitBoxOrient: "vertical",
+          }}
+        >
+          {block.summary}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------- Block content (edit mode) ----------------
+
+function BlockEditor({
+  block,
+  value,
+  inputRef,
+  fg,
+  onChange,
+  onCommit,
+  onCancel,
+}: {
+  block: TimeBlock;
+  value: string;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  fg: string;
+  onChange: (v: string) => void;
+  onCommit: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="h-full w-full p-1" onPointerDown={(e) => e.stopPropagation()}>
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onCommit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            onCommit();
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            onCancel();
+          }
+        }}
+        placeholder={WORK_TYPE_MAP[block.work_type]?.label}
+        className="w-full h-full bg-card/95 rounded-sm px-1.5 py-1 text-[11px] font-medium border border-foreground/30 outline-none ring-1 ring-foreground/10"
+        style={{ color: "var(--foreground)" }}
+        aria-label="编辑色块标题"
+      />
+      {/* keep fg referenced for unused-var lint */}
+      <span className="hidden" style={{ color: fg }} />
     </div>
   );
 }
