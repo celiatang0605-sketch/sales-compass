@@ -11,7 +11,6 @@ import {
   fromDateKey,
   toDateKey,
   formatDuration,
-  SLOT_MINUTES,
 } from "@/lib/salesup/date";
 import { WORK_TYPE_MAP } from "@/lib/salesup/workTypes";
 import { Card, StatBox, TypeBars, ListOrEmpty, Empty } from "./daily";
