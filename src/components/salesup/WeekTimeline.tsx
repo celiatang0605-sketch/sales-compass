@@ -40,6 +40,7 @@ export function WeekTimeline({
   filter,
   activeWorkType,
   highlightDate,
+  selectedBlockId,
   onSelectBlock,
   onCreateRange,
   onInlineSaveTitle,
