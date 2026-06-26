@@ -164,6 +164,8 @@ export function WorkTypeLegend({
   value: WorkTypeId | "all";
   onChange: (v: WorkTypeId | "all") => void;
 }) {
+  const { settings } = useWorkTypeSettings();
+  const [picker, setPicker] = useState<{ id: WorkTypeId; rect: DOMRect } | null>(null);
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       <button
@@ -183,6 +185,13 @@ export function WorkTypeLegend({
           <button
             key={wt.id}
             onClick={() => onChange(selected ? "all" : wt.id)}
+            onDoubleClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+              setPicker({ id: wt.id, rect });
+            }}
+            title="双击编辑颜色"
             className={cn(
               "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border transition-all",
               selected
@@ -192,7 +201,7 @@ export function WorkTypeLegend({
           >
             <span
               className="w-2.5 h-2.5 rounded-sm ring-1 ring-background/40"
-              style={{ background: `var(${wt.colorVar})` }}
+              style={{ background: colorOf(wt.id, settings) }}
             />
             {wt.label}
           </button>
@@ -206,6 +215,14 @@ export function WorkTypeLegend({
           结束选择
         </button>
       )}
+      {picker && (
+        <WorkTypeColorPopover
+          workTypeId={picker.id}
+          anchorRect={picker.rect}
+          onClose={() => setPicker(null)}
+        />
+      )}
     </div>
   );
+}
 }
