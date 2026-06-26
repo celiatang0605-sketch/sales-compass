@@ -311,7 +311,7 @@ export function upsertReminder(reminder: Partial<Reminder> & Pick<Reminder, "tit
 function newReminder(r: Partial<Reminder>, now: string): Reminder {
   return {
     id: uid(),
-    user_id: null,
+    user_id: currentUserId(),
     title: r.title ?? "",
     type: r.type ?? "todo",
     frequency: r.frequency ?? "once",
