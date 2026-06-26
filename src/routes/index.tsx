@@ -54,6 +54,7 @@ function TimelinePage() {
   const [search, setSearch] = useState("");
   const [highlightDate, setHighlightDate] = useState<string | undefined>(undefined);
   const [draft, setDraft] = useState<DraftBlock | null>(null);
+  const [draftLightweight, setDraftLightweight] = useState(false);
 
   const week = useMemo(() => weekRangeOf(anchor), [anchor]);
   const isoInfo = useMemo(() => getISOWeek(fromDateKey(anchor)), [anchor]);
