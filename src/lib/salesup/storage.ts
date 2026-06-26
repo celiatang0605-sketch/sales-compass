@@ -173,6 +173,9 @@ export function copyBlocksFromWeek(fromWeekDays: string[], toWeekDays: string[])
   const remaining = list.filter((b) => !toSet.has(b.date));
   write(TB_KEY, [...remaining, ...copies]);
   return copies.length;
+}
+
+
 
 // -------- Daily review --------
 
