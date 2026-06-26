@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { Copy, Search, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { AppShell } from "@/components/salesup/AppShell";
 import { WeekTimeline } from "@/components/salesup/WeekTimeline";
@@ -15,6 +15,7 @@ import {
   useTimeBlocksForDates,
   copyBlocksFromWeek,
   upsertTimeBlock,
+  deleteTimeBlock,
 } from "@/lib/salesup/storage";
 import { computeStats } from "@/lib/salesup/stats";
 import {
@@ -25,7 +26,7 @@ import {
   fromDateKey,
   monthDaysOf,
 } from "@/lib/salesup/date";
-import { isCustomerWorkType, WORK_TYPE_MAP, type WorkTypeId } from "@/lib/salesup/workTypes";
+import { isCustomerWorkType, type WorkTypeId } from "@/lib/salesup/workTypes";
 import type { TimeBlock } from "@/lib/salesup/types";
 import { cn } from "@/lib/utils";
 
@@ -46,9 +47,27 @@ function formatMonthDay(key: string): string {
   return `${d.getMonth() + 1}月${d.getDate()}日`;
 }
 
+function blockToDraft(b: TimeBlock): DraftBlock {
+  return {
+    id: b.id,
+    date: b.date,
+    start_slot: b.start_slot,
+    end_slot: b.end_slot,
+    work_type: b.work_type,
+    title: b.title,
+    customer: b.customer,
+    summary: b.summary,
+    key_info: b.key_info,
+    next_action: b.next_action,
+    next_action_date: b.next_action_date,
+    problem_tags: b.problem_tags,
+    notes: b.notes,
+    value_level: b.value_level,
+  };
+}
+
 function TimelinePage() {
   const [mode, setMode] = useState<ViewMode>("week");
-  // Anchor date drives both week + month context
   const [anchor, setAnchor] = useState<string>(() => todayKey());
   const [filter, setFilter] = useState<WorkTypeId | "all">("all");
   const [search, setSearch] = useState("");
@@ -79,84 +98,66 @@ function TimelinePage() {
 
   const activeWorkType: WorkTypeId | null = filter === "all" ? null : filter;
 
-  const onCreateRange = (date: string, startSlot: number, endSlot: number) => {
-    // No active work type selected → fall back to opening an empty draft form
-    if (!activeWorkType) {
-      setDraftLightweight(false);
-      setDraft({
-        date,
-        start_slot: startSlot,
-        end_slot: endSlot,
-        work_type: "meeting_customer",
-        title: "",
-        customer: "",
-        summary: "",
-        key_info: "",
-        next_action: "",
-        next_action_date: "",
-        problem_tags: [],
-        notes: "",
-        value_level: "medium",
-      });
-      return;
-    }
+  const closeDraft = useCallback(() => setDraft(null), []);
 
-    const isCustomer = isCustomerWorkType(activeWorkType);
-    // Persist a new block immediately
+  const onCreateRange = (date: string, startSlot: number, endSlot: number) => {
+    const wt: WorkTypeId = activeWorkType ?? "meeting_customer";
+    const isCustomer = isCustomerWorkType(wt);
     const saved = upsertTimeBlock({
       date,
       start_slot: startSlot,
       end_slot: endSlot,
-      work_type: activeWorkType,
+      work_type: wt,
       value_level: isCustomer ? "high" : "medium",
     });
-
-    if (isCustomer) {
-      // Open the full detail panel pre-loaded with the new block (default 高价值)
-      setDraftLightweight(false);
-      setDraft({
-        id: saved.id,
-        date: saved.date,
-        start_slot: saved.start_slot,
-        end_slot: saved.end_slot,
-        work_type: saved.work_type,
-        title: saved.title,
-        customer: saved.customer,
-        summary: saved.summary,
-        key_info: saved.key_info,
-        next_action: saved.next_action,
-        next_action_date: saved.next_action_date,
-        problem_tags: saved.problem_tags,
-        notes: saved.notes,
-        value_level: saved.value_level,
-      });
-    }
-    // Non-customer types: keep activeWorkType selected for rapid subsequent creation
+    // Created block stays selected so Enter/Backspace shortcuts apply.
+    setDraftLightweight(!isCustomer);
+    setDraft(blockToDraft(saved));
   };
 
   const onSelectBlock = (b: TimeBlock) => {
     setDraftLightweight(!isCustomerWorkType(b.work_type));
-    setDraft({
-      id: b.id,
-      date: b.date,
-      start_slot: b.start_slot,
-      end_slot: b.end_slot,
-      work_type: b.work_type,
-      title: b.title,
-      customer: b.customer,
-      summary: b.summary,
-      key_info: b.key_info,
-      next_action: b.next_action,
-      next_action_date: b.next_action_date,
-      problem_tags: b.problem_tags,
-      notes: b.notes,
-      value_level: b.value_level,
-    });
+    setDraft(blockToDraft(b));
   };
 
   const onInlineSaveTitle = (b: TimeBlock, title: string) => {
     upsertTimeBlock({ ...b, title });
   };
+
+  // ---- Keyboard shortcuts ----
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!draft?.id) return;
+      const t = e.target as HTMLElement | null;
+      // Ignore when focused in an input / textarea / contenteditable
+      if (t) {
+        const tag = t.tagName;
+        if (
+          tag === "INPUT" ||
+          tag === "TEXTAREA" ||
+          tag === "SELECT" ||
+          t.isContentEditable
+        ) {
+          return;
+        }
+      }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        setDraft(null);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        setDraft(null);
+      } else if (e.key === "Backspace" || e.key === "Delete") {
+        e.preventDefault();
+        if (confirm("确定删除当前时间块吗？")) {
+          deleteTimeBlock(draft.id);
+          setDraft(null);
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [draft]);
 
   const goPrevWeek = () => setAnchor(addDays(week.start, -7));
   const goNextWeek = () => setAnchor(addDays(week.start, 7));
@@ -187,196 +188,196 @@ function TimelinePage() {
 
   return (
     <AppShell>
-      <div className="space-y-4">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-3 flex-wrap">
-          <div>
-            <h1 className="text-xl md:text-2xl font-semibold">
-              {mode === "week" ? "周时间轴" : "月度概览"}
-            </h1>
-            {mode === "week" ? (
-              <p className="text-xs md:text-sm text-muted-foreground mt-1">
-                <span className="font-medium text-foreground">
-                  {isoInfo.year} 年第 {isoInfo.week} 周
-                </span>
-                <span className="mx-2 text-muted-foreground/50">·</span>
-                {formatMonthDay(week.start)} 至 {formatMonthDay(week.end)}
-              </p>
-            ) : (
-              <p className="text-xs md:text-sm text-muted-foreground mt-1">
-                查看一个月内每天的工作分布，点击日期跳转到当周时间轴
-              </p>
-            )}
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_400px] lg:gap-5">
+        <div className="space-y-4 min-w-0">
+          {/* Header */}
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <h1 className="text-xl md:text-2xl font-semibold">
+                {mode === "week" ? "周时间轴" : "月度概览"}
+              </h1>
+              {mode === "week" ? (
+                <p className="text-xs md:text-sm text-muted-foreground mt-1">
+                  <span className="font-medium text-foreground">
+                    {isoInfo.year} 年第 {isoInfo.week} 周
+                  </span>
+                  <span className="mx-2 text-muted-foreground/50">·</span>
+                  {formatMonthDay(week.start)} 至 {formatMonthDay(week.end)}
+                </p>
+              ) : (
+                <p className="text-xs md:text-sm text-muted-foreground mt-1">
+                  查看一个月内每天的工作分布，点击日期跳转到当周时间轴
+                </p>
+              )}
+            </div>
+
+            <div className="inline-flex rounded-lg border border-border bg-card overflow-hidden">
+              <button
+                onClick={() => setMode("week")}
+                className={cn(
+                  "px-3 py-1.5 text-xs",
+                  mode === "week"
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-secondary",
+                )}
+              >
+                周视图
+              </button>
+              <button
+                onClick={() => setMode("month")}
+                className={cn(
+                  "px-3 py-1.5 text-xs border-l border-border",
+                  mode === "month"
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-secondary",
+                )}
+              >
+                月视图
+              </button>
+            </div>
           </div>
 
-          {/* View mode switch */}
-          <div className="inline-flex rounded-lg border border-border bg-card overflow-hidden">
-            <button
-              onClick={() => setMode("week")}
-              className={cn(
-                "px-3 py-1.5 text-xs",
-                mode === "week"
-                  ? "bg-primary text-primary-foreground"
-                  : "hover:bg-secondary",
-              )}
-            >
-              周视图
-            </button>
-            <button
-              onClick={() => setMode("month")}
-              className={cn(
-                "px-3 py-1.5 text-xs border-l border-border",
-                mode === "month"
-                  ? "bg-primary text-primary-foreground"
-                  : "hover:bg-secondary",
-              )}
-            >
-              月视图
-            </button>
-          </div>
-        </div>
+          {mode === "week" ? (
+            <>
+              <StatsCards stats={stats} title="本周统计" />
 
-        {mode === "week" ? (
-          <>
-            <StatsCards stats={stats} title="本周统计" />
-
-            {/* Week navigation */}
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex rounded-lg border border-border bg-card overflow-hidden">
-                <button
-                  onClick={goPrevWeek}
-                  className="px-2.5 py-1.5 hover:bg-secondary"
-                  aria-label="上一周"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <div className="px-3 py-1.5 text-xs font-medium border-l border-r border-border min-w-[150px] text-center">
-                  第 {isoInfo.week} 周 · {formatMonthDay(week.start)}–{formatMonthDay(week.end)}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="inline-flex rounded-lg border border-border bg-card overflow-hidden">
+                  <button
+                    onClick={goPrevWeek}
+                    className="px-2.5 py-1.5 hover:bg-secondary"
+                    aria-label="上一周"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <div className="px-3 py-1.5 text-xs font-medium border-l border-r border-border min-w-[150px] text-center">
+                    第 {isoInfo.week} 周 · {formatMonthDay(week.start)}–{formatMonthDay(week.end)}
+                  </div>
+                  <button
+                    onClick={goNextWeek}
+                    className="px-2.5 py-1.5 hover:bg-secondary"
+                    aria-label="下一周"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
                 </div>
                 <button
-                  onClick={goNextWeek}
-                  className="px-2.5 py-1.5 hover:bg-secondary"
-                  aria-label="下一周"
+                  onClick={goThisWeek}
+                  disabled={isThisWeek}
+                  className="px-3 py-1.5 rounded-lg border border-border bg-card text-xs hover:bg-secondary disabled:opacity-50"
                 >
-                  <ChevronRight className="w-4 h-4" />
+                  回到本周
                 </button>
-              </div>
-              <button
-                onClick={goThisWeek}
-                disabled={isThisWeek}
-                className="px-3 py-1.5 rounded-lg border border-border bg-card text-xs hover:bg-secondary disabled:opacity-50"
-              >
-                回到本周
-              </button>
-              <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-card text-xs hover:bg-secondary cursor-pointer">
-                <CalendarDays className="w-3.5 h-3.5" />
-                <span>选择日期</span>
-                <input
-                  type="date"
-                  className="sr-only"
-                  value={anchor}
-                  onChange={(e) => {
-                    if (!e.target.value) return;
-                    setAnchor(e.target.value);
-                    setHighlightDate(e.target.value);
-                  }}
-                />
-              </label>
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="按客户 / 标题搜索本周"
-                  className="pl-8 pr-3 py-1.5 rounded-lg border border-border bg-card text-xs w-56"
-                />
-              </div>
-              <button
-                onClick={copyLastWeek}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-card text-xs hover:bg-secondary"
-              >
-                <Copy className="w-3.5 h-3.5" />
-                复制上一周结构
-              </button>
-            </div>
-
-            <WorkTypeLegend value={filter} onChange={setFilter} />
-
-            {activeWorkType && (
-              <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg border border-foreground/20 bg-foreground/[0.04]">
-                <span
-                  className="w-3 h-3 rounded-sm ring-1 ring-foreground/20"
-                  style={{ background: `var(${WORK_TYPE_MAP[activeWorkType].colorVar})` }}
-                />
-                <span className="text-xs font-medium">
-                  当前正在创建：{WORK_TYPE_MAP[activeWorkType].label}
-                </span>
-                <span className="text-[11px] text-muted-foreground">
-                  点击或拖动时间格即可创建色块
-                </span>
-                <div className="flex-1" />
+                <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-card text-xs hover:bg-secondary cursor-pointer">
+                  <CalendarDays className="w-3.5 h-3.5" />
+                  <span>选择日期</span>
+                  <input
+                    type="date"
+                    className="sr-only"
+                    value={anchor}
+                    onChange={(e) => {
+                      if (!e.target.value) return;
+                      setAnchor(e.target.value);
+                      setHighlightDate(e.target.value);
+                    }}
+                  />
+                </label>
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="按客户 / 标题搜索本周"
+                    className="pl-8 pr-3 py-1.5 rounded-lg border border-border bg-card text-xs w-48"
+                  />
+                </div>
                 <button
-                  onClick={() => setFilter("all")}
-                  className="px-2.5 py-1 rounded-md border border-border bg-card text-xs hover:bg-secondary"
+                  onClick={copyLastWeek}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-card text-xs hover:bg-secondary"
                 >
-                  结束选择
+                  <Copy className="w-3.5 h-3.5" />
+                  复制上一周结构
                 </button>
               </div>
-            )}
 
-            <WeekTimeline
-              weekDays={week.days}
-              blocks={visibleWeekBlocks}
-              filter={filter}
-              activeWorkType={activeWorkType}
-              highlightDate={highlightDate}
-              onCreateRange={onCreateRange}
-              onSelectBlock={onSelectBlock}
-              onInlineSaveTitle={onInlineSaveTitle}
-            />
-          </>
+              <WorkTypeLegend value={filter} onChange={setFilter} />
 
-        ) : (
-          <>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="按客户 / 标题搜索本月"
-                  className="pl-8 pr-3 py-1.5 rounded-lg border border-border bg-card text-xs w-56"
-                />
+              <WeekTimeline
+                weekDays={week.days}
+                blocks={visibleWeekBlocks}
+                filter={filter}
+                activeWorkType={activeWorkType}
+                highlightDate={highlightDate}
+                selectedBlockId={draft?.id ?? null}
+                onCreateRange={onCreateRange}
+                onSelectBlock={onSelectBlock}
+                onInlineSaveTitle={onInlineSaveTitle}
+              />
+            </>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="按客户 / 标题搜索本月"
+                    className="pl-8 pr-3 py-1.5 rounded-lg border border-border bg-card text-xs w-56"
+                  />
+                </div>
               </div>
-            </div>
-            <MonthCalendar
-              monthAnchor={anchor}
-              blocks={
-                search.trim()
-                  ? monthBlocksAll.filter((b) => {
-                      const q = search.trim().toLowerCase();
-                      return (
-                        b.customer.toLowerCase().includes(q) ||
-                        b.title.toLowerCase().includes(q) ||
-                        b.summary.toLowerCase().includes(q)
-                      );
-                    })
-                  : monthBlocksAll
-              }
-              onChangeMonth={(newAnchor) => {
-                setAnchor(newAnchor);
-                setHighlightDate(undefined);
-              }}
-              onSelectDay={onSelectDayFromMonth}
+              <MonthCalendar
+                monthAnchor={anchor}
+                blocks={
+                  search.trim()
+                    ? monthBlocksAll.filter((b) => {
+                        const q = search.trim().toLowerCase();
+                        return (
+                          b.customer.toLowerCase().includes(q) ||
+                          b.title.toLowerCase().includes(q) ||
+                          b.summary.toLowerCase().includes(q)
+                        );
+                      })
+                    : monthBlocksAll
+                }
+                onChangeMonth={(newAnchor) => {
+                  setAnchor(newAnchor);
+                  setHighlightDate(undefined);
+                }}
+                onSelectDay={onSelectDayFromMonth}
+              />
+            </>
+          )}
+        </div>
+
+        {/* Right sticky detail panel (desktop) / bottom sheet (mobile) */}
+        <aside className="hidden lg:block">
+          <div className="sticky top-4 h-[calc(100vh-2rem)]">
+            <BlockDetailPanel
+              draft={draft}
+              lightweight={draftLightweight}
+              embedded
+              onClose={closeDraft}
             />
-          </>
-        )}
+          </div>
+        </aside>
+
+        {/* Mobile bottom-sheet variant: renders only when a draft is active */}
+        <div className="lg:hidden">
+          {draft && (
+            <BlockDetailPanel
+              draft={draft}
+              lightweight={draftLightweight}
+              embedded
+              onClose={closeDraft}
+            />
+          )}
+        </div>
       </div>
 
-      <BlockDetailPanel draft={draft} lightweight={draftLightweight} onClose={() => setDraft(null)} />
-      {/* allBlocks reference keeps subscription warm for cross-view sync */}
       <span className="hidden">{allBlocks.length}</span>
     </AppShell>
   );
