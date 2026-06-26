@@ -22,6 +22,7 @@ import {
   scopedKey,
   _registerListener,
   _notify,
+  currentUserId,
   pushTimeBlock,
   pushDeleteTimeBlock,
   pushTimeBlocksBulk,
@@ -114,7 +115,7 @@ export function upsertTimeBlock(
 function newBlock(block: Partial<TimeBlock>, now: string): TimeBlock {
   return {
     id: uid(),
-    user_id: null,
+    user_id: currentUserId(),
     date: block.date!,
     start_slot: block.start_slot!,
     end_slot: block.end_slot!,
