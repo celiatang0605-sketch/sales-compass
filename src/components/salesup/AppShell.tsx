@@ -1,9 +1,9 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
-import { Clock, CalendarCheck, CalendarRange, CalendarDays, Bell, Lock, LogOut, Upload, Loader2 } from "lucide-react";
+import { Clock, CalendarCheck, CalendarRange, CalendarDays, Bell, Lock, LogOut, Upload, Loader2, Cloud, CloudOff, CheckCircle2, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth, signOut } from "@/lib/salesup/auth";
-import { initSync, migrateLocalToCloud, hasLegacyLocalData } from "@/lib/salesup/sync";
+import { initSync, migrateLocalToCloud, hasLegacyLocalData, onSyncState, type SyncState } from "@/lib/salesup/sync";
 
 const NAV_ITEMS: { to: string; label: string; icon: typeof Clock }[] = [
   { to: "/", label: "时间轴", icon: Clock },
@@ -25,9 +25,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { session, user, loading } = useAuth();
   const [hasLegacy, setHasLegacy] = useState(false);
   const [migrating, setMigrating] = useState(false);
+  const [sync, setSync] = useState<SyncState | null>(null);
 
   useEffect(() => {
     initSync();
+    return onSyncState(setSync);
   }, []);
 
   useEffect(() => {
@@ -129,6 +131,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               导入本地数据
             </button>
           )}
+          <SyncStatusBadge sync={sync} />
           <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
             <span className="truncate flex-1" title={user?.email ?? ""}>{user?.email}</span>
             <button
@@ -140,7 +143,6 @@ export function AppShell({ children }: { children: ReactNode }) {
               <LogOut className="w-3.5 h-3.5" />
             </button>
           </div>
-          <div className="text-[10px] text-muted-foreground/70">数据保存于 Supabase · 本机作为缓存</div>
         </div>
       </aside>
 
