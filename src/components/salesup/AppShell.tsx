@@ -29,7 +29,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     initSync();
-    return onSyncState(setSync);
+    const unsub = onSyncState(setSync);
+    return () => { unsub(); };
   }, []);
 
   useEffect(() => {
