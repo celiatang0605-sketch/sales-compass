@@ -36,10 +36,11 @@ export interface DraftBlock {
 
 interface Props {
   draft: DraftBlock | null;
+  lightweight?: boolean;
   onClose: () => void;
 }
 
-export function BlockDetailPanel({ draft, onClose }: Props) {
+export function BlockDetailPanel({ draft, lightweight = false, onClose }: Props) {
   const [form, setForm] = useState<DraftBlock | null>(draft);
   const [tagInput, setTagInput] = useState("");
 
