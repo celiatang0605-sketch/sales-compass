@@ -162,7 +162,7 @@ export function WorkTypeLegend({
   onChange: (v: WorkTypeId | "all") => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-wrap items-center gap-1.5">
       <button
         onClick={() => onChange("all")}
         className={cn(
@@ -174,22 +174,35 @@ export function WorkTypeLegend({
       >
         全部
       </button>
-      {WORK_TYPES.map((wt) => (
+      {WORK_TYPES.map((wt) => {
+        const selected = value === wt.id;
+        return (
+          <button
+            key={wt.id}
+            onClick={() => onChange(selected ? "all" : wt.id)}
+            className={cn(
+              "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border transition-all",
+              selected
+                ? "border-foreground bg-foreground text-background shadow-sm ring-2 ring-foreground/20"
+                : "border-border bg-card hover:bg-secondary",
+            )}
+          >
+            <span
+              className="w-2.5 h-2.5 rounded-sm ring-1 ring-background/40"
+              style={{ background: `var(${wt.colorVar})` }}
+            />
+            {wt.label}
+          </button>
+        );
+      })}
+      {value !== "all" && (
         <button
-          key={wt.id}
-          onClick={() => onChange(wt.id)}
-          className={cn(
-            "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border transition-colors",
-            value === wt.id ? "border-foreground/40" : "border-border hover:bg-secondary",
-          )}
+          onClick={() => onChange("all")}
+          className="ml-1 px-2.5 py-1 rounded-full text-xs border border-border bg-card hover:bg-secondary"
         >
-          <span
-            className="w-2.5 h-2.5 rounded-sm"
-            style={{ background: `var(${wt.colorVar})` }}
-          />
-          {wt.label}
+          结束选择
         </button>
-      ))}
+      )}
     </div>
   );
 }
