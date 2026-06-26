@@ -34,6 +34,7 @@ function firstOfMonth(key: string): string {
 }
 
 export function MonthCalendar({ monthAnchor, blocks, onChangeMonth, onSelectDay }: Props) {
+  const { settings } = useWorkTypeSettings();
   const days = monthDaysOf(monthAnchor);
   const firstDay = fromDateKey(days[0]);
   const yyyy = firstDay.getFullYear();
