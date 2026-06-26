@@ -404,10 +404,18 @@ function BlockContent({
   fg: string;
   sub: string;
 }) {
-  const title = block.title || wtLabel;
-  const showSummary = height >= SLOT_HEIGHT * 4; // ≥ 1h: room for summary line(s)
-  const showCustomer = block.customer && height >= SLOT_HEIGHT * 2;
+  const hasCustomer = !!block.customer;
+  const hasTitle = !!block.title;
+  // Primary: prefer title; else customer name; else work type label.
+  const primary = hasTitle ? block.title : hasCustomer ? block.customer : wtLabel;
   const compact = height < SLOT_HEIGHT * 2;
+  // Show customer as its own line when both title and customer exist and there's room.
+  const showCustomerLine =
+    hasCustomer && hasTitle && block.title !== block.customer && height >= SLOT_HEIGHT * 2;
+  // For compact blocks with both, inline the customer after the title.
+  const showInlineCustomer =
+    hasCustomer && hasTitle && block.title !== block.customer && compact;
+  const showSummary = height >= SLOT_HEIGHT * 4 && !!block.summary;
 
   return (
     <div
@@ -423,9 +431,12 @@ function BlockContent({
           compact ? "text-[10px] truncate" : "text-[11px]",
         )}
       >
-        {title}
+        {primary}
+        {showInlineCustomer && (
+          <span className="font-normal opacity-80"> · @{block.customer}</span>
+        )}
       </div>
-      {showCustomer && (
+      {showCustomerLine && (
         <div
           className="text-[10px] leading-tight break-words truncate"
           style={{ color: sub }}
@@ -433,7 +444,7 @@ function BlockContent({
           @{block.customer}
         </div>
       )}
-      {showSummary && block.summary && (
+      {showSummary && (
         <div
           className="text-[10px] leading-snug break-words overflow-hidden"
           style={{
