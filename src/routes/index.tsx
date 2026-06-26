@@ -77,25 +77,65 @@ function TimelinePage() {
 
   const stats = useMemo(() => computeStats(weekBlocksAll), [weekBlocksAll]);
 
+  const activeWorkType: WorkTypeId | null = filter === "all" ? null : filter;
+
   const onCreateRange = (date: string, startSlot: number, endSlot: number) => {
-    setDraft({
+    // No active work type selected → fall back to opening an empty draft form
+    if (!activeWorkType) {
+      setDraftLightweight(false);
+      setDraft({
+        date,
+        start_slot: startSlot,
+        end_slot: endSlot,
+        work_type: "meeting_customer",
+        title: "",
+        customer: "",
+        summary: "",
+        key_info: "",
+        next_action: "",
+        next_action_date: "",
+        problem_tags: [],
+        notes: "",
+        value_level: "medium",
+      });
+      return;
+    }
+
+    const isCustomer = isCustomerWorkType(activeWorkType);
+    // Persist a new block immediately
+    const saved = upsertTimeBlock({
       date,
       start_slot: startSlot,
       end_slot: endSlot,
-      work_type: "meeting_customer",
-      title: "",
-      customer: "",
-      summary: "",
-      key_info: "",
-      next_action: "",
-      next_action_date: "",
-      problem_tags: [],
-      notes: "",
-      value_level: "medium",
+      work_type: activeWorkType,
+      value_level: isCustomer ? "high" : "medium",
     });
+
+    if (isCustomer) {
+      // Open the full detail panel pre-loaded with the new block (default 高价值)
+      setDraftLightweight(false);
+      setDraft({
+        id: saved.id,
+        date: saved.date,
+        start_slot: saved.start_slot,
+        end_slot: saved.end_slot,
+        work_type: saved.work_type,
+        title: saved.title,
+        customer: saved.customer,
+        summary: saved.summary,
+        key_info: saved.key_info,
+        next_action: saved.next_action,
+        next_action_date: saved.next_action_date,
+        problem_tags: saved.problem_tags,
+        notes: saved.notes,
+        value_level: saved.value_level,
+      });
+    }
+    // Non-customer types: keep activeWorkType selected for rapid subsequent creation
   };
 
   const onSelectBlock = (b: TimeBlock) => {
+    setDraftLightweight(!isCustomerWorkType(b.work_type));
     setDraft({
       id: b.id,
       date: b.date,
@@ -112,6 +152,10 @@ function TimelinePage() {
       notes: b.notes,
       value_level: b.value_level,
     });
+  };
+
+  const onInlineSaveTitle = (b: TimeBlock, title: string) => {
+    upsertTimeBlock({ ...b, title });
   };
 
   const goPrevWeek = () => setAnchor(addDays(week.start, -7));
