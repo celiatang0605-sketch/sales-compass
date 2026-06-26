@@ -8,7 +8,8 @@ import {
   SLOT_MINUTES,
   formatDuration,
 } from "@/lib/salesup/date";
-import { WORK_TYPE_MAP } from "@/lib/salesup/workTypes";
+import { WORK_TYPE_MAP, type WorkTypeId } from "@/lib/salesup/workTypes";
+import { colorOf, useWorkTypeSettings } from "@/lib/salesup/workTypeSettings";
 import type { TimeBlock } from "@/lib/salesup/types";
 import { cn } from "@/lib/utils";
 
