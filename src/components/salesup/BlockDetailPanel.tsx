@@ -8,6 +8,7 @@ import {
   TOTAL_SLOTS,
   slotsDuration,
   formatDuration,
+  formatDateLabel,
 } from "@/lib/salesup/date";
 import {
   deleteTimeBlock,
@@ -108,7 +109,7 @@ export function BlockDetailPanel({ draft, onClose }: Props) {
               {form.id ? "编辑时间段" : "新建时间段"}
             </div>
             <div className="text-xs text-muted-foreground">
-              {slotToTimeString(form.start_slot)} – {slotToTimeString(form.end_slot)} · {duration}
+              {formatDateLabel(form.date)} · {slotToTimeString(form.start_slot)} – {slotToTimeString(form.end_slot)} · {duration}
             </div>
           </div>
           <button

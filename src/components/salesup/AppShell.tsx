@@ -4,7 +4,7 @@ import { Clock, CalendarCheck, CalendarRange, CalendarDays, Bell, Lock } from "l
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS: { to: string; label: string; icon: typeof Clock }[] = [
-  { to: "/", label: "今日时间轴", icon: Clock },
+  { to: "/", label: "时间轴", icon: Clock },
   { to: "/daily", label: "日复盘", icon: CalendarCheck },
   { to: "/weekly", label: "周复盘", icon: CalendarRange },
   { to: "/monthly", label: "月复盘", icon: CalendarDays },

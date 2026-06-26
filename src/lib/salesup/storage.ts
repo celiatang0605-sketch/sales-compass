@@ -78,6 +78,14 @@ export function useTimeBlocksForDate(date: string): TimeBlock[] {
   return all.filter((b) => b.date === date).sort((a, b) => a.start_slot - b.start_slot);
 }
 
+export function useTimeBlocksForDates(dates: string[]): TimeBlock[] {
+  const all = useTimeBlocks();
+  const set = new Set(dates);
+  return all
+    .filter((b) => set.has(b.date))
+    .sort((a, b) => (a.date === b.date ? a.start_slot - b.start_slot : a.date.localeCompare(b.date)));
+}
+
 export function upsertTimeBlock(block: Partial<TimeBlock> & Pick<TimeBlock, "date" | "start_slot" | "end_slot" | "work_type">): TimeBlock {
   const list = read<TimeBlock[]>(TB_KEY, []);
   const now = nowIso();
@@ -144,6 +152,30 @@ export function copyBlocksFromDate(fromDate: string, toDate: string): number {
   write(TB_KEY, [...remaining, ...copies]);
   return copies.length;
 }
+
+export function copyBlocksFromWeek(fromWeekDays: string[], toWeekDays: string[]): number {
+  if (fromWeekDays.length !== 7 || toWeekDays.length !== 7) return 0;
+  const list = read<TimeBlock[]>(TB_KEY, []);
+  const fromSet = new Set(fromWeekDays);
+  const toSet = new Set(toWeekDays);
+  const source = list.filter((b) => fromSet.has(b.date));
+  const now = nowIso();
+  const copies: TimeBlock[] = source.map((b) => {
+    const idx = fromWeekDays.indexOf(b.date);
+    return {
+      ...b,
+      id: uid(),
+      date: toWeekDays[idx],
+      created_at: now,
+      updated_at: now,
+    };
+  });
+  const remaining = list.filter((b) => !toSet.has(b.date));
+  write(TB_KEY, [...remaining, ...copies]);
+  return copies.length;
+}
+
+
 
 // -------- Daily review --------
 
