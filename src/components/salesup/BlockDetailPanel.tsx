@@ -101,17 +101,21 @@ export function BlockDetailPanel({ draft, lightweight = false, embedded = false,
 
   return (
     <>
-      <div
-        className="fixed inset-0 bg-black/30 z-40 md:hidden"
-        onClick={onClose}
-      />
+      {!embedded && (
+        <div
+          className="fixed inset-0 bg-black/30 z-40 md:hidden"
+          onClick={onClose}
+        />
+      )}
       <aside
         className={cn(
-          "fixed z-50 bg-card border-border shadow-xl flex flex-col",
-          // Mobile: full-screen sheet
-          "inset-0 md:inset-auto",
-          // Desktop: right rail
-          "md:top-0 md:right-0 md:bottom-0 md:left-auto md:w-[420px] md:border-l",
+          "bg-card border-border flex flex-col",
+          embedded
+            ? // Embedded: desktop sticky rail, mobile bottom sheet
+              "fixed inset-x-0 bottom-0 top-auto z-50 border-t shadow-xl max-h-[85vh] rounded-t-2xl " +
+              "md:static md:inset-auto md:max-h-none md:rounded-xl md:border md:shadow-none md:h-full"
+            : // Default fixed sheet
+              "fixed shadow-xl z-50 inset-0 md:inset-auto md:top-0 md:right-0 md:bottom-0 md:left-auto md:w-[420px] md:border-l",
         )}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
