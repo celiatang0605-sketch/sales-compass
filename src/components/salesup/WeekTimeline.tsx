@@ -433,15 +433,20 @@ function BlockContent({
       >
         {primary}
         {showInlineCustomer && (
-          <span className="font-normal opacity-80"> · @{block.customer}</span>
+          <span
+            className="ml-1 inline-flex items-center gap-0.5 align-middle px-1 py-px rounded-sm text-[9px] font-medium bg-card/85 text-foreground ring-1 ring-foreground/15 backdrop-blur-sm"
+          >
+            <span className="w-1 h-1 rounded-full bg-foreground/60" />
+            <span className="truncate max-w-[80px]">{block.customer}</span>
+          </span>
         )}
       </div>
       {showCustomerLine && (
-        <div
-          className="text-[10px] leading-tight break-words truncate"
-          style={{ color: sub }}
-        >
-          @{block.customer}
+        <div>
+          <span className="inline-flex items-center gap-1 max-w-full px-1.5 py-0.5 rounded-md text-[10px] font-medium leading-tight bg-card/85 text-foreground ring-1 ring-foreground/15 shadow-sm backdrop-blur-sm">
+            <span className="w-1.5 h-1.5 rounded-full bg-foreground/60 shrink-0" />
+            <span className="truncate">{block.customer}</span>
+          </span>
         </div>
       )}
       {showSummary && (
