@@ -47,9 +47,18 @@ export function MonthCalendar({ monthAnchor, blocks, onChangeMonth, onSelectDay 
   const perDay = useMemo(() => {
     const map: Record<
       string,
-      { total: number; customer: number; byType: Record<string, number> }
+      {
+        total: number;
+        customer: number;
+        byType: Record<string, number>;
+        customers: string[];
+      }
     > = {};
-    for (const d of days) map[d] = { total: 0, customer: 0, byType: {} };
+    const customerSets: Record<string, Set<string>> = {};
+    for (const d of days) {
+      map[d] = { total: 0, customer: 0, byType: {}, customers: [] };
+      customerSets[d] = new Set();
+    }
     for (const b of blocks) {
       if (!map[b.date]) continue;
       const mins = Math.max(0, b.end_slot - b.start_slot) * SLOT_MINUTES;
@@ -60,6 +69,10 @@ export function MonthCalendar({ monthAnchor, blocks, onChangeMonth, onSelectDay 
         map[b.date].customer += mins;
       }
       map[b.date].byType[b.work_type] = (map[b.date].byType[b.work_type] ?? 0) + mins;
+      if (b.customer) customerSets[b.date].add(b.customer);
+    }
+    for (const d of days) {
+      map[d].customers = Array.from(customerSets[d]);
     }
     return map;
   }, [days, blocks]);
