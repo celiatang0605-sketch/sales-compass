@@ -10,6 +10,7 @@ import {
 import { WORK_TYPE_MAP, type WorkTypeId } from "@/lib/salesup/workTypes";
 import {
   colorOf,
+  labelOf,
   subTextOn,
   textOn,
   useWorkTypeSettings,
@@ -23,6 +24,7 @@ interface Props {
   filter: WorkTypeId | "all";
   activeWorkType?: WorkTypeId | null;
   highlightDate?: string;
+  selectedBlockId?: string | null;
   onSelectBlock: (block: TimeBlock) => void;
   onCreateRange: (date: string, startSlot: number, endSlot: number) => void;
   onInlineSaveTitle?: (block: TimeBlock, title: string) => void;
