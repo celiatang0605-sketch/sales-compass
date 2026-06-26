@@ -14,6 +14,7 @@ import {
   useTimeBlocks,
   useTimeBlocksForDates,
   copyBlocksFromWeek,
+  upsertTimeBlock,
 } from "@/lib/salesup/storage";
 import { computeStats } from "@/lib/salesup/stats";
 import {
@@ -24,7 +25,7 @@ import {
   fromDateKey,
   monthDaysOf,
 } from "@/lib/salesup/date";
-import type { WorkTypeId } from "@/lib/salesup/workTypes";
+import { isCustomerWorkType, WORK_TYPE_MAP, type WorkTypeId } from "@/lib/salesup/workTypes";
 import type { TimeBlock } from "@/lib/salesup/types";
 import { cn } from "@/lib/utils";
 
