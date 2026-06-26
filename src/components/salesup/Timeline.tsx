@@ -225,4 +225,3 @@ export function WorkTypeLegend({
     </div>
   );
 }
-}
