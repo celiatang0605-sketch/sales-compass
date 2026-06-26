@@ -231,7 +231,7 @@ export function BlockDetailPanel({ draft, lightweight = false, embedded = false,
 
           <Field label="简短记录 (MM / Summary)">
             <textarea
-              className="input min-h-[88px] resize-y"
+              className="input min-h-[140px] resize-y text-sm"
               placeholder={lightweight ? "简短记录这段时间的要点…" : "会议重点、客户反馈、内部同步结论或个人观察…"}
               value={form.summary}
               onChange={(e) => update("summary", e.target.value)}
