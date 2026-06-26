@@ -14,6 +14,7 @@ import {
   useTimeBlocks,
   useTimeBlocksForDates,
   copyBlocksFromWeek,
+  upsertTimeBlock,
 } from "@/lib/salesup/storage";
 import { computeStats } from "@/lib/salesup/stats";
 import {
@@ -24,7 +25,7 @@ import {
   fromDateKey,
   monthDaysOf,
 } from "@/lib/salesup/date";
-import type { WorkTypeId } from "@/lib/salesup/workTypes";
+import { isCustomerWorkType, WORK_TYPE_MAP, type WorkTypeId } from "@/lib/salesup/workTypes";
 import type { TimeBlock } from "@/lib/salesup/types";
 import { cn } from "@/lib/utils";
 
@@ -53,6 +54,7 @@ function TimelinePage() {
   const [search, setSearch] = useState("");
   const [highlightDate, setHighlightDate] = useState<string | undefined>(undefined);
   const [draft, setDraft] = useState<DraftBlock | null>(null);
+  const [draftLightweight, setDraftLightweight] = useState(false);
 
   const week = useMemo(() => weekRangeOf(anchor), [anchor]);
   const isoInfo = useMemo(() => getISOWeek(fromDateKey(anchor)), [anchor]);
@@ -75,25 +77,65 @@ function TimelinePage() {
 
   const stats = useMemo(() => computeStats(weekBlocksAll), [weekBlocksAll]);
 
+  const activeWorkType: WorkTypeId | null = filter === "all" ? null : filter;
+
   const onCreateRange = (date: string, startSlot: number, endSlot: number) => {
-    setDraft({
+    // No active work type selected → fall back to opening an empty draft form
+    if (!activeWorkType) {
+      setDraftLightweight(false);
+      setDraft({
+        date,
+        start_slot: startSlot,
+        end_slot: endSlot,
+        work_type: "meeting_customer",
+        title: "",
+        customer: "",
+        summary: "",
+        key_info: "",
+        next_action: "",
+        next_action_date: "",
+        problem_tags: [],
+        notes: "",
+        value_level: "medium",
+      });
+      return;
+    }
+
+    const isCustomer = isCustomerWorkType(activeWorkType);
+    // Persist a new block immediately
+    const saved = upsertTimeBlock({
       date,
       start_slot: startSlot,
       end_slot: endSlot,
-      work_type: "meeting_customer",
-      title: "",
-      customer: "",
-      summary: "",
-      key_info: "",
-      next_action: "",
-      next_action_date: "",
-      problem_tags: [],
-      notes: "",
-      value_level: "medium",
+      work_type: activeWorkType,
+      value_level: isCustomer ? "high" : "medium",
     });
+
+    if (isCustomer) {
+      // Open the full detail panel pre-loaded with the new block (default 高价值)
+      setDraftLightweight(false);
+      setDraft({
+        id: saved.id,
+        date: saved.date,
+        start_slot: saved.start_slot,
+        end_slot: saved.end_slot,
+        work_type: saved.work_type,
+        title: saved.title,
+        customer: saved.customer,
+        summary: saved.summary,
+        key_info: saved.key_info,
+        next_action: saved.next_action,
+        next_action_date: saved.next_action_date,
+        problem_tags: saved.problem_tags,
+        notes: saved.notes,
+        value_level: saved.value_level,
+      });
+    }
+    // Non-customer types: keep activeWorkType selected for rapid subsequent creation
   };
 
   const onSelectBlock = (b: TimeBlock) => {
+    setDraftLightweight(!isCustomerWorkType(b.work_type));
     setDraft({
       id: b.id,
       date: b.date,
@@ -110,6 +152,10 @@ function TimelinePage() {
       notes: b.notes,
       value_level: b.value_level,
     });
+  };
+
+  const onInlineSaveTitle = (b: TimeBlock, title: string) => {
+    upsertTimeBlock({ ...b, title });
   };
 
   const goPrevWeek = () => setAnchor(addDays(week.start, -7));
@@ -257,15 +303,40 @@ function TimelinePage() {
 
             <WorkTypeLegend value={filter} onChange={setFilter} />
 
+            {activeWorkType && (
+              <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg border border-foreground/20 bg-foreground/[0.04]">
+                <span
+                  className="w-3 h-3 rounded-sm ring-1 ring-foreground/20"
+                  style={{ background: `var(${WORK_TYPE_MAP[activeWorkType].colorVar})` }}
+                />
+                <span className="text-xs font-medium">
+                  当前正在创建：{WORK_TYPE_MAP[activeWorkType].label}
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  点击或拖动时间格即可创建色块
+                </span>
+                <div className="flex-1" />
+                <button
+                  onClick={() => setFilter("all")}
+                  className="px-2.5 py-1 rounded-md border border-border bg-card text-xs hover:bg-secondary"
+                >
+                  结束选择
+                </button>
+              </div>
+            )}
+
             <WeekTimeline
               weekDays={week.days}
               blocks={visibleWeekBlocks}
               filter={filter}
+              activeWorkType={activeWorkType}
               highlightDate={highlightDate}
               onCreateRange={onCreateRange}
               onSelectBlock={onSelectBlock}
+              onInlineSaveTitle={onInlineSaveTitle}
             />
           </>
+
         ) : (
           <>
             <div className="flex flex-wrap items-center gap-2">
@@ -304,7 +375,7 @@ function TimelinePage() {
         )}
       </div>
 
-      <BlockDetailPanel draft={draft} onClose={() => setDraft(null)} />
+      <BlockDetailPanel draft={draft} lightweight={draftLightweight} onClose={() => setDraft(null)} />
       {/* allBlocks reference keeps subscription warm for cross-view sync */}
       <span className="hidden">{allBlocks.length}</span>
     </AppShell>

@@ -14,6 +14,19 @@ export type WorkTypeId =
   | "review"
   | "buffer";
 
+// Customer-related work types: creating these auto-opens the full detail panel.
+export const CUSTOMER_WORK_TYPES: WorkTypeId[] = [
+  "meeting_customer",
+  "visit_customer",
+  "followup_customer",
+  "proposal",
+  "research",
+];
+
+export function isCustomerWorkType(id: WorkTypeId): boolean {
+  return CUSTOMER_WORK_TYPES.includes(id);
+}
+
 export type StatCategory =
   | "customer_progress" // 客户推进
   | "internal_cost" // 内部消耗
