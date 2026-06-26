@@ -104,7 +104,7 @@ export function Timeline({ date, blocks, filter, onSelectBlock, onCreateRange }:
                   const wt = block ? WORK_TYPE_MAP[block.work_type] : null;
                   const dimmed = block && filter !== "all" && block.work_type !== filter;
                   const bg = block && wt
-                    ? `var(${wt.colorVar})`
+                    ? colorOf(block.work_type, settings)
                     : isSelected
                       ? "var(--accent)"
                       : "transparent";
