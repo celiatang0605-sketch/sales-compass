@@ -106,6 +106,7 @@ async function pullAll(uid: string) {
     supabase.from("time_blocks").select("*").eq("user_id", uid),
     supabase.from("reminders").select("*").eq("user_id", uid),
   ]);
+  // On error (e.g. table missing), do NOT overwrite the local cache with [].
   if (tb.error) console.error("[salesup] time_blocks pull", tb.error);
   else writeScoped<TimeBlock[]>("time_blocks", (tb.data ?? []) as TimeBlock[]);
   if (rm.error) console.error("[salesup] reminders pull", rm.error);
