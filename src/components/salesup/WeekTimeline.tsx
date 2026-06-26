@@ -255,6 +255,7 @@ interface DayColumnProps {
   dayBlocks: TimeBlock[];
   filter: WorkTypeId | "all";
   settings: ReturnType<typeof useWorkTypeSettings>["settings"];
+  selectedBlockId: string | null;
   dragRange: { lo: number; hi: number } | null;
   editingId: string | null;
   editingTitle: string;
@@ -273,6 +274,7 @@ function DayColumn({
   dayBlocks,
   filter,
   settings,
+  selectedBlockId,
   dragRange,
   editingId,
   editingTitle,
