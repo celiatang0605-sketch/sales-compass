@@ -180,120 +180,128 @@ export function BlockDetailPanel({ draft, lightweight = false, onClose }: Props)
             />
           </Field>
 
-          <Field label="关联客户">
-            <input
-              className="input"
-              placeholder="客户名称"
-              value={form.customer}
-              onChange={(e) => update("customer", e.target.value)}
-            />
-          </Field>
+          {!lightweight && (
+            <Field label="关联客户">
+              <input
+                className="input"
+                placeholder="客户名称"
+                value={form.customer}
+                onChange={(e) => update("customer", e.target.value)}
+              />
+            </Field>
+          )}
 
-          <Field label="价值等级">
-            <div className="flex gap-1.5">
-              {(["high", "medium", "low"] as ValueLevel[]).map((lvl) => (
-                <button
-                  key={lvl}
-                  type="button"
-                  onClick={() => update("value_level", lvl)}
-                  className={cn(
-                    "flex-1 py-1.5 text-xs rounded-md border transition-colors",
-                    form.value_level === lvl
-                      ? lvl === "high"
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-secondary border-foreground/30"
-                      : "border-border hover:bg-secondary/60",
-                  )}
-                >
-                  {lvl === "high" ? "高价值" : lvl === "medium" ? "中价值" : "低价值"}
-                </button>
-              ))}
-            </div>
-          </Field>
+          {!lightweight && (
+            <Field label="价值等级">
+              <div className="flex gap-1.5">
+                {(["high", "medium", "low"] as ValueLevel[]).map((lvl) => (
+                  <button
+                    key={lvl}
+                    type="button"
+                    onClick={() => update("value_level", lvl)}
+                    className={cn(
+                      "flex-1 py-1.5 text-xs rounded-md border transition-colors",
+                      form.value_level === lvl
+                        ? lvl === "high"
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-secondary border-foreground/30"
+                        : "border-border hover:bg-secondary/60",
+                    )}
+                  >
+                    {lvl === "high" ? "高价值" : lvl === "medium" ? "中价值" : "低价值"}
+                  </button>
+                ))}
+              </div>
+            </Field>
+          )}
 
           <Field label="简短记录 (MM / Summary)">
             <textarea
               className="input min-h-[88px] resize-y"
-              placeholder="会议重点、客户反馈、内部同步结论或个人观察…"
+              placeholder={lightweight ? "简短记录这段时间的要点…" : "会议重点、客户反馈、内部同步结论或个人观察…"}
               value={form.summary}
               onChange={(e) => update("summary", e.target.value)}
             />
           </Field>
 
-          <Field label="关键信息">
-            <textarea
-              className="input min-h-[60px] resize-y"
-              placeholder="关键数据、关键决策、关键人"
-              value={form.key_info}
-              onChange={(e) => update("key_info", e.target.value)}
-            />
-          </Field>
+          {!lightweight && (
+            <>
+              <Field label="关键信息">
+                <textarea
+                  className="input min-h-[60px] resize-y"
+                  placeholder="关键数据、关键决策、关键人"
+                  value={form.key_info}
+                  onChange={(e) => update("key_info", e.target.value)}
+                />
+              </Field>
 
-          <Field label="下一步动作">
-            <textarea
-              className="input min-h-[60px] resize-y"
-              placeholder="接下来要做什么"
-              value={form.next_action}
-              onChange={(e) => update("next_action", e.target.value)}
-            />
-          </Field>
+              <Field label="下一步动作">
+                <textarea
+                  className="input min-h-[60px] resize-y"
+                  placeholder="接下来要做什么"
+                  value={form.next_action}
+                  onChange={(e) => update("next_action", e.target.value)}
+                />
+              </Field>
 
-          <Field label="待办日期">
-            <input
-              type="date"
-              className="input"
-              value={form.next_action_date}
-              onChange={(e) => update("next_action_date", e.target.value)}
-            />
-          </Field>
+              <Field label="待办日期">
+                <input
+                  type="date"
+                  className="input"
+                  value={form.next_action_date}
+                  onChange={(e) => update("next_action_date", e.target.value)}
+                />
+              </Field>
 
-          <Field label="问题标签">
-            <div className="flex gap-2">
-              <input
-                className="input flex-1"
-                placeholder="按回车添加，例如：报价偏高"
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addTag();
-                  }
-                }}
-              />
-              <button
-                type="button"
-                onClick={addTag}
-                className="px-3 rounded-md border border-border text-xs hover:bg-secondary"
-              >
-                添加
-              </button>
-            </div>
-            {form.problem_tags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {form.problem_tags.map((t) => (
-                  <span
-                    key={t}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-destructive/10 text-destructive"
-                  >
-                    {t}
-                    <button
-                      onClick={() =>
-                        update(
-                          "problem_tags",
-                          form.problem_tags.filter((x) => x !== t),
-                        )
+              <Field label="问题标签">
+                <div className="flex gap-2">
+                  <input
+                    className="input flex-1"
+                    placeholder="按回车添加，例如：报价偏高"
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addTag();
                       }
-                      className="hover:text-destructive/70"
-                      aria-label="移除"
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-          </Field>
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={addTag}
+                    className="px-3 rounded-md border border-border text-xs hover:bg-secondary"
+                  >
+                    添加
+                  </button>
+                </div>
+                {form.problem_tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {form.problem_tags.map((t) => (
+                      <span
+                        key={t}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-destructive/10 text-destructive"
+                      >
+                        {t}
+                        <button
+                          onClick={() =>
+                            update(
+                              "problem_tags",
+                              form.problem_tags.filter((x) => x !== t),
+                            )
+                          }
+                          className="hover:text-destructive/70"
+                          aria-label="移除"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </Field>
+            </>
+          )}
 
           <Field label="注意事项">
             <textarea
