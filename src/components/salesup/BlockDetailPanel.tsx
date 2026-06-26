@@ -37,10 +37,11 @@ export interface DraftBlock {
 interface Props {
   draft: DraftBlock | null;
   lightweight?: boolean;
+  embedded?: boolean;
   onClose: () => void;
 }
 
-export function BlockDetailPanel({ draft, lightweight = false, onClose }: Props) {
+export function BlockDetailPanel({ draft, lightweight = false, embedded = false, onClose }: Props) {
   const [form, setForm] = useState<DraftBlock | null>(draft);
   const [tagInput, setTagInput] = useState("");
 
@@ -49,7 +50,16 @@ export function BlockDetailPanel({ draft, lightweight = false, onClose }: Props)
     setTagInput("");
   }, [draft]);
 
-  if (!form) return null;
+  if (!form) {
+    if (embedded) {
+      return (
+        <div className="hidden md:flex h-full items-center justify-center text-xs text-muted-foreground bg-card rounded-xl border border-border p-6 text-center">
+          点击时间块或选中工作类型在时间轴上涂色，详情会显示在这里
+        </div>
+      );
+    }
+    return null;
+  }
 
   const update = <K extends keyof DraftBlock>(k: K, v: DraftBlock[K]) =>
     setForm((f) => (f ? { ...f, [k]: v } : f));
