@@ -187,18 +187,19 @@ export function MonthCalendar({ monthAnchor, blocks, onChangeMonth, onSelectDay 
                 </div>
               )}
               {stat.customers.length > 0 && (
-                <div className="flex flex-wrap gap-0.5 overflow-hidden">
+                <div className="flex flex-wrap gap-1 overflow-hidden">
                   {stat.customers.slice(0, 3).map((name) => (
                     <span
                       key={name}
-                      className="text-[10px] leading-tight px-1 rounded bg-muted/60 text-foreground/80 truncate max-w-full"
+                      className="inline-flex items-center gap-1 max-w-full px-1.5 py-0.5 rounded-md text-[10px] leading-tight font-medium bg-background text-foreground border border-border shadow-sm"
                       title={name}
                     >
-                      {name}
+                      <span className="w-1 h-1 rounded-full bg-primary/70 shrink-0" />
+                      <span className="truncate">{name}</span>
                     </span>
                   ))}
                   {stat.customers.length > 3 && (
-                    <span className="text-[10px] leading-tight text-muted-foreground">
+                    <span className="text-[10px] leading-tight text-muted-foreground self-center">
                       +{stat.customers.length - 3}
                     </span>
                   )}
