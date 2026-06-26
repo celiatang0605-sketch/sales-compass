@@ -164,8 +164,16 @@ export function WorkTypeLegend({
   value: WorkTypeId | "all";
   onChange: (v: WorkTypeId | "all") => void;
 }) {
-  const { settings } = useWorkTypeSettings();
+  const { settings, setLabel } = useWorkTypeSettings();
   const [picker, setPicker] = useState<{ id: WorkTypeId; rect: DOMRect } | null>(null);
+  const [editing, setEditing] = useState<{ id: WorkTypeId; value: string } | null>(null);
+
+  const commitLabel = () => {
+    if (!editing) return;
+    setLabel(editing.id, editing.value);
+    setEditing(null);
+  };
+
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       <button
@@ -181,40 +189,68 @@ export function WorkTypeLegend({
       </button>
       {WORK_TYPES.map((wt) => {
         const selected = value === wt.id;
+        const label = settings.labels[wt.id] || wt.label;
+        const isEditing = editing?.id === wt.id;
         return (
-          <button
+          <div
             key={wt.id}
-            onClick={() => onChange(selected ? "all" : wt.id)}
-            onDoubleClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-              setPicker({ id: wt.id, rect });
+            onClick={() => {
+              if (isEditing) return;
+              onChange(selected ? "all" : wt.id);
             }}
-            title="双击编辑颜色"
+            title="单击选中 · 双击文字改名 · 双击色块改颜色"
             className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border transition-all",
+              "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border transition-all cursor-pointer select-none",
               selected
                 ? "border-foreground bg-foreground text-background shadow-sm ring-2 ring-foreground/20"
                 : "border-border bg-card hover:bg-secondary",
             )}
           >
             <span
-              className="w-2.5 h-2.5 rounded-sm ring-1 ring-background/40"
+              onDoubleClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                setPicker({ id: wt.id, rect });
+              }}
+              className="w-2.5 h-2.5 rounded-sm ring-1 ring-background/40 cursor-pointer"
               style={{ background: colorOf(wt.id, settings) }}
+              title="双击改颜色"
             />
-            {wt.label}
-          </button>
+            {isEditing ? (
+              <input
+                autoFocus
+                value={editing.value}
+                onChange={(e) => setEditing({ id: wt.id, value: e.target.value })}
+                onBlur={commitLabel}
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => {
+                  e.stopPropagation();
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    commitLabel();
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    setEditing(null);
+                  }
+                }}
+                className="bg-background/80 text-foreground rounded px-1 py-0 w-20 text-xs outline-none ring-1 ring-foreground/30"
+              />
+            ) : (
+              <span
+                onDoubleClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setEditing({ id: wt.id, value: label });
+                }}
+                title="双击改名"
+              >
+                {label}
+              </span>
+            )}
+          </div>
         );
       })}
-      {value !== "all" && (
-        <button
-          onClick={() => onChange("all")}
-          className="ml-1 px-2.5 py-1 rounded-full text-xs border border-border bg-card hover:bg-secondary"
-        >
-          结束选择
-        </button>
-      )}
       {picker && (
         <WorkTypeColorPopover
           workTypeId={picker.id}

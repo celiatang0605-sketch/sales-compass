@@ -37,10 +37,11 @@ export interface DraftBlock {
 interface Props {
   draft: DraftBlock | null;
   lightweight?: boolean;
+  embedded?: boolean;
   onClose: () => void;
 }
 
-export function BlockDetailPanel({ draft, lightweight = false, onClose }: Props) {
+export function BlockDetailPanel({ draft, lightweight = false, embedded = false, onClose }: Props) {
   const [form, setForm] = useState<DraftBlock | null>(draft);
   const [tagInput, setTagInput] = useState("");
 
@@ -49,7 +50,16 @@ export function BlockDetailPanel({ draft, lightweight = false, onClose }: Props)
     setTagInput("");
   }, [draft]);
 
-  if (!form) return null;
+  if (!form) {
+    if (embedded) {
+      return (
+        <div className="hidden md:flex h-full items-center justify-center text-xs text-muted-foreground bg-card rounded-xl border border-border p-6 text-center">
+          点击时间块或选中工作类型在时间轴上涂色，详情会显示在这里
+        </div>
+      );
+    }
+    return null;
+  }
 
   const update = <K extends keyof DraftBlock>(k: K, v: DraftBlock[K]) =>
     setForm((f) => (f ? { ...f, [k]: v } : f));
@@ -91,17 +101,21 @@ export function BlockDetailPanel({ draft, lightweight = false, onClose }: Props)
 
   return (
     <>
-      <div
-        className="fixed inset-0 bg-black/30 z-40 md:hidden"
-        onClick={onClose}
-      />
+      {!embedded && (
+        <div
+          className="fixed inset-0 bg-black/30 z-40 md:hidden"
+          onClick={onClose}
+        />
+      )}
       <aside
         className={cn(
-          "fixed z-50 bg-card border-border shadow-xl flex flex-col",
-          // Mobile: full-screen sheet
-          "inset-0 md:inset-auto",
-          // Desktop: right rail
-          "md:top-0 md:right-0 md:bottom-0 md:left-auto md:w-[420px] md:border-l",
+          "bg-card border-border flex flex-col",
+          embedded
+            ? // Embedded: desktop sticky rail, mobile bottom sheet
+              "fixed inset-x-0 bottom-0 top-auto z-50 border-t shadow-xl max-h-[85vh] rounded-t-2xl " +
+              "md:static md:inset-auto md:max-h-none md:rounded-xl md:border md:shadow-none md:h-full"
+            : // Default fixed sheet
+              "fixed shadow-xl z-50 inset-0 md:inset-auto md:top-0 md:right-0 md:bottom-0 md:left-auto md:w-[420px] md:border-l",
         )}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
@@ -217,7 +231,7 @@ export function BlockDetailPanel({ draft, lightweight = false, onClose }: Props)
 
           <Field label="简短记录 (MM / Summary)">
             <textarea
-              className="input min-h-[88px] resize-y"
+              className="input min-h-[140px] resize-y text-sm"
               placeholder={lightweight ? "简短记录这段时间的要点…" : "会议重点、客户反馈、内部同步结论或个人观察…"}
               value={form.summary}
               onChange={(e) => update("summary", e.target.value)}
