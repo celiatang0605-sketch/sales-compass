@@ -1,0 +1,109 @@
+# CLAUDE.md — Sales Up（销售个人工作台）
+
+## 项目背景
+
+Owner 在公关舆情 / 市场咨询公司做销售。本应用是销售新人的个人时间管理与工作复盘工具，用于记录：时间分配（时间块）、客户会议、客户拜访、待办、问题标签、注意事项，并支持日 / 周 / 月复盘。后续规划模块：客户看板、商机跟进、KPI 看板（侧边栏已有占位，见 `AppShell.tsx` 的 `FUTURE_ITEMS`）。
+
+项目由 Lovable 导出，长期在本仓库内迭代。**不要 force push / rebase 已推送的提交**（会破坏 Lovable 侧历史，见 AGENTS.md）。
+
+## 技术栈（以实际代码为准）
+
+- **TanStack Start**（SSR 全栈框架，非纯 Vite SPA）+ **TanStack Router** 文件式路由（`src/routes/`，路由树自动生成到 `routeTree.gen.ts`，不要手改）
+- React 19 + TypeScript，Tailwind CSS **v4**（`@theme inline` 写在 `src/styles.css`，无 tailwind.config）+ shadcn/ui（`src/components/ui/`，基本未定制）
+- Supabase：Auth（邮箱密码）+ Postgres。客户端在 `src/integrations/supabase/client.ts`（anon key 硬编码，靠 RLS 隔离）
+- @tanstack/react-query 已安装但**目前未用于数据获取**（仅 router context 里挂了 QueryClient）
+- 包管理：bun（有 bun.lock）
+- SSR 注意：任何访问 `window` / `localStorage` 的代码必须守卫 `typeof window === "undefined"`
+
+## 目录结构
+
+```
+src/
+  routes/            文件式路由（页面）
+    index.tsx        / 时间轴主页：周视图（涂色录入）+ 月视图，右侧 BlockDetailPanel
+    daily.tsx        /daily 日复盘（统计 + 3 个提问字段）；同时导出 Card/StatBox/TypeBars 等共享 UI（⚠ 待迁出）
+    weekly.tsx       /weekly 周复盘（统计 + 4 个提问字段）
+    monthly.tsx      /monthly 月复盘（统计 + 趋势图 + 3 个提问字段）
+    reminders.tsx    /reminders 提醒中心（待办/问题/注意事项，按今日/本周/本月分组）
+    auth.tsx         /auth 登录注册
+    __root.tsx       根布局、404、错误边界
+  components/salesup/
+    AppShell.tsx         侧边栏/顶栏导航、登录守卫、同步状态徽标、本地数据迁移入口
+    WeekTimeline.tsx     周时间轴（7 列 × 15 分钟槽位，拖拽涂色创建）
+    Timeline.tsx         单日时间轴 + WorkTypeLegend（类型筛选图例）
+    MonthCalendar.tsx    月历热力概览（⚠ 内部自算每日聚合，与 stats.ts 重复）
+    BlockDetailPanel.tsx 时间块详情编辑面板（含轻量模式；next_action 可一键生成提醒）
+    StatsCards.tsx       统计卡片行
+    DateSwitcher.tsx     日期切换器
+  lib/salesup/
+    types.ts             全部数据类型（TimeBlock / DailyReview / WeeklyReview / MonthlyReview / Reminder）
+    storage.ts           数据层：localStorage 为 UI 数据源，hooks（useTimeBlocks 等）+ 变更函数
+    sync.ts              云同步：auth 状态监听、整表 pull、fire-and-forget push、迁移工具、同步状态 store
+    stats.ts             computeStats()：从 TimeBlock[] 实时聚合全部统计（唯一合法的统计入口）
+    date.ts              槽位/日期/ISO 周工具。一天 = 07:00–24:00，15 分钟一槽，slot 0 = 07:00，end_slot 排他
+    workTypes.ts         10 种工作类型定义（label/颜色变量/统计分类 categories）
+    workTypeSettings.ts  用户自定义类型颜色与名称（仅 localStorage，未同步）
+    auth.ts              useAuth + 登录/注册/登出封装
+  integrations/supabase/client.ts
+  styles.css             设计系统全部 token（oklch）
+```
+
+## 数据架构
+
+### 数据流（现状）
+
+```
+UI hooks（storage.ts） ←→ localStorage（按用户命名空间 salesup:v1:<key>:u:<uid>）
+                                │ 每次变更 fire-and-forget upsert/delete
+                                ▼
+                            Supabase（登录时整表 pull 覆盖本地缓存）
+```
+
+- 登录后 `sync.ts` 才把 time_blocks 与 reminders 镜像到云端；**三张复盘表目前只存 localStorage，从不上云**（storage.ts 注释 "local only for now"）。
+- 未登录写入会 toast 提示"数据暂存本地"，登录后可一键迁移（`migrateLocalToCloud`）。
+
+### Supabase 表（从 sync.ts 行映射反推；仓库内无 migration / RLS 定义，真实 DDL 只在 Supabase 控制台 ⚠）
+
+**time_blocks** — 一切数据的中心
+| 字段 | 说明 |
+|---|---|
+| id (uuid PK), user_id | |
+| date | YYYY-MM-DD（本地时区） |
+| start_slot / end_slot | 15 分钟槽位索引，0 = 07:00，end 排他，最大 68 = 24:00 |
+| work_type | 10 选 1，见 workTypes.ts |
+| title, customer | customer 为自由文本（⚠ 未规范化） |
+| summary, key_info | 简短记录 / 关键信息 |
+| next_action, next_action_date | 下一步动作（date 空串本地 / null 云端） |
+| problem_tags | text[] 问题标签 |
+| notes | 注意事项 |
+| value_level | high / medium / low |
+| customer_id, opportunity_id | 预留给客户看板 / 商机模块，当前恒为 null |
+| created_at, updated_at | |
+
+**reminders** — id, user_id, title, type(todo/problem/note), frequency(once/daily/weekly/monthly), related_date, customer(自由文本), related_block_id(可空，指向 time_blocks), priority, status, note, created_at, updated_at
+
+**本地 only（未建表）**：daily_reviews（date + 3 个文本字段）、weekly_reviews（week_key 如 2026-W26 + 4 个文本字段）、monthly_reviews（month_key 如 2026-07 + 3 个文本字段）、workTypeSettings（颜色/名称覆盖）。
+
+### 工作类型 → 统计分类
+
+meeting_customer / visit_customer / followup_customer / proposal / research → 客户推进（customer_progress）；internal_meeting / admin → 内部消耗；learning / review → 学习复盘；buffer → 其它。proposal 同时计入"方案准备"。客户相关类型创建时自动 value_level=high 并弹完整详情面板，其余走轻量面板。
+
+## 设计规范
+
+- **只做浅色模式，不做深色模式。** styles.css 里遗留 `.dark` 段落与个别 `dark:` class，无切换入口；新代码一律不写 dark 变体，机会合适时清理遗留。
+- 整体基调：低饱和、柔和、适合工作日全天长期盯看。背景暖白 `oklch(0.985 0.005 95)`，主色沉稳蓝紫 `oklch(0.42 0.13 260)`，全部颜色用 oklch 定义在 `styles.css` 的 CSS 变量里，**组件内不得硬编码色值**（工作类型色走 `--wt-*` 变量，用户自定义色走 workTypeSettings 的 colorOf/textOn）。
+- 新增颜色遵循现有工作类型色的克制程度（chroma 大致 ≤ 0.15，客户相关略暖略亮、内部/行政灰调），不引入高饱和、荧光色。
+- 圆角基准 `--radius: 0.75rem`；卡片=白底+细边框；界面语言为中文；保持现有紧凑信息密度（text-xs/sm 为主）。
+
+## 产品原则（做任何功能前先读这三条）
+
+1. **一切以 event（时间块）为中心建模。** notes / next_action / problem_tags / summary 都挂在 time_block 上。复盘表只存"人写的提炼文字"（判断与总结），**所有统计数字一律从 time_blocks 实时聚合**（唯一入口 `stats.ts` 的 `computeStats`），任何页面不得自行复制聚合逻辑，更不得把统计结果落库。
+2. **复盘是引导式工作流，不是表单。** 复盘页的职责是把当天/当周的 events 事实摆到用户面前，引导用户做判断和提炼；用户只写结论，不做搬运（不要求用户把时间轴里已有的信息重新抄一遍）。
+3. **任何新功能优先复用时间轴的录入习惯，不新增独立录入负担。** 新模块（客户看板、商机、KPI）应尽量从已有 time_blocks 数据推导或在时间块详情面板内顺手补一个字段，而不是开一个新的录入界面。
+
+## 常用约定
+
+- 新页面：在 `src/routes/` 建文件即成路由；页面统一包 `<AppShell>`。
+- 读数据用 storage.ts 的 hooks，写数据用其变更函数；不要在组件里直接调 supabase（auth 除外）。
+- 时间计算一律用 date.ts 的槽位工具，分钟数 = `(end_slot - start_slot) * SLOT_MINUTES`。
+- 共享复盘 UI（Card/StatBox/TypeBars/ListOrEmpty/Empty）目前从 `routes/daily.tsx` 导出——重构时应迁到 `components/salesup/review/`。
