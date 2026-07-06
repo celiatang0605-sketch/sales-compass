@@ -133,11 +133,11 @@ export function Timeline({ date, blocks, filter, onSelectBlock, onCreateRange }:
                         dimmed && "opacity-30",
                       )}
                       style={{ background: bg }}
-                      aria-label={`${slotToTimeString(slot)} ${block ? block.title || wt?.label : "空闲"}`}
+                      aria-label={`${slotToTimeString(slot)} ${block ? block.title || eff?.label : "空闲"}`}
                     >
                       {cell.isFirstOfBlock && block && (
                         <span className="absolute inset-x-1 top-0.5 truncate font-medium text-[11px] text-foreground/85">
-                          {block.title || WORK_TYPE_MAP[block.work_type]?.label}
+                          {block.title || eff?.label || block.work_type}
                         </span>
                       )}
                       {cell.isFirstOfBlock && block?.customer && (
