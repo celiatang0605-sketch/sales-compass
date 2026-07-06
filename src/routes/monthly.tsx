@@ -13,6 +13,7 @@ import {
   formatDuration,
 } from "@/lib/salesup/date";
 import { WORK_TYPE_MAP } from "@/lib/salesup/workTypes";
+import { useWorkTypeSettings } from "@/lib/salesup/workTypeSettings";
 import { Card, StatBox, TypeBars, ListOrEmpty, Empty } from "./daily";
 
 export const Route = createFileRoute("/monthly")({
