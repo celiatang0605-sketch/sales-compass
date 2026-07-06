@@ -1,13 +1,21 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { Settings2 } from "lucide-react";
 import {
   TOTAL_SLOTS,
   SLOTS_PER_HOUR,
   DAY_START_HOUR,
   slotToTimeString,
 } from "@/lib/salesup/date";
-import { WORK_TYPES, WORK_TYPE_MAP, type WorkTypeId } from "@/lib/salesup/workTypes";
-import { colorOf, useWorkTypeSettings } from "@/lib/salesup/workTypeSettings";
+import { WORK_TYPE_MAP, type BuiltinWorkTypeId, type WorkTypeId } from "@/lib/salesup/workTypes";
+import {
+  colorOf,
+  getEffectiveWorkTypes,
+  labelOf,
+  resolveWorkType,
+  useWorkTypeSettings,
+} from "@/lib/salesup/workTypeSettings";
 import { WorkTypeColorPopover } from "./WorkTypeColorPopover";
+import { ManageWorkTypesDialog } from "./ManageWorkTypesDialog";
 import type { TimeBlock } from "@/lib/salesup/types";
 import { cn } from "@/lib/utils";
 
@@ -102,10 +110,10 @@ export function Timeline({ date, blocks, filter, onSelectBlock, onCreateRange }:
                   const cell = cells[slot];
                   const block = cell.block;
                   const isSelected = inRange(slot);
-                  const wt = block ? WORK_TYPE_MAP[block.work_type] : null;
+                  const eff = block ? resolveWorkType(block.work_type, settings) : null;
                   const dimmed = block && filter !== "all" && block.work_type !== filter;
-                  const bg = block && wt
-                    ? colorOf(block.work_type, settings)
+                  const bg = block && eff
+                    ? eff.colorCss
                     : isSelected
                       ? "var(--accent)"
                       : "transparent";
@@ -125,11 +133,11 @@ export function Timeline({ date, blocks, filter, onSelectBlock, onCreateRange }:
                         dimmed && "opacity-30",
                       )}
                       style={{ background: bg }}
-                      aria-label={`${slotToTimeString(slot)} ${block ? block.title || wt?.label : "空闲"}`}
+                      aria-label={`${slotToTimeString(slot)} ${block ? block.title || eff?.label : "空闲"}`}
                     >
                       {cell.isFirstOfBlock && block && (
                         <span className="absolute inset-x-1 top-0.5 truncate font-medium text-[11px] text-foreground/85">
-                          {block.title || WORK_TYPE_MAP[block.work_type]?.label}
+                          {block.title || eff?.label || block.work_type}
                         </span>
                       )}
                       {cell.isFirstOfBlock && block?.customer && (
@@ -164,15 +172,23 @@ export function WorkTypeLegend({
   value: WorkTypeId | "all";
   onChange: (v: WorkTypeId | "all") => void;
 }) {
-  const { settings, setLabel } = useWorkTypeSettings();
-  const [picker, setPicker] = useState<{ id: WorkTypeId; rect: DOMRect } | null>(null);
-  const [editing, setEditing] = useState<{ id: WorkTypeId; value: string } | null>(null);
+  const { settings, setLabel, updateCustomType } = useWorkTypeSettings();
+  const [picker, setPicker] = useState<{ id: BuiltinWorkTypeId; rect: DOMRect } | null>(null);
+  const [editing, setEditing] = useState<{ id: string; value: string } | null>(null);
+  const [manageOpen, setManageOpen] = useState(false);
 
   const commitLabel = () => {
     if (!editing) return;
-    setLabel(editing.id, editing.value);
+    const id = editing.id;
+    if (id.startsWith("custom:")) {
+      updateCustomType(id, { label: editing.value.trim() || "未命名类型" });
+    } else if (WORK_TYPE_MAP[id]) {
+      setLabel(id as BuiltinWorkTypeId, editing.value);
+    }
     setEditing(null);
   };
+
+  const items = getEffectiveWorkTypes(settings);
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
@@ -187,9 +203,8 @@ export function WorkTypeLegend({
       >
         全部
       </button>
-      {WORK_TYPES.map((wt) => {
+      {items.map((wt) => {
         const selected = value === wt.id;
-        const label = settings.labels[wt.id] || wt.label;
         const isEditing = editing?.id === wt.id;
         return (
           <div
@@ -198,7 +213,7 @@ export function WorkTypeLegend({
               if (isEditing) return;
               onChange(selected ? "all" : wt.id);
             }}
-            title="单击选中 · 双击文字改名 · 双击色块改颜色"
+            title={wt.isCustom ? "单击选中 · 双击文字改名 · 在管理中改颜色" : "单击选中 · 双击文字改名 · 双击色块改颜色"}
             className={cn(
               "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border transition-all cursor-pointer select-none",
               selected
@@ -208,19 +223,20 @@ export function WorkTypeLegend({
           >
             <span
               onDoubleClick={(e) => {
+                if (wt.isCustom) return; // custom color edited via manage dialog
                 e.preventDefault();
                 e.stopPropagation();
                 const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                setPicker({ id: wt.id, rect });
+                setPicker({ id: wt.id as BuiltinWorkTypeId, rect });
               }}
               className="w-2.5 h-2.5 rounded-sm ring-1 ring-background/40 cursor-pointer"
-              style={{ background: colorOf(wt.id, settings) }}
-              title="双击改颜色"
+              style={{ background: wt.colorCss }}
+              title={wt.isCustom ? "自定义类型（在管理中改颜色）" : "双击改颜色"}
             />
             {isEditing ? (
               <input
                 autoFocus
-                value={editing.value}
+                value={editing!.value}
                 onChange={(e) => setEditing({ id: wt.id, value: e.target.value })}
                 onBlur={commitLabel}
                 onClick={(e) => e.stopPropagation()}
@@ -241,16 +257,25 @@ export function WorkTypeLegend({
                 onDoubleClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  setEditing({ id: wt.id, value: label });
+                  setEditing({ id: wt.id, value: wt.label });
                 }}
                 title="双击改名"
               >
-                {label}
+                {wt.label}
               </span>
             )}
           </div>
         );
       })}
+      <button
+        type="button"
+        onClick={() => setManageOpen(true)}
+        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border border-dashed border-border text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+        title="新增 / 删除工作类型"
+      >
+        <Settings2 className="w-3 h-3" />
+        管理类型
+      </button>
       {picker && (
         <WorkTypeColorPopover
           workTypeId={picker.id}
@@ -258,6 +283,8 @@ export function WorkTypeLegend({
           onClose={() => setPicker(null)}
         />
       )}
+      {manageOpen && <ManageWorkTypesDialog onClose={() => setManageOpen(false)} />}
     </div>
   );
 }
+

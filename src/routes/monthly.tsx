@@ -13,6 +13,7 @@ import {
   formatDuration,
 } from "@/lib/salesup/date";
 import { WORK_TYPE_MAP } from "@/lib/salesup/workTypes";
+import { useWorkTypeSettings } from "@/lib/salesup/workTypeSettings";
 import { Card, StatBox, TypeBars, ListOrEmpty, Empty } from "./daily";
 
 export const Route = createFileRoute("/monthly")({
@@ -32,14 +33,15 @@ function MonthlyReviewPage() {
   const days = useMemo(() => monthDaysOf(anchor), [anchor]);
   const all = useTimeBlocks();
   const blocks = useMemo(() => all.filter((b) => days.includes(b.date)), [all, days]);
-  const stats = useMemo(() => computeStats(blocks), [blocks]);
+  const { settings } = useWorkTypeSettings();
+  const stats = useMemo(() => computeStats(blocks, settings), [blocks, settings]);
   const review = useMonthlyReview(monthKey);
 
   // Daily trend: per-day high-value ratio + customer-progress minutes
   const dailyTrend = useMemo(() => {
     return days.map((d) => {
       const dayBlocks = blocks.filter((b) => b.date === d);
-      const s = computeStats(dayBlocks);
+      const s = computeStats(dayBlocks, settings);
       return {
         date: d,
         total: s.totalMinutes,
@@ -107,7 +109,7 @@ function MonthlyReviewPage() {
                         className="absolute bottom-0 left-0 right-0"
                         style={{
                           height: `${(d.customer / maxTotalDay) * 100}%`,
-                          background: `var(${WORK_TYPE_MAP.meeting_customer.colorVar})`,
+                          background: `var(${WORK_TYPE_MAP.meeting_customer?.colorVar ?? "--wt-meeting-customer"})`,
                         }}
                       />
                     </div>
@@ -119,7 +121,7 @@ function MonthlyReviewPage() {
           )}
           <div className="flex items-center gap-3 mt-3 text-[11px] text-muted-foreground">
             <span className="inline-flex items-center gap-1">
-              <span className="w-2.5 h-2.5 rounded-sm" style={{ background: `var(${WORK_TYPE_MAP.meeting_customer.colorVar})` }} />
+              <span className="w-2.5 h-2.5 rounded-sm" style={{ background: `var(${WORK_TYPE_MAP.meeting_customer?.colorVar ?? "--wt-meeting-customer"})` }} />
               客户推进时长
             </span>
             <span className="inline-flex items-center gap-1">

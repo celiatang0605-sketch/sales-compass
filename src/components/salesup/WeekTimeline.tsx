@@ -11,6 +11,7 @@ import { WORK_TYPE_MAP, type WorkTypeId } from "@/lib/salesup/workTypes";
 import {
   colorOf,
   labelOf,
+  resolveWorkType,
   subTextOn,
   textOn,
   useWorkTypeSettings,
@@ -335,8 +336,8 @@ function DayColumn({
 
       {/* Merged block overlays */}
       {dayBlocks.map((block) => {
-        const wt = WORK_TYPE_MAP[block.work_type];
-        if (!wt) return null;
+        const eff = resolveWorkType(block.work_type, settings);
+        if (!eff) return null;
         const dimmed = filter !== "all" && block.work_type !== filter;
         const isEditing = editingId === block.id;
         const isSelected = selectedBlockId === block.id;

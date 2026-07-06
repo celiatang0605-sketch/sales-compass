@@ -5,10 +5,10 @@ import {
   startingHexOf,
   useWorkTypeSettings,
 } from "@/lib/salesup/workTypeSettings";
-import { WORK_TYPE_MAP, type WorkTypeId } from "@/lib/salesup/workTypes";
+import { WORK_TYPE_MAP, type BuiltinWorkTypeId } from "@/lib/salesup/workTypes";
 
 interface Props {
-  workTypeId: WorkTypeId;
+  workTypeId: BuiltinWorkTypeId;
   anchorRect: DOMRect;
   onClose: () => void;
 }
@@ -61,7 +61,7 @@ export function WorkTypeColorPopover({ workTypeId, anchorRect, onClose }: Props)
         <button
           onClick={() => {
             resetColor(workTypeId);
-            setValue(startingHexOf(workTypeId, { colors: {}, labels: {} }));
+            setValue(startingHexOf(workTypeId, { colors: {}, labels: {}, customTypes: [], hiddenBuiltins: [], customCategories: [] }));
           }}
           className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
           aria-label="恢复默认颜色"

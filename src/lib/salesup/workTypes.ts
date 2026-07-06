@@ -2,7 +2,9 @@
 // Colors are CSS variables defined in src/styles.css.
 // Categories used for stats aggregation in stats.ts.
 
-export type WorkTypeId =
+// Built-in work type ids. Custom user-added types use ids like "custom:xxx".
+// WorkTypeId is widened to string so TimeBlock.work_type can carry custom ids.
+export type BuiltinWorkTypeId =
   | "meeting_customer"
   | "visit_customer"
   | "followup_customer"
@@ -14,8 +16,10 @@ export type WorkTypeId =
   | "review"
   | "buffer";
 
-// Customer-related work types: creating these auto-opens the full detail panel.
-export const CUSTOMER_WORK_TYPES: WorkTypeId[] = [
+export type WorkTypeId = string;
+
+// Customer-related built-in work types: creating these auto-opens the full detail panel.
+export const CUSTOMER_WORK_TYPES: BuiltinWorkTypeId[] = [
   "meeting_customer",
   "visit_customer",
   "followup_customer",
@@ -23,8 +27,11 @@ export const CUSTOMER_WORK_TYPES: WorkTypeId[] = [
   "research",
 ];
 
-export function isCustomerWorkType(id: WorkTypeId): boolean {
-  return CUSTOMER_WORK_TYPES.includes(id);
+// Built-in only check (does not know about user-added custom types).
+// For full customer-related check including custom types, use
+// isCustomerRelated(id, settings) from workTypeSettings.ts.
+export function isCustomerWorkType(id: string): boolean {
+  return (CUSTOMER_WORK_TYPES as string[]).includes(id);
 }
 
 export type StatCategory =
@@ -35,7 +42,7 @@ export type StatCategory =
   | "other";
 
 export interface WorkType {
-  id: WorkTypeId;
+  id: BuiltinWorkTypeId;
   label: string;
   description: string;
   colorVar: string; // CSS var name without var()
@@ -115,11 +122,11 @@ export const WORK_TYPES: WorkType[] = [
   },
 ];
 
-export const WORK_TYPE_MAP: Record<WorkTypeId, WorkType> = Object.fromEntries(
+export const WORK_TYPE_MAP: Record<string, WorkType | undefined> = Object.fromEntries(
   WORK_TYPES.map((wt) => [wt.id, wt]),
-) as Record<WorkTypeId, WorkType>;
+);
 
-export function getWorkType(id: WorkTypeId | string | null | undefined): WorkType | undefined {
+export function getWorkType(id: string | null | undefined): WorkType | undefined {
   if (!id) return undefined;
-  return WORK_TYPE_MAP[id as WorkTypeId];
+  return WORK_TYPE_MAP[id];
 }

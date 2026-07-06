@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import { X, Trash2, Bell } from "lucide-react";
 import type { TimeBlock, ValueLevel } from "@/lib/salesup/types";
-import { WORK_TYPES, WORK_TYPE_MAP, type WorkTypeId } from "@/lib/salesup/workTypes";
+import { type WorkTypeId } from "@/lib/salesup/workTypes";
+import {
+  getEffectiveWorkTypes,
+  resolveWorkType,
+  useWorkTypeSettings,
+} from "@/lib/salesup/workTypeSettings";
 import {
   slotToTimeString,
   timeStringToSlot,
@@ -44,6 +49,8 @@ interface Props {
 export function BlockDetailPanel({ draft, lightweight = false, embedded = false, onClose }: Props) {
   const [form, setForm] = useState<DraftBlock | null>(draft);
   const [tagInput, setTagInput] = useState("");
+  const { settings } = useWorkTypeSettings();
+  const effectiveTypes = getEffectiveWorkTypes(settings);
 
   useEffect(() => {
     setForm(draft);
@@ -160,7 +167,7 @@ export function BlockDetailPanel({ draft, lightweight = false, embedded = false,
           {/* Work type */}
           <Field label="工作类型">
             <div className="flex flex-wrap gap-1.5">
-              {WORK_TYPES.map((wt) => (
+              {effectiveTypes.map((wt) => (
                 <button
                   key={wt.id}
                   type="button"
@@ -174,14 +181,14 @@ export function BlockDetailPanel({ draft, lightweight = false, embedded = false,
                 >
                   <span
                     className="w-2.5 h-2.5 rounded-sm"
-                    style={{ background: `var(${wt.colorVar})` }}
+                    style={{ background: wt.colorCss }}
                   />
                   {wt.label}
                 </button>
               ))}
             </div>
             <p className="text-[11px] text-muted-foreground mt-1.5">
-              {WORK_TYPE_MAP[form.work_type]?.description}
+              {resolveWorkType(form.work_type, settings)?.description ?? ""}
             </p>
           </Field>
 

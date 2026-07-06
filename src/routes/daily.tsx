@@ -6,6 +6,7 @@ import { useTimeBlocksForDate, useDailyReview, saveDailyReview } from "@/lib/sal
 import { computeStats, topProblemTags } from "@/lib/salesup/stats";
 import { todayKey, formatDuration } from "@/lib/salesup/date";
 import { WORK_TYPES, WORK_TYPE_MAP } from "@/lib/salesup/workTypes";
+import { getEffectiveWorkTypes, useWorkTypeSettings } from "@/lib/salesup/workTypeSettings";
 
 export const Route = createFileRoute("/daily")({
   head: () => ({ meta: [{ title: "日复盘 · Sales Up" }] }),
@@ -15,7 +16,8 @@ export const Route = createFileRoute("/daily")({
 function DailyReviewPage() {
   const [date, setDate] = useState(() => todayKey());
   const blocks = useTimeBlocksForDate(date);
-  const stats = useMemo(() => computeStats(blocks), [blocks]);
+  const { settings } = useWorkTypeSettings();
+  const stats = useMemo(() => computeStats(blocks, settings), [blocks, settings]);
   const review = useDailyReview(date);
 
   return (
@@ -130,11 +132,14 @@ export function Card({ title, children, action }: { title: string; children: Rea
 }
 
 export function TypeBars({ stats }: { stats: ReturnType<typeof computeStats> }) {
+  const { settings } = useWorkTypeSettings();
   const total = Math.max(1, stats.totalMinutes);
-  const rows = WORK_TYPES.map((wt) => ({
-    wt,
-    minutes: stats.byType[wt.id] ?? 0,
-  })).filter((r) => r.minutes > 0);
+  const rows = getEffectiveWorkTypes(settings)
+    .map((wt) => ({
+      wt,
+      minutes: stats.byType[wt.id] ?? 0,
+    }))
+    .filter((r) => r.minutes > 0);
   if (rows.length === 0) return <Empty text="还没有记录数据" />;
   return (
     <div className="space-y-2">
@@ -142,11 +147,11 @@ export function TypeBars({ stats }: { stats: ReturnType<typeof computeStats> }) 
         const pct = (minutes / total) * 100;
         return (
           <div key={wt.id} className="flex items-center gap-2 text-xs">
-            <div className="w-20 shrink-0 text-foreground/80">{wt.label}</div>
+            <div className="w-20 shrink-0 text-foreground/80 truncate">{wt.label}</div>
             <div className="flex-1 h-2.5 rounded-full bg-muted overflow-hidden">
               <div
                 className="h-full rounded-full"
-                style={{ width: `${pct}%`, background: `var(${wt.colorVar})` }}
+                style={{ width: `${pct}%`, background: wt.colorCss }}
               />
             </div>
             <div className="w-16 text-right tabular-nums text-muted-foreground">

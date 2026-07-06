@@ -9,7 +9,7 @@ import {
   formatDuration,
 } from "@/lib/salesup/date";
 import { WORK_TYPE_MAP, type WorkTypeId } from "@/lib/salesup/workTypes";
-import { colorOf, useWorkTypeSettings } from "@/lib/salesup/workTypeSettings";
+import { colorOf, resolveWorkType, useWorkTypeSettings } from "@/lib/salesup/workTypeSettings";
 import type { TimeBlock } from "@/lib/salesup/types";
 import { cn } from "@/lib/utils";
 
@@ -64,8 +64,8 @@ export function MonthCalendar({ monthAnchor, blocks, onChangeMonth, onSelectDay 
       const mins = Math.max(0, b.end_slot - b.start_slot) * SLOT_MINUTES;
       if (mins === 0) continue;
       map[b.date].total += mins;
-      const wt = WORK_TYPE_MAP[b.work_type];
-      if (wt?.categories.includes("customer_progress")) {
+      const eff = resolveWorkType(b.work_type, settings);
+      if (eff?.category === "customer_progress") {
         map[b.date].customer += mins;
       }
       map[b.date].byType[b.work_type] = (map[b.date].byType[b.work_type] ?? 0) + mins;
@@ -207,14 +207,14 @@ export function MonthCalendar({ monthAnchor, blocks, onChangeMonth, onSelectDay 
               )}
               <div className="mt-auto h-1.5 rounded-full overflow-hidden bg-muted flex">
                 {segments.map(([wtId, v]) => {
-                  const wt = WORK_TYPE_MAP[wtId as WorkTypeId];
-                  if (!wt) return null;
+                  const eff = resolveWorkType(wtId, settings);
+                  if (!eff) return null;
                   return (
                     <span
                       key={wtId}
                       style={{
                         width: `${(v / total) * 100}%`,
-                        background: colorOf(wtId as WorkTypeId, settings),
+                        background: eff.colorCss,
                       }}
                     />
                   );

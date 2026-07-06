@@ -26,7 +26,8 @@ import {
   fromDateKey,
   monthDaysOf,
 } from "@/lib/salesup/date";
-import { isCustomerWorkType, type WorkTypeId } from "@/lib/salesup/workTypes";
+import { type WorkTypeId } from "@/lib/salesup/workTypes";
+import { isCustomerRelated, useWorkTypeSettings } from "@/lib/salesup/workTypeSettings";
 import type { TimeBlock } from "@/lib/salesup/types";
 import { cn } from "@/lib/utils";
 
@@ -82,6 +83,7 @@ function TimelinePage() {
   const allBlocks = useTimeBlocks();
   const weekBlocksAll = useTimeBlocksForDates(week.days);
   const monthBlocksAll = useTimeBlocksForDates(monthDays);
+  const { settings } = useWorkTypeSettings();
 
   const visibleWeekBlocks = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -94,7 +96,7 @@ function TimelinePage() {
     );
   }, [weekBlocksAll, search]);
 
-  const stats = useMemo(() => computeStats(weekBlocksAll), [weekBlocksAll]);
+  const stats = useMemo(() => computeStats(weekBlocksAll, settings), [weekBlocksAll, settings]);
 
   const activeWorkType: WorkTypeId | null = filter === "all" ? null : filter;
 
@@ -102,7 +104,7 @@ function TimelinePage() {
 
   const onCreateRange = (date: string, startSlot: number, endSlot: number) => {
     const wt: WorkTypeId = activeWorkType ?? "meeting_customer";
-    const isCustomer = isCustomerWorkType(wt);
+    const isCustomer = isCustomerRelated(wt, settings);
     const saved = upsertTimeBlock({
       date,
       start_slot: startSlot,
@@ -116,7 +118,7 @@ function TimelinePage() {
   };
 
   const onSelectBlock = (b: TimeBlock) => {
-    setDraftLightweight(!isCustomerWorkType(b.work_type));
+    setDraftLightweight(!isCustomerRelated(b.work_type, settings));
     setDraft(blockToDraft(b));
   };
 
