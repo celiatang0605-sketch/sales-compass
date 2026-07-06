@@ -107,7 +107,7 @@ function MonthlyReviewPage() {
                         className="absolute bottom-0 left-0 right-0"
                         style={{
                           height: `${(d.customer / maxTotalDay) * 100}%`,
-                          background: `var(${WORK_TYPE_MAP.meeting_customer.colorVar})`,
+                          background: `var(${WORK_TYPE_MAP.meeting_customer?.colorVar ?? "--wt-meeting-customer"})`,
                         }}
                       />
                     </div>
