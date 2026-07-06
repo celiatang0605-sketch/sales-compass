@@ -42,7 +42,7 @@ export type StatCategory =
   | "other";
 
 export interface WorkType {
-  id: WorkTypeId;
+  id: BuiltinWorkTypeId;
   label: string;
   description: string;
   colorVar: string; // CSS var name without var()
