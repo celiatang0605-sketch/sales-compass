@@ -110,10 +110,10 @@ export function Timeline({ date, blocks, filter, onSelectBlock, onCreateRange }:
                   const cell = cells[slot];
                   const block = cell.block;
                   const isSelected = inRange(slot);
-                  const wt = block ? WORK_TYPE_MAP[block.work_type] : null;
+                  const eff = block ? resolveWorkType(block.work_type, settings) : null;
                   const dimmed = block && filter !== "all" && block.work_type !== filter;
-                  const bg = block && wt
-                    ? colorOf(block.work_type, settings)
+                  const bg = block && eff
+                    ? eff.colorCss
                     : isSelected
                       ? "var(--accent)"
                       : "transparent";
