@@ -33,7 +33,8 @@ function MonthlyReviewPage() {
   const days = useMemo(() => monthDaysOf(anchor), [anchor]);
   const all = useTimeBlocks();
   const blocks = useMemo(() => all.filter((b) => days.includes(b.date)), [all, days]);
-  const stats = useMemo(() => computeStats(blocks), [blocks]);
+  const { settings } = useWorkTypeSettings();
+  const stats = useMemo(() => computeStats(blocks, settings), [blocks, settings]);
   const review = useMonthlyReview(monthKey);
 
   // Daily trend: per-day high-value ratio + customer-progress minutes
