@@ -25,7 +25,8 @@ function WeeklyReviewPage() {
   const weekKey = useMemo(() => weekKeyOf(anchor), [anchor]);
   const all = useTimeBlocks();
   const blocks = useMemo(() => all.filter((b) => days.includes(b.date)), [all, days]);
-  const stats = useMemo(() => computeStats(blocks), [blocks]);
+  const { settings } = useWorkTypeSettings();
+  const stats = useMemo(() => computeStats(blocks, settings), [blocks, settings]);
   const review = useWeeklyReview(weekKey);
 
   return (
