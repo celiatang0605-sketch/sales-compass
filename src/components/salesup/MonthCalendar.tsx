@@ -64,8 +64,8 @@ export function MonthCalendar({ monthAnchor, blocks, onChangeMonth, onSelectDay 
       const mins = Math.max(0, b.end_slot - b.start_slot) * SLOT_MINUTES;
       if (mins === 0) continue;
       map[b.date].total += mins;
-      const wt = WORK_TYPE_MAP[b.work_type];
-      if (wt?.categories.includes("customer_progress")) {
+      const eff = resolveWorkType(b.work_type, settings);
+      if (eff?.category === "customer_progress") {
         map[b.date].customer += mins;
       }
       map[b.date].byType[b.work_type] = (map[b.date].byType[b.work_type] ?? 0) + mins;
