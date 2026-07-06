@@ -207,14 +207,14 @@ export function MonthCalendar({ monthAnchor, blocks, onChangeMonth, onSelectDay 
               )}
               <div className="mt-auto h-1.5 rounded-full overflow-hidden bg-muted flex">
                 {segments.map(([wtId, v]) => {
-                  const wt = WORK_TYPE_MAP[wtId as WorkTypeId];
-                  if (!wt) return null;
+                  const eff = resolveWorkType(wtId, settings);
+                  if (!eff) return null;
                   return (
                     <span
                       key={wtId}
                       style={{
                         width: `${(v / total) * 100}%`,
-                        background: colorOf(wtId as WorkTypeId, settings),
+                        background: eff.colorCss,
                       }}
                     />
                   );
