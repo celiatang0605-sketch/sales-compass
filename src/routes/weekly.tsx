@@ -12,6 +12,7 @@ import {
   formatDuration,
 } from "@/lib/salesup/date";
 import { Card, StatBox, TypeBars, ListOrEmpty, Empty } from "./daily";
+import { useWorkTypeSettings } from "@/lib/salesup/workTypeSettings";
 
 export const Route = createFileRoute("/weekly")({
   head: () => ({ meta: [{ title: "周复盘 · Sales Up" }] }),
