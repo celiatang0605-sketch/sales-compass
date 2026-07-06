@@ -49,6 +49,8 @@ interface Props {
 export function BlockDetailPanel({ draft, lightweight = false, embedded = false, onClose }: Props) {
   const [form, setForm] = useState<DraftBlock | null>(draft);
   const [tagInput, setTagInput] = useState("");
+  const { settings } = useWorkTypeSettings();
+  const effectiveTypes = getEffectiveWorkTypes(settings);
 
   useEffect(() => {
     setForm(draft);
