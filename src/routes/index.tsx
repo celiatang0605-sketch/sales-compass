@@ -104,7 +104,7 @@ function TimelinePage() {
 
   const onCreateRange = (date: string, startSlot: number, endSlot: number) => {
     const wt: WorkTypeId = activeWorkType ?? "meeting_customer";
-    const isCustomer = isCustomerWorkType(wt);
+    const isCustomer = isCustomerRelated(wt, settings);
     const saved = upsertTimeBlock({
       date,
       start_slot: startSlot,
@@ -118,7 +118,7 @@ function TimelinePage() {
   };
 
   const onSelectBlock = (b: TimeBlock) => {
-    setDraftLightweight(!isCustomerWorkType(b.work_type));
+    setDraftLightweight(!isCustomerRelated(b.work_type, settings));
     setDraft(blockToDraft(b));
   };
 
