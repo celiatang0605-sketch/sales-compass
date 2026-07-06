@@ -41,7 +41,7 @@ function MonthlyReviewPage() {
   const dailyTrend = useMemo(() => {
     return days.map((d) => {
       const dayBlocks = blocks.filter((b) => b.date === d);
-      const s = computeStats(dayBlocks);
+      const s = computeStats(dayBlocks, settings);
       return {
         date: d,
         total: s.totalMinutes,
