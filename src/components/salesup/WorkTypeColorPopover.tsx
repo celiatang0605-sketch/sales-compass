@@ -5,10 +5,10 @@ import {
   startingHexOf,
   useWorkTypeSettings,
 } from "@/lib/salesup/workTypeSettings";
-import { WORK_TYPE_MAP, type WorkTypeId } from "@/lib/salesup/workTypes";
+import { WORK_TYPE_MAP, type BuiltinWorkTypeId } from "@/lib/salesup/workTypes";
 
 interface Props {
-  workTypeId: WorkTypeId;
+  workTypeId: BuiltinWorkTypeId;
   anchorRect: DOMRect;
   onClose: () => void;
 }
