@@ -122,11 +122,11 @@ export const WORK_TYPES: WorkType[] = [
   },
 ];
 
-export const WORK_TYPE_MAP: Record<BuiltinWorkTypeId, WorkType> = Object.fromEntries(
+export const WORK_TYPE_MAP: Record<string, WorkType | undefined> = Object.fromEntries(
   WORK_TYPES.map((wt) => [wt.id, wt]),
-) as Record<BuiltinWorkTypeId, WorkType>;
+);
 
 export function getWorkType(id: string | null | undefined): WorkType | undefined {
   if (!id) return undefined;
-  return WORK_TYPE_MAP[id as BuiltinWorkTypeId];
+  return WORK_TYPE_MAP[id];
 }
