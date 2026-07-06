@@ -26,7 +26,8 @@ import {
   fromDateKey,
   monthDaysOf,
 } from "@/lib/salesup/date";
-import { isCustomerWorkType, type WorkTypeId } from "@/lib/salesup/workTypes";
+import { type WorkTypeId } from "@/lib/salesup/workTypes";
+import { isCustomerRelated, useWorkTypeSettings } from "@/lib/salesup/workTypeSettings";
 import type { TimeBlock } from "@/lib/salesup/types";
 import { cn } from "@/lib/utils";
 
