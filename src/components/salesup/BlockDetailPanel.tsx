@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import { X, Trash2, Bell } from "lucide-react";
 import type { TimeBlock, ValueLevel } from "@/lib/salesup/types";
-import { WORK_TYPES, WORK_TYPE_MAP, type WorkTypeId } from "@/lib/salesup/workTypes";
+import { type WorkTypeId } from "@/lib/salesup/workTypes";
+import {
+  getEffectiveWorkTypes,
+  resolveWorkType,
+  useWorkTypeSettings,
+} from "@/lib/salesup/workTypeSettings";
 import {
   slotToTimeString,
   timeStringToSlot,
