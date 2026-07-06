@@ -1,13 +1,21 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { Settings2 } from "lucide-react";
 import {
   TOTAL_SLOTS,
   SLOTS_PER_HOUR,
   DAY_START_HOUR,
   slotToTimeString,
 } from "@/lib/salesup/date";
-import { WORK_TYPES, WORK_TYPE_MAP, type WorkTypeId } from "@/lib/salesup/workTypes";
-import { colorOf, useWorkTypeSettings } from "@/lib/salesup/workTypeSettings";
+import { WORK_TYPE_MAP, type BuiltinWorkTypeId, type WorkTypeId } from "@/lib/salesup/workTypes";
+import {
+  colorOf,
+  getEffectiveWorkTypes,
+  labelOf,
+  resolveWorkType,
+  useWorkTypeSettings,
+} from "@/lib/salesup/workTypeSettings";
 import { WorkTypeColorPopover } from "./WorkTypeColorPopover";
+import { ManageWorkTypesDialog } from "./ManageWorkTypesDialog";
 import type { TimeBlock } from "@/lib/salesup/types";
 import { cn } from "@/lib/utils";
 
