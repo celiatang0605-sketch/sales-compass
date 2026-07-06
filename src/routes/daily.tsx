@@ -16,7 +16,8 @@ export const Route = createFileRoute("/daily")({
 function DailyReviewPage() {
   const [date, setDate] = useState(() => todayKey());
   const blocks = useTimeBlocksForDate(date);
-  const stats = useMemo(() => computeStats(blocks), [blocks]);
+  const { settings } = useWorkTypeSettings();
+  const stats = useMemo(() => computeStats(blocks, settings), [blocks, settings]);
   const review = useDailyReview(date);
 
   return (
