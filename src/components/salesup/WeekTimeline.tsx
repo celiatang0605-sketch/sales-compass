@@ -11,6 +11,7 @@ import { WORK_TYPE_MAP, type WorkTypeId } from "@/lib/salesup/workTypes";
 import {
   colorOf,
   labelOf,
+  resolveWorkType,
   subTextOn,
   textOn,
   useWorkTypeSettings,
