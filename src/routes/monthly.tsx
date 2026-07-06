@@ -119,7 +119,7 @@ function MonthlyReviewPage() {
           )}
           <div className="flex items-center gap-3 mt-3 text-[11px] text-muted-foreground">
             <span className="inline-flex items-center gap-1">
-              <span className="w-2.5 h-2.5 rounded-sm" style={{ background: `var(${WORK_TYPE_MAP.meeting_customer.colorVar})` }} />
+              <span className="w-2.5 h-2.5 rounded-sm" style={{ background: `var(${WORK_TYPE_MAP.meeting_customer?.colorVar ?? "--wt-meeting-customer"})` }} />
               客户推进时长
             </span>
             <span className="inline-flex items-center gap-1">
