@@ -6,6 +6,7 @@ import { useTimeBlocksForDate, useDailyReview, saveDailyReview } from "@/lib/sal
 import { computeStats, topProblemTags } from "@/lib/salesup/stats";
 import { todayKey, formatDuration } from "@/lib/salesup/date";
 import { WORK_TYPES, WORK_TYPE_MAP } from "@/lib/salesup/workTypes";
+import { getEffectiveWorkTypes, useWorkTypeSettings } from "@/lib/salesup/workTypeSettings";
 
 export const Route = createFileRoute("/daily")({
   head: () => ({ meta: [{ title: "日复盘 · Sales Up" }] }),
