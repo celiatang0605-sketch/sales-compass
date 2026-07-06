@@ -83,6 +83,7 @@ function TimelinePage() {
   const allBlocks = useTimeBlocks();
   const weekBlocksAll = useTimeBlocksForDates(week.days);
   const monthBlocksAll = useTimeBlocksForDates(monthDays);
+  const { settings } = useWorkTypeSettings();
 
   const visibleWeekBlocks = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -95,7 +96,7 @@ function TimelinePage() {
     );
   }, [weekBlocksAll, search]);
 
-  const stats = useMemo(() => computeStats(weekBlocksAll), [weekBlocksAll]);
+  const stats = useMemo(() => computeStats(weekBlocksAll, settings), [weekBlocksAll, settings]);
 
   const activeWorkType: WorkTypeId | null = filter === "all" ? null : filter;
 
