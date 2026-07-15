@@ -102,9 +102,12 @@ function ExpoIndexPage() {
     try {
       const res = await importLegacyLocalLeads(userId);
       if (res.imported > 0) toast.success(`已导入 ${res.imported} 条本地线索`);
-      if (res.failed > 0) toast.error(`${res.failed} 条导入失败，本地数据已保留`);
-      setShowLegacy(false);
+      if (res.failed > 0) {
+        toast.error(`${res.failed} 条导入失败，稍后可再次尝试`);
+      }
       await refresh();
+      // Re-evaluate the banner: if failures remain, keep showing it.
+      refreshLegacy();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "导入失败");
     } finally {
