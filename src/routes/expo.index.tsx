@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/salesup/AppShell";
 import {
-  MOCK_LEADS,
   RATING_LABEL,
   RATING_STYLE,
   STATUS_LABEL,
@@ -22,6 +21,7 @@ import {
   type ExpoLead,
   type ExpoRating,
 } from "@/lib/salesup/expoMock";
+import { getAllLeads } from "@/lib/salesup/expoStore";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/expo/")({
