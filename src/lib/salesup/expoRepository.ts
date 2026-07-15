@@ -13,7 +13,13 @@ import {
 type Row = {
   id: string;
   user_id: string;
+  event_name: string | null;
+  event_date: string | null;
+  hall: string | null;
+  booth: string | null;
   company_name: string | null;
+  industry: string | null;
+  company_background: string | null;
   contact_name: string | null;
   contact_title: string | null;
   phone: string | null;
@@ -30,11 +36,17 @@ type Row = {
   existing_vendor: string | null;
   priority: string;
   signals: string[] | null;
+  score: number | null;
   score_reason: string | null;
   status: string;
   next_action: string | null;
   next_action_date: string | null;
   last_contact_at: string | null;
+  ai_summary: string | null;
+  missing_information: string | null;
+  suggested_message: string | null;
+  business_card_url: string | null;
+  photo_urls: string[] | null;
   created_at: string;
   updated_at: string;
 };
@@ -44,6 +56,12 @@ function rowToLead(r: Row): ExpoLead {
   return {
     id: r.id,
     company: r.company_name ?? "",
+    industry: r.industry ?? undefined,
+    companyBackground: r.company_background ?? undefined,
+    eventName: r.event_name ?? undefined,
+    eventDate: r.event_date ?? undefined,
+    hall: r.hall ?? undefined,
+    booth: r.booth ?? undefined,
     contactName: r.contact_name ?? "",
     contactTitle: r.contact_title ?? undefined,
     phone: r.phone ?? undefined,
@@ -62,7 +80,13 @@ function rowToLead(r: Row): ExpoLead {
     timeline: r.timing_signal ?? undefined,
     currentVendor: r.existing_vendor ?? undefined,
     priorityReason: r.score_reason ?? undefined,
+    score: r.score ?? undefined,
     signals: r.signals ?? [],
+    aiSummary: r.ai_summary ?? undefined,
+    missingInformation: r.missing_information ?? undefined,
+    suggestedMessage: r.suggested_message ?? undefined,
+    businessCardUrl: r.business_card_url ?? undefined,
+    photoUrls: r.photo_urls ?? [],
     nextAction: r.next_action ?? "",
     nextActionDate: r.next_action_date ?? "",
     lastContactedAt: r.last_contact_at ? toDateKey(new Date(r.last_contact_at)) : undefined,
@@ -79,6 +103,63 @@ export interface NewLeadInput {
   nextAction: string;
   nextActionDate: string;
 }
+
+// All editable fields for detail-page updates.
+export interface UpdateLeadInput {
+  company?: string;
+  industry?: string;
+  companyBackground?: string;
+  eventName?: string;
+  eventDate?: string;
+  hall?: string;
+  booth?: string;
+  contactName?: string;
+  contactTitle?: string;
+  phone?: string;
+  wechat?: string;
+  email?: string;
+  rawNote?: string;
+  summary?: string;
+  keyInfo?: string;
+  coreProblem?: string;
+  currentNeed?: string;
+  decisionRole?: string;
+  budgetSignal?: string;
+  timeline?: string;
+  currentVendor?: string;
+  priorityReason?: string;
+  priority?: ExpoPriority;
+  status?: ExpoStatus;
+  signals?: string[];
+  nextAction?: string;
+  nextActionDate?: string;
+  lastContactedAt?: string; // YYYY-MM-DD or ""
+}
+
+// Fields → column mapping. Text fields: empty string ⇒ null.
+const TEXT_MAP: Record<string, string> = {
+  company: "company_name",
+  industry: "industry",
+  companyBackground: "company_background",
+  eventName: "event_name",
+  hall: "hall",
+  booth: "booth",
+  contactName: "contact_name",
+  contactTitle: "contact_title",
+  phone: "phone",
+  wechat: "wechat",
+  email: "email",
+  rawNote: "raw_note",
+  summary: "conversation_summary",
+  keyInfo: "key_info",
+  coreProblem: "pain_points",
+  currentNeed: "needs",
+  decisionRole: "decision_role",
+  budgetSignal: "budget_signal",
+  timeline: "timing_signal",
+  currentVendor: "existing_vendor",
+  priorityReason: "score_reason",
+};
 
 export async function listLeads(): Promise<ExpoLead[]> {
   const { data, error } = await supabase
@@ -126,16 +207,44 @@ export async function createLead(input: NewLeadInput): Promise<ExpoLead> {
 
 export async function updateLead(
   id: string,
-  patch: Partial<NewLeadInput>,
+  patch: UpdateLeadInput,
 ): Promise<ExpoLead> {
   const update: Record<string, unknown> = {};
-  if (patch.company !== undefined) update.company_name = patch.company.trim() || null;
-  if (patch.rawNote !== undefined) update.raw_note = patch.rawNote.trim() || null;
+
+  for (const [k, col] of Object.entries(TEXT_MAP)) {
+    const v = (patch as Record<string, unknown>)[k];
+    if (v === undefined) continue;
+    const s = typeof v === "string" ? v.trim() : "";
+    update[col] = s.length > 0 ? s : null;
+  }
+
   if (patch.priority !== undefined) update.priority = patch.priority;
   if (patch.status !== undefined) update.status = patch.status;
   if (patch.signals !== undefined) update.signals = patch.signals;
-  if (patch.nextAction !== undefined) update.next_action = patch.nextAction.trim() || null;
-  if (patch.nextActionDate !== undefined) update.next_action_date = patch.nextActionDate || null;
+  if (patch.eventDate !== undefined) update.event_date = patch.eventDate || null;
+
+  // next_action / next_action_date paired: no action ⇒ date must be null too.
+  const na = patch.nextAction;
+  const nd = patch.nextActionDate;
+  if (na !== undefined || nd !== undefined) {
+    const actionTrimmed = (na ?? "").trim();
+    if (na !== undefined) {
+      update.next_action = actionTrimmed || null;
+    }
+    if (nd !== undefined) {
+      update.next_action_date = nd || null;
+    }
+    // If we're clearing action, also clear date to avoid orphan todos.
+    if (na !== undefined && !actionTrimmed) {
+      update.next_action_date = null;
+    }
+  }
+
+  if (patch.lastContactedAt !== undefined) {
+    update.last_contact_at = patch.lastContactedAt
+      ? new Date(patch.lastContactedAt + "T00:00:00").toISOString()
+      : null;
+  }
 
   const { data, error } = await supabase
     .from("expo_leads")
