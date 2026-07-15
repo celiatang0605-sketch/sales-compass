@@ -18,6 +18,12 @@ export type ExpoStatus =
 export interface ExpoLead {
   id: string;
   company: string;
+  industry?: string;
+  companyBackground?: string;
+  eventName?: string;
+  eventDate?: string; // YYYY-MM-DD
+  hall?: string;
+  booth?: string;
   contactName: string;
   contactTitle?: string;
   phone?: string;
@@ -39,7 +45,13 @@ export interface ExpoLead {
   timeline?: string;
   currentVendor?: string;
   priorityReason?: string;
+  score?: number;
   signals?: string[];
+  aiSummary?: string;
+  missingInformation?: string;
+  suggestedMessage?: string;
+  businessCardUrl?: string;
+  photoUrls?: string[];
   createdAt: string; // YYYY-MM-DD
 }
 
