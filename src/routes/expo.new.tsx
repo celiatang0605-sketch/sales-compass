@@ -196,7 +196,7 @@ function ExpoNewPage() {
       priority: draftPrompt.priority ?? "unrated",
       signals: draftPrompt.signals ?? [],
       nextAction: draftPrompt.nextAction ?? "",
-      nextDate: draftPrompt.nextDate ?? todayIso(),
+      nextDate: draftPrompt.nextDate ?? "",
     });
     setDraftPrompt(null);
   };
