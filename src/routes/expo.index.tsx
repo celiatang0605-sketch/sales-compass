@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/salesup/AppShell";
 import {
-  MOCK_LEADS,
   RATING_LABEL,
   RATING_STYLE,
   STATUS_LABEL,
@@ -22,6 +21,7 @@ import {
   type ExpoLead,
   type ExpoRating,
 } from "@/lib/salesup/expoMock";
+import { getAllLeads } from "@/lib/salesup/expoStore";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/expo/")({
@@ -43,20 +43,21 @@ function ExpoIndexPage() {
   const [q, setQ] = useState("");
   const [rating, setRating] = useState<ExpoRating | "all">("all");
   const today = todayIso();
+  const leads = useMemo(() => getAllLeads(), []);
 
   const stats = useMemo(() => {
-    const todayNew = MOCK_LEADS.filter((l) => l.createdAt === today).length;
-    const toOrganize = MOCK_LEADS.filter((l) => l.status === "to_organize").length;
-    const highPriority = MOCK_LEADS.filter((l) => l.rating === "A").length;
-    const followups = MOCK_LEADS.filter(
+    const todayNew = leads.filter((l) => l.createdAt === today).length;
+    const toOrganize = leads.filter((l) => l.status === "to_organize").length;
+    const highPriority = leads.filter((l) => l.rating === "A").length;
+    const followups = leads.filter(
       (l) => l.status !== "won" && l.status !== "lost",
     ).length;
     return { todayNew, toOrganize, highPriority, followups };
-  }, [today]);
+  }, [leads, today]);
 
   const list = useMemo(() => {
     const kw = q.trim().toLowerCase();
-    return MOCK_LEADS.filter((l) => {
+    return leads.filter((l) => {
       if (rating !== "all" && l.rating !== rating) return false;
       if (!kw) return true;
       return (
@@ -65,7 +66,7 @@ function ExpoIndexPage() {
         l.headline.toLowerCase().includes(kw)
       );
     });
-  }, [q, rating]);
+  }, [leads, q, rating]);
 
   return (
     <AppShell>
