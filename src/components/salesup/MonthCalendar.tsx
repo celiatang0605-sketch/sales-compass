@@ -33,6 +33,8 @@ function firstOfMonth(key: string): string {
   return toDateKey(d);
 }
 
+const SWIPE_THRESHOLD_PX = 12;
+
 export function MonthCalendar({ monthAnchor, blocks, onChangeMonth, onSelectDay }: Props) {
   const { settings } = useWorkTypeSettings();
   const days = monthDaysOf(monthAnchor);
@@ -42,6 +44,42 @@ export function MonthCalendar({ monthAnchor, blocks, onChangeMonth, onSelectDay 
   const today = todayKey();
   const thisMonthAnchor = firstOfMonth(todayKey());
   const isThisMonth = firstOfMonth(monthAnchor) === thisMonthAnchor;
+
+  // Distinguish taps from scroll/swipe gestures on mobile so that dragging
+  // the calendar vertically/horizontally does not accidentally open a day.
+  const isTapRef = useRef(true);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    if (!t) return;
+    touchStartRef.current = { x: t.clientX, y: t.clientY };
+    isTapRef.current = true;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const start = touchStartRef.current;
+    if (!start) return;
+    const t = e.touches[0];
+    if (!t) return;
+    const dx = Math.abs(t.clientX - start.x);
+    const dy = Math.abs(t.clientY - start.y);
+    if (dx > SWIPE_THRESHOLD_PX || dy > SWIPE_THRESHOLD_PX) {
+      isTapRef.current = false;
+    }
+  };
+
+  const handleTouchEnd = () => {
+    touchStartRef.current = null;
+  };
+
+  const handleDayClick = (date: string) => {
+    if (!isTapRef.current) {
+      isTapRef.current = true;
+      return;
+    }
+    onSelectDay(date);
+  };
 
   // Build per-day stats
   const perDay = useMemo(() => {
