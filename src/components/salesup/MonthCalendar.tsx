@@ -197,7 +197,10 @@ export function MonthCalendar({ monthAnchor, blocks, onChangeMonth, onSelectDay 
           return (
             <button
               key={d}
-              onClick={() => onSelectDay(d)}
+              onClick={() => handleDayClick(d)}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
               className={cn(
                 "h-24 rounded-lg border bg-card p-2 text-left flex flex-col gap-1 transition-colors hover:border-foreground/40",
                 isToday ? "border-primary ring-1 ring-primary/40" : "border-border",
