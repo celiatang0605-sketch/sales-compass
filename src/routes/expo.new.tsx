@@ -9,25 +9,24 @@ import {
   Camera,
   Sparkles,
   X,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/salesup/AppShell";
 import {
-  RATING_LABEL,
+  PRIORITY_LABEL,
   todayIso,
-  type ExpoLead,
-  type ExpoRating,
+  type ExpoPriority,
 } from "@/lib/salesup/expoMock";
 import {
-  addUserLead,
   clearDraft,
   getDraft,
-  newLeadId,
   saveDraft,
   searchCompanies,
-  todayCounts,
   type ExpoDraft,
 } from "@/lib/salesup/expoStore";
+import { createLead, listLeads, listUserCompanies } from "@/lib/salesup/expoRepository";
+import { useExpoLeads } from "@/lib/salesup/useExpoLeads";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/expo/new")({
@@ -35,7 +34,7 @@ export const Route = createFileRoute("/expo/new")({
   component: ExpoNewPage,
 });
 
-const RATINGS: ExpoRating[] = ["A", "B", "C", "D", "unrated"];
+const PRIORITIES: ExpoPriority[] = ["A", "B", "C", "D", "unrated"];
 
 const SIGNAL_OPTIONS = [
   "有明确需求",
@@ -68,7 +67,7 @@ function offsetDate(days: number): string {
 const emptyForm = () => ({
   company: "",
   raw: "",
-  rating: "unrated" as ExpoRating,
+  priority: "unrated" as ExpoPriority,
   signals: [] as string[],
   nextAction: "",
   nextDate: todayIso(),
@@ -76,24 +75,28 @@ const emptyForm = () => ({
 
 function ExpoNewPage() {
   const navigate = useNavigate();
+  const { userId, leads, refresh } = useExpoLeads();
   const [form, setForm] = useState(emptyForm);
+  const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState<null | "back" | "again" | "later">(null);
   const [draftPrompt, setDraftPrompt] = useState<ExpoDraft | null>(null);
   const [companyFocus, setCompanyFocus] = useState(false);
-  const [counts, setCounts] = useState(() => ({ total: 0, A: 0, toOrganize: 0 }));
+  const [historyCompanies, setHistoryCompanies] = useState<string[]>([]);
   const companyRef = useRef<HTMLInputElement>(null);
   const draftInitRef = useRef(false);
 
-  // Initial: pick up draft prompt + today counts (client-only to avoid SSR mismatch).
+  // Draft prompt + history companies — after we know the user.
   useEffect(() => {
-    setCounts(todayCounts());
-    if (draftInitRef.current) return;
-    draftInitRef.current = true;
-    const d = getDraft();
-    if (d) setDraftPrompt(d);
-  }, []);
+    if (!userId) return;
+    if (!draftInitRef.current) {
+      draftInitRef.current = true;
+      const d = getDraft(userId);
+      if (d) setDraftPrompt(d);
+    }
+    listUserCompanies().then(setHistoryCompanies).catch(() => {});
+  }, [userId]);
 
-  // Debounced draft persist.
+  // Debounced draft persist (scoped to current user).
   useEffect(() => {
     const t = setTimeout(() => {
       const isEmpty =
@@ -101,20 +104,31 @@ function ExpoNewPage() {
         !form.raw.trim() &&
         !form.nextAction.trim() &&
         form.signals.length === 0 &&
-        form.rating === "unrated";
+        form.priority === "unrated";
       if (isEmpty) return;
       const d: ExpoDraft = { ...form, updatedAt: Date.now() };
-      saveDraft(d);
+      saveDraft(userId, d);
     }, 400);
     return () => clearTimeout(t);
-  }, [form]);
+  }, [form, userId]);
 
   const suggestions = useMemo(() => {
     if (!companyFocus) return [];
-    return searchCompanies(form.company);
-  }, [form.company, companyFocus]);
+    return searchCompanies(form.company, historyCompanies);
+  }, [form.company, companyFocus, historyCompanies]);
 
   const canSave = form.company.trim().length > 0 || form.raw.trim().length > 0;
+
+  // Today counts from actual Supabase data.
+  const today = todayIso();
+  const counts = useMemo(() => {
+    const todays = leads.filter((l) => l.createdAt === today);
+    return {
+      total: todays.length,
+      A: todays.filter((l) => l.priority === "A").length,
+      toOrganize: todays.filter((l) => l.status === "to_organize").length,
+    };
+  }, [leads, today]);
 
   const patch = useCallback(
     (partial: Partial<typeof form>) => setForm((f) => ({ ...f, ...partial })),
@@ -128,41 +142,50 @@ function ExpoNewPage() {
     }));
   };
 
-  const doSave = (mode: "back" | "again" | "later") => {
-    if (!canSave) return;
-    const isLater = mode === "later";
-    const lead: ExpoLead = {
-      id: newLeadId(),
-      company: form.company.trim() || "(未命名线索)",
-      contactName: "",
-      rating: isLater ? "unrated" : form.rating,
-      status: isLater ? "to_organize" : "new",
-      headline: form.raw.trim().slice(0, 60) || "现场快速记录",
-      nextAction: isLater ? "" : form.nextAction.trim(),
-      nextActionDate: form.nextDate,
-      rawNote: form.raw.trim(),
-      signals: form.signals,
-      createdAt: todayIso(),
-    };
-    addUserLead(lead);
-    clearDraft();
-    setCounts(todayCounts());
-
-    const label = form.company.trim() || "匿名线索";
-    toast.success(`已记录 · ${label}`);
-    setSavedFlash(mode);
-
-    if (mode === "back") {
-      setTimeout(() => navigate({ to: "/expo" }), 400);
+  const doSave = async (mode: "back" | "again" | "later") => {
+    if (!canSave || saving) return;
+    if (!userId) {
+      toast.error("请先登录再保存线索");
+      navigate({ to: "/auth" });
       return;
     }
-    // "again" and "later" both stay on page and start a new record.
-    setTimeout(() => {
-      setForm(emptyForm());
-      setSavedFlash(null);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      companyRef.current?.focus();
-    }, 350);
+    const isLater = mode === "later";
+    setSaving(true);
+    try {
+      await createLead({
+        company: form.company,
+        rawNote: form.raw,
+        priority: isLater ? "unrated" : form.priority,
+        status: isLater ? "to_organize" : "to_follow_up",
+        signals: form.signals,
+        nextAction: isLater ? "" : form.nextAction,
+        nextActionDate: form.nextDate,
+      });
+      clearDraft(userId);
+      // Refresh list so the index/status bar reflects the new lead.
+      void refresh().catch(() => void listLeads());
+
+      const label = form.company.trim() || "匿名线索";
+      toast.success(`已记录 · ${label}`);
+      setSavedFlash(mode);
+
+      if (mode === "back") {
+        setTimeout(() => navigate({ to: "/expo" }), 350);
+        return;
+      }
+      setTimeout(() => {
+        setForm(emptyForm());
+        setSavedFlash(null);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        companyRef.current?.focus();
+      }, 350);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "保存失败，请重试";
+      toast.error("保存失败", { description: msg });
+      // Intentionally do NOT clear form or draft on failure.
+    } finally {
+      setSaving(false);
+    }
   };
 
   const applyDraft = () => {
@@ -170,7 +193,7 @@ function ExpoNewPage() {
     setForm({
       company: draftPrompt.company ?? "",
       raw: draftPrompt.raw ?? "",
-      rating: draftPrompt.rating ?? "unrated",
+      priority: draftPrompt.priority ?? "unrated",
       signals: draftPrompt.signals ?? [],
       nextAction: draftPrompt.nextAction ?? "",
       nextDate: draftPrompt.nextDate ?? todayIso(),
@@ -179,7 +202,7 @@ function ExpoNewPage() {
   };
 
   const discardDraft = () => {
-    clearDraft();
+    clearDraft(userId);
     setDraftPrompt(null);
   };
 
@@ -198,7 +221,6 @@ function ExpoNewPage() {
           </Link>
         </div>
 
-        {/* Today status bar */}
         <div className="mb-3 rounded-lg border border-border bg-card/60 px-3 py-2 text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
           <Sparkles className="w-3.5 h-3.5 text-primary" />
           <span className="text-foreground/80 font-medium">今日已记录 {counts.total} 条</span>
@@ -208,7 +230,6 @@ function ExpoNewPage() {
           <span>待整理 {counts.toOrganize}</span>
         </div>
 
-        {/* Draft resume bar */}
         {draftPrompt && (
           <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-sm flex items-start gap-2">
             <div className="flex-1 min-w-0">
@@ -243,7 +264,6 @@ function ExpoNewPage() {
         </div>
 
         <div className="space-y-4 rounded-xl border border-border bg-card p-4 md:p-5">
-          {/* Company */}
           <Field label="公司 / 线索名称">
             <div className="relative">
               <input
@@ -277,7 +297,6 @@ function ExpoNewPage() {
             </div>
           </Field>
 
-          {/* Raw note */}
           <Field label="原始现场记录" hint="现场简讯 / 关键词">
             <textarea
               value={form.raw}
@@ -293,16 +312,15 @@ function ExpoNewPage() {
             </div>
           </Field>
 
-          {/* Rating */}
           <Field label="客户价值">
             <div className="flex gap-1.5 flex-wrap">
-              {RATINGS.map((r) => {
-                const active = r === form.rating;
+              {PRIORITIES.map((r) => {
+                const active = r === form.priority;
                 return (
                   <button
                     key={r}
                     type="button"
-                    onClick={() => patch({ rating: r })}
+                    onClick={() => patch({ priority: r })}
                     className={cn(
                       "px-3 min-h-9 rounded-full border text-xs transition",
                       active
@@ -310,14 +328,13 @@ function ExpoNewPage() {
                         : "bg-background text-muted-foreground border-border hover:text-foreground",
                     )}
                   >
-                    {RATING_LABEL[r]}
+                    {PRIORITY_LABEL[r]}
                   </button>
                 );
               })}
             </div>
           </Field>
 
-          {/* Signals */}
           <Field label="现场信号" hint="可多选">
             <div className="flex gap-1.5 flex-wrap">
               {SIGNAL_OPTIONS.map((s) => {
@@ -341,7 +358,6 @@ function ExpoNewPage() {
             </div>
           </Field>
 
-          {/* Next action */}
           <Field label="下一步动作">
             <div className="flex gap-1.5 flex-wrap mb-2">
               {NEXT_ACTIONS.map((a) => {
@@ -371,7 +387,6 @@ function ExpoNewPage() {
             />
           </Field>
 
-          {/* Next date */}
           <Field label="下一步日期">
             <div className="flex gap-1.5 flex-wrap mb-2">
               {[
@@ -409,8 +424,8 @@ function ExpoNewPage() {
           <div className="pt-1">
             <button
               type="button"
-              onClick={() => doSave("later")}
-              disabled={!canSave}
+              onClick={() => void doSave("later")}
+              disabled={!canSave || saving}
               className="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground disabled:opacity-40"
             >
               先记下来，稍后整理
@@ -421,19 +436,25 @@ function ExpoNewPage() {
         {/* Desktop action bar */}
         <div className="hidden md:flex items-center justify-end gap-2 mt-4">
           <button
-            onClick={() => doSave("back")}
-            disabled={!canSave}
+            onClick={() => void doSave("back")}
+            disabled={!canSave || saving}
             className="h-10 px-4 rounded-lg border border-border text-sm hover:bg-secondary disabled:opacity-50"
           >
             保存并返回
           </button>
           <button
-            onClick={() => doSave("again")}
-            disabled={!canSave}
+            onClick={() => void doSave("again")}
+            disabled={!canSave || saving}
             className="inline-flex items-center gap-1.5 h-10 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
           >
-            {savedFlash === "again" ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-            保存并继续下一家
+            {saving ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : savedFlash === "again" ? (
+              <Check className="w-4 h-4" />
+            ) : (
+              <Save className="w-4 h-4" />
+            )}
+            {saving ? "保存中…" : "保存并继续下一家"}
           </button>
         </div>
       </div>
@@ -441,19 +462,25 @@ function ExpoNewPage() {
       {/* Mobile sticky action bar */}
       <div className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur px-3 py-2.5 flex gap-2 pb-[calc(0.625rem+env(safe-area-inset-bottom))]">
         <button
-          onClick={() => doSave("back")}
-          disabled={!canSave}
+          onClick={() => void doSave("back")}
+          disabled={!canSave || saving}
           className="flex-1 h-11 rounded-lg border border-border text-sm bg-background disabled:opacity-50"
         >
           保存并返回
         </button>
         <button
-          onClick={() => doSave("again")}
-          disabled={!canSave}
+          onClick={() => void doSave("again")}
+          disabled={!canSave || saving}
           className="flex-[1.4] inline-flex items-center justify-center gap-1.5 h-11 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50"
         >
-          {savedFlash === "again" ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-          保存并继续下一家
+          {saving ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : savedFlash === "again" ? (
+            <Check className="w-4 h-4" />
+          ) : (
+            <Save className="w-4 h-4" />
+          )}
+          {saving ? "保存中…" : "保存并继续下一家"}
         </button>
       </div>
     </AppShell>
