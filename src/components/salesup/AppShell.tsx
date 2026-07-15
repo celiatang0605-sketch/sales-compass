@@ -1,6 +1,6 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
-import { Clock, CalendarCheck, CalendarRange, CalendarDays, Bell, Lock, LogOut, Upload, Loader2, Cloud, CloudOff, CheckCircle2, AlertCircle } from "lucide-react";
+import { Clock, CalendarCheck, CalendarRange, CalendarDays, Bell, Lock, LogOut, Upload, Loader2, Cloud, CloudOff, CheckCircle2, AlertCircle, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth, signOut } from "@/lib/salesup/auth";
 import { initSync, migrateLocalToCloud, hasLegacyLocalData, onSyncState, type SyncState } from "@/lib/salesup/sync";
