@@ -1,23 +1,36 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { ChevronLeft, Phone, Mail, MessageCircle, Paperclip, Image as ImageIcon, CreditCard } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  ChevronLeft,
+  Phone,
+  Mail,
+  MessageCircle,
+  Paperclip,
+  Image as ImageIcon,
+  CreditCard,
+  Loader2,
+  RefreshCw,
+} from "lucide-react";
 import { AppShell } from "@/components/salesup/AppShell";
 import {
-  RATING_LABEL,
-  RATING_STYLE,
+  PRIORITY_LABEL,
+  PRIORITY_STYLE,
   STATUS_LABEL,
   type ExpoLead,
 } from "@/lib/salesup/expoMock";
-import { findAnyLead } from "@/lib/salesup/expoStore";
+import { getLead } from "@/lib/salesup/expoRepository";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/expo/$id")({
   head: ({ params }) => ({ meta: [{ title: `线索详情 · ${params.id}` }] }),
-  loader: ({ params }) => {
-    const lead = findAnyLead(params.id);
-    if (!lead) throw notFound();
-    return { lead };
-  },
   notFoundComponent: LeadNotFound,
+  errorComponent: ({ error }) => (
+    <AppShell>
+      <div className="py-16 text-center text-sm text-rose-700">
+        {error instanceof Error ? error.message : "读取失败"}
+      </div>
+    </AppShell>
+  ),
   component: ExpoDetailPage,
 });
 
@@ -35,7 +48,59 @@ function LeadNotFound() {
 }
 
 function ExpoDetailPage() {
-  const { lead } = Route.useLoaderData() as { lead: ExpoLead };
+  const { id } = Route.useParams();
+  const [lead, setLead] = useState<ExpoLead | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = () => {
+    setLoading(true);
+    setError(null);
+    getLead(id)
+      .then((l) => {
+        setLead(l);
+        setLoading(false);
+      })
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : "读取失败");
+        setLoading(false);
+      });
+  };
+
+  useEffect(load, [id]);
+
+  if (loading) {
+    return (
+      <AppShell>
+        <div className="py-16 text-center text-sm text-muted-foreground inline-flex items-center justify-center gap-2 w-full">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          正在加载线索…
+        </div>
+      </AppShell>
+    );
+  }
+  if (error) {
+    return (
+      <AppShell>
+        <div className="max-w-lg mx-auto py-12">
+          <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-800">
+            <div className="font-medium">加载失败</div>
+            <div className="text-xs mt-1 break-words">{error}</div>
+            <button
+              onClick={load}
+              className="mt-3 inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-rose-600 text-white text-xs"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              重试
+            </button>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+  if (!lead) {
+    throw notFound();
+  }
 
   return (
     <AppShell>
@@ -50,26 +115,27 @@ function ExpoDetailPage() {
           </Link>
         </div>
 
-        {/* Header */}
         <div className="rounded-xl border border-border bg-card p-4 md:p-5 mb-3">
           <div className="flex items-start gap-3 flex-wrap">
             <div className="flex-1 min-w-0">
               <h1 className="text-lg md:text-xl font-semibold tracking-tight truncate">
-                {lead.company}
+                {lead.company || "(未命名线索)"}
               </h1>
-              <div className="text-sm text-muted-foreground mt-0.5">
-                {lead.contactName}
-                {lead.contactTitle ? ` · ${lead.contactTitle}` : ""}
-              </div>
+              {lead.contactName && (
+                <div className="text-sm text-muted-foreground mt-0.5">
+                  {lead.contactName}
+                  {lead.contactTitle ? ` · ${lead.contactTitle}` : ""}
+                </div>
+              )}
             </div>
             <div className="flex gap-1.5">
               <span
                 className={cn(
                   "px-2 h-6 inline-flex items-center rounded border text-xs",
-                  RATING_STYLE[lead.rating],
+                  PRIORITY_STYLE[lead.priority],
                 )}
               >
-                {RATING_LABEL[lead.rating]}
+                {PRIORITY_LABEL[lead.priority]}
               </span>
               <span className="px-2 h-6 inline-flex items-center rounded bg-secondary text-secondary-foreground text-xs">
                 {STATUS_LABEL[lead.status]}
@@ -83,11 +149,27 @@ function ExpoDetailPage() {
           </div>
         </div>
 
-        {/* Sections */}
         <Section title="原始记录">
           <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">
             {lead.rawNote || <span className="text-muted-foreground">现场未记录</span>}
           </p>
+        </Section>
+
+        <Section title="现场信号">
+          {lead.signals && lead.signals.length > 0 ? (
+            <div className="flex gap-1.5 flex-wrap">
+              {lead.signals.map((s) => (
+                <span
+                  key={s}
+                  className="px-2 h-6 inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-800 text-xs"
+                >
+                  {s}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <div className="text-sm text-muted-foreground">无</div>
+          )}
         </Section>
 
         <Section title="联系人">
@@ -115,7 +197,7 @@ function ExpoDetailPage() {
             <InfoRow label="预算信号" value={lead.budgetSignal} />
             <InfoRow label="时间节点" value={lead.timeline} />
             <InfoRow label="现有供应商" value={lead.currentVendor} />
-            <InfoRow label="优先级" value={RATING_LABEL[lead.rating]} />
+            <InfoRow label="优先级" value={PRIORITY_LABEL[lead.priority]} />
             <InfoRow label="评分原因" value={lead.priorityReason} multiline />
           </div>
         </Section>
