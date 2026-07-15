@@ -16,6 +16,7 @@ import { Route as DailyRouteImport } from './routes/daily'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ExpoIndexRouteImport } from './routes/expo.index'
+import { Route as ExpoNewRouteImport } from './routes/expo.new'
 
 const WeeklyRoute = WeeklyRouteImport.update({
   id: '/weekly',
@@ -52,6 +53,11 @@ const ExpoIndexRoute = ExpoIndexRouteImport.update({
   path: '/expo/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ExpoNewRoute = ExpoNewRouteImport.update({
+  id: '/expo/new',
+  path: '/expo/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -60,6 +66,7 @@ export interface FileRoutesByFullPath {
   '/monthly': typeof MonthlyRoute
   '/reminders': typeof RemindersRoute
   '/weekly': typeof WeeklyRoute
+  '/expo/new': typeof ExpoNewRoute
   '/expo/': typeof ExpoIndexRoute
 }
 export interface FileRoutesByTo {
@@ -69,6 +76,7 @@ export interface FileRoutesByTo {
   '/monthly': typeof MonthlyRoute
   '/reminders': typeof RemindersRoute
   '/weekly': typeof WeeklyRoute
+  '/expo/new': typeof ExpoNewRoute
   '/expo': typeof ExpoIndexRoute
 }
 export interface FileRoutesById {
@@ -79,6 +87,7 @@ export interface FileRoutesById {
   '/monthly': typeof MonthlyRoute
   '/reminders': typeof RemindersRoute
   '/weekly': typeof WeeklyRoute
+  '/expo/new': typeof ExpoNewRoute
   '/expo/': typeof ExpoIndexRoute
 }
 export interface FileRouteTypes {
@@ -90,9 +99,18 @@ export interface FileRouteTypes {
     | '/monthly'
     | '/reminders'
     | '/weekly'
+    | '/expo/new'
     | '/expo/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/daily' | '/monthly' | '/reminders' | '/weekly' | '/expo'
+  to:
+    | '/'
+    | '/auth'
+    | '/daily'
+    | '/monthly'
+    | '/reminders'
+    | '/weekly'
+    | '/expo/new'
+    | '/expo'
   id:
     | '__root__'
     | '/'
@@ -101,6 +119,7 @@ export interface FileRouteTypes {
     | '/monthly'
     | '/reminders'
     | '/weekly'
+    | '/expo/new'
     | '/expo/'
   fileRoutesById: FileRoutesById
 }
@@ -111,6 +130,7 @@ export interface RootRouteChildren {
   MonthlyRoute: typeof MonthlyRoute
   RemindersRoute: typeof RemindersRoute
   WeeklyRoute: typeof WeeklyRoute
+  ExpoNewRoute: typeof ExpoNewRoute
   ExpoIndexRoute: typeof ExpoIndexRoute
 }
 
@@ -165,6 +185,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ExpoIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/expo/new': {
+      id: '/expo/new'
+      path: '/expo/new'
+      fullPath: '/expo/new'
+      preLoaderRoute: typeof ExpoNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -175,6 +202,7 @@ const rootRouteChildren: RootRouteChildren = {
   MonthlyRoute: MonthlyRoute,
   RemindersRoute: RemindersRoute,
   WeeklyRoute: WeeklyRoute,
+  ExpoNewRoute: ExpoNewRoute,
   ExpoIndexRoute: ExpoIndexRoute,
 }
 export const routeTree = rootRouteImport
