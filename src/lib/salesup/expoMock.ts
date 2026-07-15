@@ -35,6 +35,7 @@ export interface ExpoLead {
   timeline?: string; // 时间节点
   currentVendor?: string; // 现有供应商
   priorityReason?: string; // 评分原因
+  signals?: string[]; // 现场信号快速标签
   createdAt: string; // YYYY-MM-DD 现场记录日期
 }
 
