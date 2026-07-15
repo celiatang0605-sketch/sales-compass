@@ -35,7 +35,7 @@ function LeadNotFound() {
 }
 
 function ExpoDetailPage() {
-  const { lead } = Route.useLoaderData();
+  const { lead } = Route.useLoaderData() as { lead: ExpoLead };
 
   return (
     <AppShell>
