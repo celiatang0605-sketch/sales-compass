@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Plus,
   Search,
@@ -20,11 +20,12 @@ import {
   PRIORITY_LABEL,
   PRIORITY_STYLE,
   STATUS_LABEL,
+  isActiveFollowup,
   isOverdue,
-  todayIso,
   type ExpoLead,
   type ExpoPriority,
 } from "@/lib/salesup/expoMock";
+import { todayKey } from "@/lib/salesup/date";
 import { useExpoLeads } from "@/lib/salesup/useExpoLeads";
 import {
   countLegacyLocalLeads,
@@ -48,19 +49,17 @@ export const Route = createFileRoute("/expo/")({
 
 const PRIORITY_FILTERS: (ExpoPriority | "all")[] = ["all", "A", "B", "C", "D", "unrated"];
 
-const CLOSED_STATUSES = new Set(["converted", "invalid"]);
-
 function ExpoIndexPage() {
   const [q, setQ] = useState("");
   const [priority, setPriority] = useState<ExpoPriority | "all">("all");
-  const today = todayIso();
+  const today = todayKey();
   const { leads, loading, error, userId, refresh } = useExpoLeads();
 
   // Legacy migration banner.
   const [showLegacy, setShowLegacy] = useState(false);
   const [legacyCount, setLegacyCount] = useState(0);
   const [importing, setImporting] = useState(false);
-  useEffect(() => {
+  const refreshLegacy = useCallback(() => {
     if (!userId) {
       setShowLegacy(false);
       return;
@@ -68,14 +67,19 @@ function ExpoIndexPage() {
     if (hasLegacyLocalLeads(userId)) {
       setLegacyCount(countLegacyLocalLeads());
       setShowLegacy(true);
+    } else {
+      setShowLegacy(false);
     }
   }, [userId]);
+  useEffect(() => {
+    refreshLegacy();
+  }, [refreshLegacy]);
 
   const stats = useMemo(() => {
     const todayNew = leads.filter((l) => l.createdAt === today).length;
     const toOrganize = leads.filter((l) => l.status === "to_organize").length;
     const highPriority = leads.filter((l) => l.priority === "A").length;
-    const followups = leads.filter((l) => !CLOSED_STATUSES.has(l.status)).length;
+    const followups = leads.filter((l) => isActiveFollowup(l, today)).length;
     return { todayNew, toOrganize, highPriority, followups };
   }, [leads, today]);
 
@@ -98,9 +102,12 @@ function ExpoIndexPage() {
     try {
       const res = await importLegacyLocalLeads(userId);
       if (res.imported > 0) toast.success(`已导入 ${res.imported} 条本地线索`);
-      if (res.failed > 0) toast.error(`${res.failed} 条导入失败，本地数据已保留`);
-      setShowLegacy(false);
+      if (res.failed > 0) {
+        toast.error(`${res.failed} 条导入失败，稍后可再次尝试`);
+      }
       await refresh();
+      // Re-evaluate the banner: if failures remain, keep showing it.
+      refreshLegacy();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "导入失败");
     } finally {

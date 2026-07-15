@@ -13,9 +13,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/salesup/AppShell";
+import { addDays, todayKey } from "@/lib/salesup/date";
 import {
   PRIORITY_LABEL,
-  todayIso,
   type ExpoPriority,
 } from "@/lib/salesup/expoMock";
 import {
@@ -59,9 +59,7 @@ const NEXT_ACTIONS = [
 ];
 
 function offsetDate(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  return addDays(todayKey(), days);
 }
 
 const emptyForm = () => ({
@@ -70,7 +68,7 @@ const emptyForm = () => ({
   priority: "unrated" as ExpoPriority,
   signals: [] as string[],
   nextAction: "",
-  nextDate: todayIso(),
+  nextDate: "",
 });
 
 function ExpoNewPage() {
@@ -120,7 +118,7 @@ function ExpoNewPage() {
   const canSave = form.company.trim().length > 0 || form.raw.trim().length > 0;
 
   // Today counts from actual Supabase data.
-  const today = todayIso();
+  const today = todayKey();
   const counts = useMemo(() => {
     const todays = leads.filter((l) => l.createdAt === today);
     return {
@@ -152,14 +150,16 @@ function ExpoNewPage() {
     const isLater = mode === "later";
     setSaving(true);
     try {
+      const nextActionTrimmed = form.nextAction.trim();
+      const hasNextAction = !isLater && nextActionTrimmed.length > 0;
       await createLead({
         company: form.company,
         rawNote: form.raw,
         priority: isLater ? "unrated" : form.priority,
         status: isLater ? "to_organize" : "to_follow_up",
         signals: form.signals,
-        nextAction: isLater ? "" : form.nextAction,
-        nextActionDate: form.nextDate,
+        nextAction: hasNextAction ? nextActionTrimmed : "",
+        nextActionDate: hasNextAction ? form.nextDate : "",
       });
       clearDraft(userId);
       // Refresh list so the index/status bar reflects the new lead.
@@ -196,7 +196,7 @@ function ExpoNewPage() {
       priority: draftPrompt.priority ?? "unrated",
       signals: draftPrompt.signals ?? [],
       nextAction: draftPrompt.nextAction ?? "",
-      nextDate: draftPrompt.nextDate ?? todayIso(),
+      nextDate: draftPrompt.nextDate ?? "",
     });
     setDraftPrompt(null);
   };
