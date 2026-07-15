@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Plus,
   Search,
@@ -10,18 +10,27 @@ import {
   ClipboardList,
   Flame,
   Clock,
+  Loader2,
+  RefreshCw,
+  Database,
 } from "lucide-react";
+import { toast } from "sonner";
 import { AppShell } from "@/components/salesup/AppShell";
 import {
-  RATING_LABEL,
-  RATING_STYLE,
+  PRIORITY_LABEL,
+  PRIORITY_STYLE,
   STATUS_LABEL,
   isOverdue,
   todayIso,
   type ExpoLead,
-  type ExpoRating,
+  type ExpoPriority,
 } from "@/lib/salesup/expoMock";
-import { getAllLeads } from "@/lib/salesup/expoStore";
+import { useExpoLeads } from "@/lib/salesup/useExpoLeads";
+import {
+  countLegacyLocalLeads,
+  hasLegacyLocalLeads,
+  importLegacyLocalLeads,
+} from "@/lib/salesup/expoStore";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/expo/")({
@@ -37,48 +46,107 @@ export const Route = createFileRoute("/expo/")({
   component: ExpoIndexPage,
 });
 
-const RATING_FILTERS: (ExpoRating | "all")[] = ["all", "A", "B", "C", "D", "unrated"];
+const PRIORITY_FILTERS: (ExpoPriority | "all")[] = ["all", "A", "B", "C", "D", "unrated"];
+
+const CLOSED_STATUSES = new Set(["converted", "invalid"]);
 
 function ExpoIndexPage() {
   const [q, setQ] = useState("");
-  const [rating, setRating] = useState<ExpoRating | "all">("all");
+  const [priority, setPriority] = useState<ExpoPriority | "all">("all");
   const today = todayIso();
-  const leads = useMemo(() => getAllLeads(), []);
+  const { leads, loading, error, userId, refresh } = useExpoLeads();
+
+  // Legacy migration banner.
+  const [showLegacy, setShowLegacy] = useState(false);
+  const [legacyCount, setLegacyCount] = useState(0);
+  const [importing, setImporting] = useState(false);
+  useEffect(() => {
+    if (!userId) {
+      setShowLegacy(false);
+      return;
+    }
+    if (hasLegacyLocalLeads(userId)) {
+      setLegacyCount(countLegacyLocalLeads());
+      setShowLegacy(true);
+    }
+  }, [userId]);
 
   const stats = useMemo(() => {
     const todayNew = leads.filter((l) => l.createdAt === today).length;
     const toOrganize = leads.filter((l) => l.status === "to_organize").length;
-    const highPriority = leads.filter((l) => l.rating === "A").length;
-    const followups = leads.filter(
-      (l) => l.status !== "won" && l.status !== "lost",
-    ).length;
+    const highPriority = leads.filter((l) => l.priority === "A").length;
+    const followups = leads.filter((l) => !CLOSED_STATUSES.has(l.status)).length;
     return { todayNew, toOrganize, highPriority, followups };
   }, [leads, today]);
 
   const list = useMemo(() => {
     const kw = q.trim().toLowerCase();
     return leads.filter((l) => {
-      if (rating !== "all" && l.rating !== rating) return false;
+      if (priority !== "all" && l.priority !== priority) return false;
       if (!kw) return true;
       return (
         l.company.toLowerCase().includes(kw) ||
-        l.contactName.toLowerCase().includes(kw) ||
+        (l.contactName ?? "").toLowerCase().includes(kw) ||
         l.headline.toLowerCase().includes(kw)
       );
     });
-  }, [leads, q, rating]);
+  }, [leads, q, priority]);
+
+  const runImport = async () => {
+    if (!userId || importing) return;
+    setImporting(true);
+    try {
+      const res = await importLegacyLocalLeads(userId);
+      if (res.imported > 0) toast.success(`已导入 ${res.imported} 条本地线索`);
+      if (res.failed > 0) toast.error(`${res.failed} 条导入失败，本地数据已保留`);
+      setShowLegacy(false);
+      await refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "导入失败");
+    } finally {
+      setImporting(false);
+    }
+  };
 
   return (
     <AppShell>
       {/* Header */}
       <div className="mb-4 md:mb-6">
-        <h1 className="text-xl md:text-2xl font-semibold tracking-tight">
-          展会线索
-        </h1>
+        <h1 className="text-xl md:text-2xl font-semibold tracking-tight">展会线索</h1>
         <p className="text-sm text-muted-foreground mt-1">
           快速记录现场信息，整理高价值客户并推进下一步。
         </p>
       </div>
+
+      {/* Legacy import banner */}
+      {showLegacy && (
+        <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 md:p-4 flex items-start gap-3">
+          <Database className="w-4 h-4 text-amber-700 mt-0.5 shrink-0" />
+          <div className="flex-1 min-w-0 text-sm">
+            <div className="font-medium text-amber-900">
+              发现 {legacyCount} 条本地保存的展会线索
+            </div>
+            <div className="text-xs text-amber-800/80 mt-0.5">
+              这些是 Phase 2 阶段暂存在浏览器里的记录。点击下方按钮导入到当前账号。
+            </div>
+          </div>
+          <div className="flex gap-1.5 shrink-0">
+            <button
+              onClick={runImport}
+              disabled={importing}
+              className="h-8 px-3 rounded-md bg-amber-600 text-white text-xs font-medium disabled:opacity-60"
+            >
+              {importing ? "导入中…" : "导入到当前账号"}
+            </button>
+            <button
+              onClick={() => setShowLegacy(false)}
+              className="h-8 px-2 rounded-md text-amber-800 text-xs hover:bg-amber-500/10"
+            >
+              稍后
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 mb-4 md:mb-6">
@@ -119,15 +187,15 @@ function ExpoIndexPage() {
         </div>
       </div>
 
-      {/* Rating filter chips */}
+      {/* Priority filter chips */}
       <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1 mb-3">
-        {RATING_FILTERS.map((r) => {
-          const active = rating === r;
-          const label = r === "all" ? "全部" : RATING_LABEL[r];
+        {PRIORITY_FILTERS.map((r) => {
+          const active = priority === r;
+          const label = r === "all" ? "全部" : PRIORITY_LABEL[r];
           return (
             <button
               key={r}
-              onClick={() => setRating(r)}
+              onClick={() => setPriority(r)}
               className={cn(
                 "shrink-0 px-3 h-8 rounded-full text-xs border transition",
                 active
@@ -143,14 +211,45 @@ function ExpoIndexPage() {
 
       {/* List */}
       <section id="all-leads" className="space-y-2.5 pb-24 md:pb-6">
-        {list.length === 0 && (
-          <div className="rounded-xl border border-dashed border-border py-12 text-center text-sm text-muted-foreground">
-            没有匹配的线索
+        {!userId && !loading && (
+          <EmptyState
+            title="请先登录"
+            hint="展会线索按账号保存到云端。"
+            action={{ to: "/auth", label: "去登录" }}
+          />
+        )}
+        {userId && loading && (
+          <div className="rounded-xl border border-dashed border-border py-12 text-center text-sm text-muted-foreground inline-flex items-center justify-center gap-2 w-full">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            正在加载…
           </div>
         )}
-        {list.map((l) => (
-          <LeadCard key={l.id} lead={l} />
-        ))}
+        {userId && !loading && error && (
+          <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-800">
+            <div className="font-medium">加载失败</div>
+            <div className="text-xs mt-1 break-words">{error}</div>
+            <button
+              onClick={() => void refresh()}
+              className="mt-3 inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-rose-600 text-white text-xs"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              重试
+            </button>
+          </div>
+        )}
+        {userId && !loading && !error && list.length === 0 && (
+          <EmptyState
+            title={leads.length === 0 ? "还没有线索" : "没有匹配的线索"}
+            hint={leads.length === 0 ? "去展会现场记录第一条吧。" : undefined}
+            action={
+              leads.length === 0 ? { to: "/expo/new", label: "开始快速记录" } : undefined
+            }
+          />
+        )}
+        {userId &&
+          !loading &&
+          !error &&
+          list.map((l) => <LeadCard key={l.id} lead={l} />)}
       </section>
 
       {/* Mobile sticky primary action */}
@@ -164,6 +263,31 @@ function ExpoIndexPage() {
         </Link>
       </div>
     </AppShell>
+  );
+}
+
+function EmptyState({
+  title,
+  hint,
+  action,
+}: {
+  title: string;
+  hint?: string;
+  action?: { to: string; label: string };
+}) {
+  return (
+    <div className="rounded-xl border border-dashed border-border py-12 text-center">
+      <div className="text-sm font-medium text-foreground/90">{title}</div>
+      {hint && <div className="text-xs text-muted-foreground mt-1">{hint}</div>}
+      {action && (
+        <Link
+          to={action.to}
+          className="inline-flex items-center gap-1.5 h-9 px-4 mt-4 rounded-lg bg-primary text-primary-foreground text-xs font-medium"
+        >
+          {action.label}
+        </Link>
+      )}
+    </div>
   );
 }
 
@@ -198,7 +322,7 @@ function StatCard({
 }
 
 function LeadCard({ lead }: { lead: ExpoLead }) {
-  const overdue = isOverdue(lead.nextActionDate);
+  const overdue = lead.nextActionDate && isOverdue(lead.nextActionDate);
   return (
     <Link
       to="/expo/$id"
@@ -208,31 +332,41 @@ function LeadCard({ lead }: { lead: ExpoLead }) {
       <div className="flex items-start gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-medium text-sm md:text-base truncate">{lead.company}</span>
+            <span className="font-medium text-sm md:text-base truncate">
+              {lead.company || "(未命名线索)"}
+            </span>
             <span
               className={cn(
                 "px-1.5 h-5 inline-flex items-center rounded border text-[10px] font-medium",
-                RATING_STYLE[lead.rating],
+                PRIORITY_STYLE[lead.priority],
               )}
             >
-              {RATING_LABEL[lead.rating]}
+              {PRIORITY_LABEL[lead.priority]}
             </span>
             <span className="px-1.5 h-5 inline-flex items-center rounded bg-secondary text-secondary-foreground text-[10px]">
               {STATUS_LABEL[lead.status]}
             </span>
           </div>
-          <div className="text-xs text-muted-foreground mt-0.5">
-            {lead.contactName}
-            {lead.contactTitle ? ` · ${lead.contactTitle}` : ""}
-          </div>
+          {lead.contactName && (
+            <div className="text-xs text-muted-foreground mt-0.5">
+              {lead.contactName}
+              {lead.contactTitle ? ` · ${lead.contactTitle}` : ""}
+            </div>
+          )}
           <p className="text-sm text-foreground/90 mt-2 line-clamp-2">{lead.headline}</p>
           <div className="mt-2.5 flex items-center gap-2 flex-wrap text-xs">
-            <span className="inline-flex items-center gap-1 text-muted-foreground">
-              <Clock className="w-3 h-3" />
-              下一步 {lead.nextActionDate}
-            </span>
-            <span className="text-muted-foreground/60">·</span>
-            <span className="truncate text-foreground/80">{lead.nextAction}</span>
+            {lead.nextActionDate && (
+              <span className="inline-flex items-center gap-1 text-muted-foreground">
+                <Clock className="w-3 h-3" />
+                下一步 {lead.nextActionDate}
+              </span>
+            )}
+            {lead.nextAction && (
+              <>
+                <span className="text-muted-foreground/60">·</span>
+                <span className="truncate text-foreground/80">{lead.nextAction}</span>
+              </>
+            )}
             {overdue && (
               <span className="inline-flex items-center gap-1 px-1.5 h-5 rounded bg-rose-500/10 text-rose-700 text-[10px] border border-rose-500/15">
                 <AlertCircle className="w-3 h-3" />
