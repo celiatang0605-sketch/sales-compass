@@ -150,14 +150,16 @@ function ExpoNewPage() {
     const isLater = mode === "later";
     setSaving(true);
     try {
+      const nextActionTrimmed = form.nextAction.trim();
+      const hasNextAction = !isLater && nextActionTrimmed.length > 0;
       await createLead({
         company: form.company,
         rawNote: form.raw,
         priority: isLater ? "unrated" : form.priority,
         status: isLater ? "to_organize" : "to_follow_up",
         signals: form.signals,
-        nextAction: isLater ? "" : form.nextAction,
-        nextActionDate: form.nextDate,
+        nextAction: hasNextAction ? nextActionTrimmed : "",
+        nextActionDate: hasNextAction ? form.nextDate : "",
       });
       clearDraft(userId);
       // Refresh list so the index/status bar reflects the new lead.
