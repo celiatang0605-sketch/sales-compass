@@ -50,7 +50,7 @@ export const STATUS_LABEL: Record<ExpoStatus, string> = {
   waiting_reply: "等待回复",
   replied: "已回复",
   meeting_scheduled: "已约会议",
-  converted: "已成交",
+  converted: "已转商机",
   nurture: "长期培育",
   invalid: "无效",
 };
@@ -80,12 +80,31 @@ export const MOCK_COMPANY_POOL: string[] = [
   "远景资本",
 ];
 
+// Local-timezone today key (YYYY-MM-DD). Reuses date.ts helper.
+import { todayKey } from "./date";
+
 export function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayKey();
 }
 
 export function isOverdue(dateStr: string, today = todayIso()): boolean {
   return !!dateStr && dateStr < today;
+}
+
+// Whether a lead is an active follow-up target for the "待跟进" stat.
+// Rule: status === "to_follow_up", OR has a nextAction whose date is today or overdue.
+// Excludes: to_organize, nurture, invalid, converted, and future-dated actions.
+export function isActiveFollowup(
+  lead: { status: ExpoStatus; nextAction?: string; nextActionDate?: string },
+  today = todayIso(),
+): boolean {
+  if (lead.status === "to_follow_up") return true;
+  if (lead.status === "nurture" || lead.status === "invalid" || lead.status === "converted") {
+    return false;
+  }
+  const action = (lead.nextAction ?? "").trim();
+  const date = (lead.nextActionDate ?? "").trim();
+  return !!action && !!date && date <= today;
 }
 
 export function deriveHeadline(rawNote: string): string {
