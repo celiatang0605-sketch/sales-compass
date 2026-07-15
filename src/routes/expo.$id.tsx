@@ -2,18 +2,18 @@ import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { ChevronLeft, Phone, Mail, MessageCircle, Paperclip, Image as ImageIcon, CreditCard } from "lucide-react";
 import { AppShell } from "@/components/salesup/AppShell";
 import {
-  findLead,
   RATING_LABEL,
   RATING_STYLE,
   STATUS_LABEL,
   type ExpoLead,
 } from "@/lib/salesup/expoMock";
+import { findAnyLead } from "@/lib/salesup/expoStore";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/expo/$id")({
   head: ({ params }) => ({ meta: [{ title: `线索详情 · ${params.id}` }] }),
   loader: ({ params }) => {
-    const lead = findLead(params.id);
+    const lead = findAnyLead(params.id);
     if (!lead) throw notFound();
     return { lead };
   },
