@@ -2,9 +2,9 @@
 // Pages should use this repository (or the useExpoLeads hook), NOT expoStore.
 
 import { supabase } from "@/integrations/supabase/client";
+import { toDateKey, todayKey } from "./date";
 import {
   deriveHeadline,
-  todayIso,
   type ExpoLead,
   type ExpoPriority,
   type ExpoStatus,
