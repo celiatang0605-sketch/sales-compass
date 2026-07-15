@@ -13,9 +13,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/salesup/AppShell";
+import { addDays, todayKey } from "@/lib/salesup/date";
 import {
   PRIORITY_LABEL,
-  todayIso,
   type ExpoPriority,
 } from "@/lib/salesup/expoMock";
 import {
