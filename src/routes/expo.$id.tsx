@@ -6,6 +6,7 @@ import {
   RATING_LABEL,
   RATING_STYLE,
   STATUS_LABEL,
+  type ExpoLead,
 } from "@/lib/salesup/expoMock";
 import { cn } from "@/lib/utils";
 
