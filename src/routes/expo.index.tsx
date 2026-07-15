@@ -20,11 +20,12 @@ import {
   PRIORITY_LABEL,
   PRIORITY_STYLE,
   STATUS_LABEL,
+  isActiveFollowup,
   isOverdue,
-  todayIso,
   type ExpoLead,
   type ExpoPriority,
 } from "@/lib/salesup/expoMock";
+import { todayKey } from "@/lib/salesup/date";
 import { useExpoLeads } from "@/lib/salesup/useExpoLeads";
 import {
   countLegacyLocalLeads,
@@ -47,8 +48,6 @@ export const Route = createFileRoute("/expo/")({
 });
 
 const PRIORITY_FILTERS: (ExpoPriority | "all")[] = ["all", "A", "B", "C", "D", "unrated"];
-
-const CLOSED_STATUSES = new Set(["converted", "invalid"]);
 
 function ExpoIndexPage() {
   const [q, setQ] = useState("");
