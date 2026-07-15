@@ -11,6 +11,7 @@ const NAV_ITEMS: { to: string; label: string; icon: typeof Clock }[] = [
   { to: "/weekly", label: "周复盘", icon: CalendarRange },
   { to: "/monthly", label: "月复盘", icon: CalendarDays },
   { to: "/reminders", label: "提醒中心", icon: Bell },
+  { to: "/expo", label: "展会线索", icon: Sparkles },
 ];
 
 const FUTURE_ITEMS = [
