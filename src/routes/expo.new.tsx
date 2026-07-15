@@ -118,7 +118,7 @@ function ExpoNewPage() {
   const canSave = form.company.trim().length > 0 || form.raw.trim().length > 0;
 
   // Today counts from actual Supabase data.
-  const today = todayIso();
+  const today = todayKey();
   const counts = useMemo(() => {
     const todays = leads.filter((l) => l.createdAt === today);
     return {
