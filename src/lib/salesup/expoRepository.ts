@@ -65,8 +65,8 @@ function rowToLead(r: Row): ExpoLead {
     signals: r.signals ?? [],
     nextAction: r.next_action ?? "",
     nextActionDate: r.next_action_date ?? "",
-    lastContactedAt: r.last_contact_at ? r.last_contact_at.slice(0, 10) : undefined,
-    createdAt: (r.created_at ?? todayIso()).slice(0, 10),
+    lastContactedAt: r.last_contact_at ? toDateKey(new Date(r.last_contact_at)) : undefined,
+    createdAt: r.created_at ? toDateKey(new Date(r.created_at)) : todayKey(),
   };
 }
 
