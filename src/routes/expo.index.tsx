@@ -52,14 +52,14 @@ const PRIORITY_FILTERS: (ExpoPriority | "all")[] = ["all", "A", "B", "C", "D", "
 function ExpoIndexPage() {
   const [q, setQ] = useState("");
   const [priority, setPriority] = useState<ExpoPriority | "all">("all");
-  const today = todayIso();
+  const today = todayKey();
   const { leads, loading, error, userId, refresh } = useExpoLeads();
 
   // Legacy migration banner.
   const [showLegacy, setShowLegacy] = useState(false);
   const [legacyCount, setLegacyCount] = useState(0);
   const [importing, setImporting] = useState(false);
-  useEffect(() => {
+  const refreshLegacy = useCallback(() => {
     if (!userId) {
       setShowLegacy(false);
       return;
@@ -67,14 +67,19 @@ function ExpoIndexPage() {
     if (hasLegacyLocalLeads(userId)) {
       setLegacyCount(countLegacyLocalLeads());
       setShowLegacy(true);
+    } else {
+      setShowLegacy(false);
     }
   }, [userId]);
+  useEffect(() => {
+    refreshLegacy();
+  }, [refreshLegacy]);
 
   const stats = useMemo(() => {
     const todayNew = leads.filter((l) => l.createdAt === today).length;
     const toOrganize = leads.filter((l) => l.status === "to_organize").length;
     const highPriority = leads.filter((l) => l.priority === "A").length;
-    const followups = leads.filter((l) => !CLOSED_STATUSES.has(l.status)).length;
+    const followups = leads.filter((l) => isActiveFollowup(l, today)).length;
     return { todayNew, toOrganize, highPriority, followups };
   }, [leads, today]);
 
