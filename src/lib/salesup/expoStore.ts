@@ -141,6 +141,11 @@ export async function importLegacyLocalLeads(userId: string): Promise<{
     window.localStorage.getItem(LEGACY_LS_KEY_LEADS),
     [],
   );
+  if (!Array.isArray(arr) || arr.length === 0) {
+    window.localStorage.setItem(migratedFlagKey(userId), String(Date.now()));
+    return { imported: 0, failed: 0 };
+  }
+  const remaining: LegacyLead[] = [];
   let imported = 0;
   let failed = 0;
   for (const l of arr) {
@@ -161,13 +166,18 @@ export async function importLegacyLocalLeads(userId: string): Promise<{
     } catch (e) {
       console.error("[expo] legacy import failed", e);
       failed++;
+      remaining.push(l);
     }
   }
   if (failed === 0) {
-    // Only remove the source data if everything imported cleanly.
+    // All succeeded: remove source data and mark migrated.
     window.localStorage.removeItem(LEGACY_LS_KEY_LEADS);
+    window.localStorage.setItem(migratedFlagKey(userId), String(Date.now()));
+  } else {
+    // Keep only the failed rows so retry does not duplicate successful ones.
+    window.localStorage.setItem(LEGACY_LS_KEY_LEADS, JSON.stringify(remaining));
+    // Do NOT set the migrated flag — banner will re-appear for another try.
   }
-  window.localStorage.setItem(migratedFlagKey(userId), String(Date.now()));
   return { imported, failed };
 }
 
