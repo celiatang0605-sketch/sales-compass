@@ -103,27 +103,10 @@ function rowToCustomer(r: Row): Customer {
   };
 }
 
-export interface NewCustomerInput {
+export interface NewCustomerInput extends UpdateCustomerInput {
   companyName: string;
-  source?: CustomerSource;
-  sourceDetail?: string;
-  sourceDate?: string;
-  industry?: string;
-  contactName?: string;
-  contactTitle?: string;
-  decisionRole?: DecisionRole;
-  phone?: string;
-  wechat?: string;
-  email?: string;
-  productLines?: string[];
-  stage?: CustomerStage;
-  status?: CustomerStatus;
-  amount?: number | null;
-  expectedCloseDate?: string;
-  nextAction?: string;
-  nextActionDate?: string;
-  notes?: string;
 }
+
 
 export interface UpdateCustomerInput {
   companyName?: string;
