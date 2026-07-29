@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
-import { X, Trash2, Bell } from "lucide-react";
+import { X, Trash2, Bell, ChevronDown, Check } from "lucide-react";
 import type { TimeBlock, ValueLevel } from "@/lib/salesup/types";
+import { useCustomers } from "@/lib/salesup/useCustomers";
+import { STAGE_LABEL } from "@/lib/salesup/customerTypes";
 import { type WorkTypeId } from "@/lib/salesup/workTypes";
 import {
   getEffectiveWorkTypes,
