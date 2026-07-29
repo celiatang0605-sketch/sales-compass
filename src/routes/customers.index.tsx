@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -22,11 +22,17 @@ import {
   Timer,
   Briefcase,
   Users,
+  ChevronDown,
+  ChevronUp,
+  Columns3,
+  LayoutDashboard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AppShell } from "@/components/salesup/AppShell";
 import { StageAdvanceControl } from "@/components/salesup/customer/StageAdvanceControl";
 import { StageChangeDialog } from "@/components/salesup/customer/StageChangeDialog";
+import { CustomerTableView } from "@/components/salesup/customer/CustomerTableView";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useCustomers } from "@/lib/salesup/useCustomers";
 import { todayKey } from "@/lib/salesup/date";
 import {
@@ -42,6 +48,10 @@ import {
   type CustomerSource,
   type CustomerStage,
 } from "@/lib/salesup/customerTypes";
+
+const BOARD_STAGES = STAGE_ORDER.filter((stage) => stage !== "to_contact");
+const CUSTOMER_VIEW_STORAGE_KEY = "salesup:customers:view";
+type CustomerView = "board" | "table";
 
 export const Route = createFileRoute("/customers/")({
   head: () => ({
@@ -72,6 +82,19 @@ function formatAmount(amount: number, currency: string): string {
   return `${symbol}${amount.toLocaleString("zh-CN")}`;
 }
 
+function stageChangedAtTimestamp(customer: Customer): number {
+  const timestamp = new Date(customer.stageChangedAt).getTime();
+  return Number.isNaN(timestamp) ? Number.MAX_SAFE_INTEGER : timestamp;
+}
+
+function acquiredDays(customer: Customer, today: string): number {
+  const acquiredAt = customer.sourceDate ?? customer.createdAt;
+  const start = new Date(`${acquiredAt.slice(0, 10)}T00:00:00`).getTime();
+  const end = new Date(`${today}T00:00:00`).getTime();
+  if (Number.isNaN(start) || Number.isNaN(end)) return 0;
+  return Math.max(0, Math.floor((end - start) / 86400000));
+}
+
 function CustomersBoardPage() {
   const { customers, loading, error, userId, refresh } = useCustomers();
   const [sources, setSources] = useState<CustomerSource[]>([]);
@@ -80,6 +103,13 @@ function CustomersBoardPage() {
     customer: Customer;
     stage: CustomerStage;
   } | null>(null);
+  const [view, setView] = useState<CustomerView>("board");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = window.localStorage.getItem(CUSTOMER_VIEW_STORAGE_KEY);
+    if (saved === "board" || saved === "table") setView(saved);
+  }, []);
 
   const active = useMemo(() => customers.filter((c) => c.status === "active"), [customers]);
 
@@ -89,14 +119,19 @@ function CustomersBoardPage() {
     return Array.from(set).sort();
   }, [customers]);
 
-  const filtered = useMemo(() => {
-    return active.filter((c) => {
+  const allFiltered = useMemo(() => {
+    return customers.filter((c) => {
       if (sources.length > 0 && !sources.includes(c.source)) return false;
       if (productLines.length > 0 && !c.productLines.some((p) => productLines.includes(p)))
         return false;
       return true;
     });
-  }, [active, sources, productLines]);
+  }, [customers, sources, productLines]);
+
+  const filtered = useMemo(
+    () => allFiltered.filter((customer) => customer.status === "active"),
+    [allFiltered],
+  );
 
   const today = todayKey();
 
@@ -107,16 +142,35 @@ function CustomersBoardPage() {
       if (c.nextAction && c.nextActionDate && c.nextActionDate <= today) followupToday += 1;
       if (isStale(c)) stalled += 1;
     }
-    return { total: filtered.length, followupToday, stalled };
+    return {
+      total: filtered.filter((c) => c.stage !== "to_contact").length,
+      followupToday,
+      stalled,
+    };
   }, [filtered, today]);
+
+  const toContactCustomers = useMemo(
+    () =>
+      filtered
+        .filter((c) => c.stage === "to_contact")
+        .sort((a, b) => acquiredDays(b, today) - acquiredDays(a, today)),
+    [filtered, today],
+  );
+
+  const boardCustomers = useMemo(
+    () => filtered.filter((c) => c.stage !== "to_contact"),
+    [filtered],
+  );
 
   const columns = useMemo(
     () =>
-      STAGE_ORDER.map((stage) => ({
+      BOARD_STAGES.map((stage) => ({
         stage,
-        items: filtered.filter((c) => c.stage === stage),
+        items: boardCustomers
+          .filter((c) => c.stage === stage)
+          .sort((a, b) => stageChangedAtTimestamp(a) - stageChangedAtTimestamp(b)),
       })),
-    [filtered],
+    [boardCustomers],
   );
 
   const toggle = <T,>(list: T[], v: T, set: (n: T[]) => void) => {
@@ -125,10 +179,17 @@ function CustomersBoardPage() {
 
   const showBoard = !!userId && !loading && !error;
 
+  const changeView = (nextView: CustomerView) => {
+    setView(nextView);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(CUSTOMER_VIEW_STORAGE_KEY, nextView);
+    }
+  };
+
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const draggingCustomer = useMemo(
-    () => filtered.find((c) => c.id === draggingId) ?? null,
-    [filtered, draggingId],
+    () => boardCustomers.find((c) => c.id === draggingId) ?? null,
+    [boardCustomers, draggingId],
   );
 
   const sensors = useSensors(
@@ -147,7 +208,7 @@ function CustomersBoardPage() {
     setDraggingId(null);
     const overStage = e.over?.id ? (String(e.over.id) as CustomerStage) : null;
     if (!overStage) return;
-    const cust = filtered.find((c) => c.id === activeId);
+    const cust = boardCustomers.find((c) => c.id === activeId);
     if (!cust || cust.stage === overStage) return;
     setStageTarget({ customer: cust, stage: overStage });
   };
@@ -161,13 +222,43 @@ function CustomersBoardPage() {
             按阶段查看进行中的客户，识别停滞与逾期跟进。
           </p>
         </div>
-        <Link
-          to="/customers/new"
-          className="shrink-0 inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium shadow-sm hover:bg-primary/90 transition"
-        >
-          <Plus className="w-4 h-4" />
-          新建客户
-        </Link>
+        <div className="flex shrink-0 items-center gap-2">
+          <div className="inline-flex h-9 rounded-lg border border-border bg-card p-0.5">
+            <button
+              type="button"
+              onClick={() => changeView("board")}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-md px-2 text-xs transition",
+                view === "board"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <LayoutDashboard className="h-3.5 w-3.5" />
+              看板
+            </button>
+            <button
+              type="button"
+              onClick={() => changeView("table")}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-md px-2 text-xs transition",
+                view === "table"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Columns3 className="h-3.5 w-3.5" />
+              表格
+            </button>
+          </div>
+          <Link
+            to="/customers/new"
+            className="inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium shadow-sm hover:bg-primary/90 transition"
+          >
+            <Plus className="w-4 h-4" />
+            新建客户
+          </Link>
+        </div>
       </div>
 
       {/* 顶部统计条 */}
@@ -240,21 +331,37 @@ function CustomersBoardPage() {
         </div>
       )}
 
-      {showBoard && filtered.length === 0 && (
+      {showBoard && view === "board" && (
+        <ToContactBar
+          customers={toContactCustomers}
+          today={today}
+          onStartFollowup={(customer) =>
+            setStageTarget({ customer, stage: "opportunity_confirmed" })
+          }
+        />
+      )}
+
+      {showBoard && view === "board" && boardCustomers.length === 0 && (
         <div className="rounded-xl border border-dashed border-border py-12 text-center">
           <Users className="w-5 h-5 mx-auto text-muted-foreground mb-2" />
           <div className="text-sm font-medium">
-            {active.length === 0 ? "还没有进行中的客户" : "没有匹配的客户"}
+            {active.length === 0
+              ? "还没有进行中的客户"
+              : filtered.length === 0
+                ? "没有匹配的客户"
+                : "暂无机会确认及之后的客户"}
           </div>
           <div className="text-xs text-muted-foreground mt-1">
             {active.length === 0
               ? "从「新建客户」开始建立你的看板。"
-              : "试着放宽来源或产品线筛选。"}
+              : filtered.length === 0
+                ? "试着放宽来源或产品线筛选。"
+                : "在上方待建联列表中开始跟进客户。"}
           </div>
         </div>
       )}
 
-      {showBoard && filtered.length > 0 && (
+      {showBoard && view === "board" && boardCustomers.length > 0 && (
         <DndContext
           sensors={sensors}
           collisionDetection={closestCorners}
@@ -299,6 +406,10 @@ function CustomersBoardPage() {
         </DndContext>
       )}
 
+      {showBoard && view === "table" && (
+        <CustomerTableView customers={allFiltered} today={today} onRefresh={refresh} />
+      )}
+
       {stageTarget && (
         <StageChangeDialog
           customer={stageTarget.customer}
@@ -308,6 +419,73 @@ function CustomersBoardPage() {
         />
       )}
     </AppShell>
+  );
+}
+
+function ToContactBar({
+  customers,
+  today,
+  onStartFollowup,
+}: {
+  customers: Customer[];
+  today: string;
+  onStartFollowup: (customer: Customer) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Collapsible
+      open={open}
+      onOpenChange={setOpen}
+      className="mb-4 rounded-[var(--radius)] border border-border bg-card"
+    >
+      <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+        <span className="text-sm font-medium">待建联 · {customers.length} 个</span>
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex h-7 items-center gap-1 rounded-md border border-border px-2 text-xs text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
+          >
+            {open ? "收起" : "展开"}
+            {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+          </button>
+        </CollapsibleTrigger>
+      </div>
+      <CollapsibleContent className="border-t border-border">
+        {customers.length === 0 ? (
+          <div className="px-3 py-3 text-xs text-muted-foreground">暂无待建联客户</div>
+        ) : (
+          <div className="max-h-[336px] divide-y divide-border overflow-y-auto">
+            {customers.map((customer) => (
+              <div key={customer.id} className="flex items-center gap-2 px-3 py-2">
+                <div className="flex min-w-0 flex-1 items-center gap-1.5 text-xs">
+                  <Link
+                    to="/customers/$id"
+                    params={{ id: customer.id }}
+                    className="min-w-0 truncate font-medium hover:text-primary"
+                  >
+                    {customer.companyName}
+                  </Link>
+                  <span className="shrink-0 rounded-md border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                    {SOURCE_LABEL[customer.source]}
+                  </span>
+                  <span className="shrink-0 tabular-nums text-muted-foreground">
+                    拿到 {acquiredDays(customer, today)} 天
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onStartFollowup(customer)}
+                  className="shrink-0 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
+                >
+                  开始跟进
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
