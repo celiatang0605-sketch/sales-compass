@@ -32,6 +32,12 @@ import type { TimeBlock } from "@/lib/salesup/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
+  validateSearch: (search: Record<string, unknown>): { date?: string } => {
+    const d = search.date;
+    return typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d)
+      ? { date: d }
+      : {};
+  },
   head: () => ({
     meta: [
       { title: "周时间轴 · Sales Up" },
@@ -40,6 +46,7 @@ export const Route = createFileRoute("/")({
   }),
   component: TimelinePage,
 });
+
 
 type ViewMode = "week" | "month";
 
