@@ -492,3 +492,76 @@ export async function listTimeBlocksForCustomerOnDate(params: {
     }));
 }
 
+
+// ---------------------------------------------------------------------------
+// 展会线索 → 客户
+// ---------------------------------------------------------------------------
+
+export interface ConvertLeadInput extends NewCustomerInput {
+  /** expo_leads.id，转化后写回 converted_customer_id。 */
+  expoLeadId: string;
+}
+
+/**
+ * 由展会线索创建客户：
+ * 1. 建 customers 行（source 固定 expo，记录 expo_lead_id）
+ * 2. 写一条建档 stage_history
+ * 3. 回写 expo_leads.converted_customer_id 并把 status 置为 converted
+ */
+export async function convertExpoLeadToCustomer(
+  input: ConvertLeadInput,
+): Promise<Customer> {
+  const { markLeadConverted } = await import("./expoRepository");
+  const customer = await createCustomer({ ...input, source: "expo" });
+  await insertStageHistory({
+    customerId: customer.id,
+    fromStage: null,
+    toStage: customer.stage,
+    reason: "由展会线索转化建档",
+    relatedBlockId: null,
+  });
+  await markLeadConverted(input.expoLeadId, customer.id);
+  return customer;
+}
+
+// ---------------------------------------------------------------------------
+// 客户的相关记录（time_blocks.customer_id 命中）
+// ---------------------------------------------------------------------------
+
+export interface CustomerTimeBlock extends RelatedTimeBlock {
+  summary: string;
+  workType: string;
+}
+
+type CustomerBlockRow = BlockRow & {
+  summary: string | null;
+  work_type: string | null;
+};
+
+/** 该客户关联的全部时间块，按日期倒序、同日按开始时间倒序。 */
+export async function listTimeBlocksForCustomer(
+  customerId: string,
+): Promise<CustomerTimeBlock[]> {
+  const uid = await requireUserId();
+  const { data, error } = await supabase
+    .from("time_blocks")
+    .select("id,date,start_slot,end_slot,title,customer,customer_id,summary,work_type")
+    .eq("user_id", uid)
+    .eq("customer_id", customerId)
+    .order("date", { ascending: false })
+    .order("start_slot", { ascending: false });
+  if (error) throw error;
+  return (data ?? [])
+    .map((r) => r as CustomerBlockRow)
+    .map((r) => ({
+      id: r.id,
+      date: r.date,
+      startSlot: r.start_slot,
+      endSlot: r.end_slot,
+      title: r.title ?? "",
+      customer: r.customer ?? "",
+      customerId: r.customer_id,
+      summary: r.summary ?? "",
+      workType: r.work_type ?? "",
+    }));
+}
