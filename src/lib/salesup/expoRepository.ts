@@ -92,6 +92,7 @@ function rowToLead(r: Row): ExpoLead {
     nextActionDate: r.next_action_date ?? "",
     lastContactedAt: r.last_contact_at ? toDateKey(new Date(r.last_contact_at)) : undefined,
     createdAt: r.created_at ? toDateKey(new Date(r.created_at)) : todayKey(),
+    convertedCustomerId: r.converted_customer_id ?? null,
   };
 }
 
