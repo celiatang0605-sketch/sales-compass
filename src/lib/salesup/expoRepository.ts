@@ -47,6 +47,7 @@ type Row = {
   suggested_message: string | null;
   business_card_url: string | null;
   photo_urls: string[] | null;
+  converted_customer_id: string | null;
   created_at: string;
   updated_at: string;
 };
