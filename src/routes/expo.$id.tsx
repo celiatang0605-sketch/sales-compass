@@ -304,17 +304,46 @@ function ExpoDetailPage() {
             返回列表
           </Link>
           {!editing ? (
-            <button
-              onClick={startEdit}
-              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-background text-sm hover:bg-secondary"
-            >
-              <Pencil className="w-4 h-4" />
-              编辑
-            </button>
+            <div className="flex items-center gap-2">
+              {lead.convertedCustomerId ? (
+                <Link
+                  to="/customers/$id"
+                  params={{ id: lead.convertedCustomerId }}
+                  className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-secondary text-sm hover:bg-secondary/80"
+                >
+                  <UserCheck className="w-4 h-4" />
+                  查看已转化的客户
+                </Link>
+              ) : (
+                <button
+                  onClick={() => setConvertOpen(true)}
+                  className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm hover:opacity-90"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  转为客户
+                </button>
+              )}
+              <button
+                onClick={startEdit}
+                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-background text-sm hover:bg-secondary"
+              >
+                <Pencil className="w-4 h-4" />
+                编辑
+              </button>
+            </div>
           ) : (
             <div className="text-xs text-muted-foreground">编辑模式</div>
           )}
         </div>
+
+        {convertOpen && !lead.convertedCustomerId && (
+          <ConvertLeadDialog
+            lead={lead}
+            onClose={() => setConvertOpen(false)}
+            onConverted={() => load()}
+          />
+        )}
+
 
         {/* Header card with quick priority/status */}
         <div className="rounded-xl border border-border bg-card p-4 md:p-5 mb-3">
