@@ -158,6 +158,10 @@ function CustomerDetailPage() {
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [reminderMsg, setReminderMsg] = useState<string | null>(null);
+  const [stagePickerOpen, setStagePickerOpen] = useState(false);
+  const [stageTarget, setStageTarget] = useState<CustomerStage | null>(null);
+  const [historyKey, setHistoryKey] = useState(0);
+
 
   useEffect(() => {
     setForm(customer ? toForm(customer) : null);
