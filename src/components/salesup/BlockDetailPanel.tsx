@@ -205,14 +205,16 @@ export function BlockDetailPanel({ draft, lightweight = false, embedded = false,
 
           {!lightweight && (
             <Field label="关联客户">
-              <input
-                className="input"
-                placeholder="客户名称"
+              <CustomerPicker
                 value={form.customer}
-                onChange={(e) => update("customer", e.target.value)}
+                customerId={form.customer_id ?? null}
+                onChange={(name, id) =>
+                  setForm((f) => (f ? { ...f, customer: name, customer_id: id } : f))
+                }
               />
             </Field>
           )}
+
 
           {!lightweight && (
             <Field label="价值等级">
