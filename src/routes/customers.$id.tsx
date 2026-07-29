@@ -940,3 +940,113 @@ function CustomerDetailPage() {
     </AppShell>
   );
 }
+
+/** 阶段历史时间线，按 changed_at 倒序。 */
+function StageHistorySection({
+  customerId,
+  refreshKey,
+}: {
+  customerId: string;
+  refreshKey: number;
+}) {
+  const { history, loading, error, refresh } = useStageHistory(customerId);
+
+  useEffect(() => {
+    if (refreshKey > 0) void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
+
+  return (
+    <section className="mt-3 rounded-[var(--radius)] border border-border bg-card">
+      <header className="flex items-center gap-1.5 px-3 py-2 border-b border-border">
+        <History className="w-3.5 h-3.5 text-muted-foreground" />
+        <span className="text-sm font-medium">阶段历史</span>
+        <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">
+          {history.length}
+        </span>
+      </header>
+
+      <div className="p-3">
+        {loading && (
+          <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            正在加载…
+          </div>
+        )}
+        {!loading && error && (
+          <div className="text-xs text-destructive break-words">{error}</div>
+        )}
+        {!loading && !error && history.length === 0 && (
+          <div className="text-xs text-muted-foreground">
+            还没有阶段变更记录。
+          </div>
+        )}
+        {!loading && !error && history.length > 0 && (
+          <ol className="space-y-3">
+            {history.map((h) => {
+              const fromIdx = h.fromStage
+                ? STAGE_ORDER.indexOf(h.fromStage)
+                : -1;
+              const toIdx = STAGE_ORDER.indexOf(h.toStage);
+              const backward = fromIdx >= 0 && toIdx < fromIdx;
+              const day = (h.changedAt || "").slice(0, 10);
+              return (
+                <li key={h.id} className="flex gap-2.5">
+                  <div className="flex flex-col items-center pt-1">
+                    <span
+                      className={cn(
+                        "w-1.5 h-1.5 rounded-full",
+                        backward ? "bg-muted-foreground/60" : "bg-primary",
+                      )}
+                    />
+                    <span className="flex-1 w-px bg-border mt-1" />
+                  </div>
+                  <div className="flex-1 min-w-0 pb-1">
+                    <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                      <span className="text-muted-foreground tabular-nums">
+                        {day || "—"}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <span className="text-muted-foreground">
+                          {h.fromStage ? STAGE_LABEL[h.fromStage] : "建档"}
+                        </span>
+                        {backward ? (
+                          <CornerUpLeft className="w-3 h-3 text-muted-foreground" />
+                        ) : (
+                          <ArrowRight className="w-3 h-3 text-muted-foreground" />
+                        )}
+                        <span className="font-medium">
+                          {STAGE_LABEL[h.toStage]}
+                        </span>
+                      </span>
+                      {backward && (
+                        <span className="px-1.5 py-0.5 rounded-md border border-dashed border-border text-muted-foreground">
+                          回退
+                        </span>
+                      )}
+                    </div>
+                    {h.reason && (
+                      <p className="mt-1 text-xs leading-snug text-foreground/90 whitespace-pre-wrap break-words">
+                        {h.reason}
+                      </p>
+                    )}
+                    {h.relatedBlockId && day && (
+                      <Link
+                        to="/"
+                        search={{ date: day }}
+                        className="mt-1 inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
+                      >
+                        查看当天时间轴
+                      </Link>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </div>
+    </section>
+  );
+}
+
