@@ -337,6 +337,65 @@ function CustomersBoardPage() {
   );
 }
 
+function StageColumn({
+  stage,
+  count,
+  dragging,
+  children,
+}: {
+  stage: CustomerStage;
+  count: number;
+  dragging: boolean;
+  children: React.ReactNode;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: stage });
+  return (
+    <section
+      className={cn(
+        "w-[240px] md:w-[264px] shrink-0 rounded-[var(--radius)] border bg-card/60 transition",
+        isOver ? "border-primary bg-primary/5" : "border-border",
+      )}
+    >
+      <header className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border">
+        <span className="text-xs font-medium">{STAGE_LABEL[stage]}</span>
+        <span className="text-[11px] text-muted-foreground tabular-nums">
+          {count}
+        </span>
+      </header>
+      <div
+        ref={setNodeRef}
+        className={cn(
+          "p-2 space-y-2 min-h-[80px]",
+          dragging && "min-h-[120px]",
+        )}
+      >
+        {children}
+      </div>
+    </section>
+  );
+}
+
+function DraggableCard({
+  id,
+  children,
+}: {
+  id: string;
+  children: React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      className={cn("touch-manipulation", isDragging && "opacity-40")}
+    >
+      {children}
+    </div>
+  );
+}
+
+
 function CustomerCard({
   customer,
   today,
