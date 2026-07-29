@@ -167,6 +167,7 @@ function ExpoDetailPage() {
   const [form, setForm] = useState<FormState | null>(null);
   const [saving, setSaving] = useState(false);
   const [quickBusy, setQuickBusy] = useState(false);
+  const [convertOpen, setConvertOpen] = useState(false);
 
   const load = () => {
     setLoading(true);
