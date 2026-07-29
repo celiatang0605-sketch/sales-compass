@@ -428,3 +428,104 @@ function TimeField({
     </div>
   );
 }
+
+/**
+ * 关联客户选择器：可搜索选择客户看板里的已有客户（写入 customer_id），
+ * 也可以直接输入自由文本（customer_id 保持 null）。
+ */
+function CustomerPicker({
+  value,
+  customerId,
+  onChange,
+}: {
+  value: string;
+  customerId: string | null;
+  onChange: (name: string, id: string | null) => void;
+}) {
+  const { customers, loading } = useCustomers();
+  const [open, setOpen] = useState(false);
+
+  const q = value.trim().toLowerCase();
+  const matches = q
+    ? customers.filter((c) => c.companyName.toLowerCase().includes(q))
+    : customers;
+  const visible = matches.slice(0, 20);
+
+  return (
+    <div className="relative">
+      <div className="flex items-center gap-2">
+        <input
+          className="input"
+          placeholder="搜索已有客户，或直接输入名称"
+          value={value}
+          onFocus={() => setOpen(true)}
+          onChange={(e) => onChange(e.target.value, null)}
+          onBlur={() => window.setTimeout(() => setOpen(false), 150)}
+        />
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="shrink-0 p-2 rounded-md border border-border hover:bg-secondary"
+          aria-label="展开客户列表"
+        >
+          <ChevronDown className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+      {customerId ? (
+        <div className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+          <Check className="w-3 h-3" />
+          已关联客户看板中的客户
+          <button
+            type="button"
+            onClick={() => onChange(value, null)}
+            className="ml-1 underline hover:text-foreground"
+          >
+            取消关联
+          </button>
+        </div>
+      ) : (
+        <div className="mt-1.5 text-[11px] text-muted-foreground">
+          未关联客户，仅作为自由文本保存
+        </div>
+      )}
+
+      {open && (
+        <div className="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto rounded-[var(--radius)] border border-border bg-card shadow-lg">
+          {loading && (
+            <div className="px-3 py-2 text-xs text-muted-foreground">
+              正在加载客户…
+            </div>
+          )}
+          {!loading && visible.length === 0 && (
+            <div className="px-3 py-2 text-xs text-muted-foreground">
+              没有匹配的客户，可直接输入自由文本。
+            </div>
+          )}
+          {!loading &&
+            visible.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  onChange(c.companyName, c.id);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "w-full text-left px-3 py-2 text-xs hover:bg-secondary",
+                  c.id === customerId && "bg-secondary",
+                )}
+              >
+                <div className="font-medium truncate">{c.companyName}</div>
+                <div className="text-[11px] text-muted-foreground truncate">
+                  {STAGE_LABEL[c.stage]}
+                  {c.contactName ? ` · ${c.contactName}` : ""}
+                </div>
+              </button>
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}
