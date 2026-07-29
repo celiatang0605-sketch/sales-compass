@@ -134,6 +134,34 @@ function CustomersBoardPage() {
 
   const showBoard = !!userId && !loading && !error;
 
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const draggingCustomer = useMemo(
+    () => filtered.find((c) => c.id === draggingId) ?? null,
+    [filtered, draggingId],
+  );
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 8 },
+    }),
+  );
+
+  const handleDragStart = (e: DragStartEvent) => {
+    setDraggingId(String(e.active.id));
+  };
+
+  const handleDragEnd = (e: DragEndEvent) => {
+    const activeId = String(e.active.id);
+    setDraggingId(null);
+    const overStage = e.over?.id ? (String(e.over.id) as CustomerStage) : null;
+    if (!overStage) return;
+    const cust = filtered.find((c) => c.id === activeId);
+    if (!cust || cust.stage === overStage) return;
+    setStageTarget({ customer: cust, stage: overStage });
+  };
+
+
   return (
     <AppShell>
       <div className="mb-4 md:mb-6 flex items-start gap-3">
