@@ -53,6 +53,8 @@ export interface ExpoLead {
   businessCardUrl?: string;
   photoUrls?: string[];
   createdAt: string; // YYYY-MM-DD
+  /** 已转化为客户看板中的客户时，指向 customers.id。 */
+  convertedCustomerId?: string | null;
 }
 
 export const STATUS_LABEL: Record<ExpoStatus, string> = {

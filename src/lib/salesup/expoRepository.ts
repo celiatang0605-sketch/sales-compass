@@ -47,6 +47,7 @@ type Row = {
   suggested_message: string | null;
   business_card_url: string | null;
   photo_urls: string[] | null;
+  converted_customer_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -91,6 +92,7 @@ function rowToLead(r: Row): ExpoLead {
     nextActionDate: r.next_action_date ?? "",
     lastContactedAt: r.last_contact_at ? toDateKey(new Date(r.last_contact_at)) : undefined,
     createdAt: r.created_at ? toDateKey(new Date(r.created_at)) : todayKey(),
+    convertedCustomerId: r.converted_customer_id ?? null,
   };
 }
 
@@ -280,4 +282,22 @@ export async function listUserCompanies(): Promise<string[]> {
     }
   }
   return out;
+}
+
+/**
+ * 标记线索已转化：写入 converted_customer_id，并把状态改为 converted。
+ * 由 customerRepository.convertExpoLeadToCustomer 在创建客户成功后调用。
+ */
+export async function markLeadConverted(
+  leadId: string,
+  customerId: string,
+): Promise<ExpoLead> {
+  const { data, error } = await supabase
+    .from("expo_leads")
+    .update({ converted_customer_id: customerId, status: "converted" })
+    .eq("id", leadId)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return rowToLead(data as Row);
 }

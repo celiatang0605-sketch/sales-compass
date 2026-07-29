@@ -6,6 +6,7 @@ import {
   Bell,
   Check,
   ChevronDown,
+  Clock,
   CornerUpLeft,
   History,
   Loader2,
@@ -17,7 +18,8 @@ import { cn } from "@/lib/utils";
 import { AppShell } from "@/components/salesup/AppShell";
 import { StageChangeDialog } from "@/components/salesup/customer/StageChangeDialog";
 import { useStageHistory } from "@/lib/salesup/useStageHistory";
-import { todayKey } from "@/lib/salesup/date";
+import { slotToTimeString, todayKey } from "@/lib/salesup/date";
+import { useCustomerTimeBlocks } from "@/lib/salesup/useCustomerTimeBlocks";
 import { upsertReminder } from "@/lib/salesup/storage";
 
 import { useCustomer } from "@/lib/salesup/useCustomer";
@@ -404,6 +406,10 @@ function CustomerDetailPage() {
 
             {/* 阶段历史 */}
             <StageHistorySection customerId={customer.id} refreshKey={historyKey} />
+
+            {/* 相关记录 */}
+            <RelatedBlocksSection customerId={customer.id} />
+
 
             {stageTarget && (
               <StageChangeDialog
@@ -1050,3 +1056,66 @@ function StageHistorySection({
   );
 }
 
+
+/** 相关记录：time_blocks.customer_id 命中该客户，按日期倒序。 */
+function RelatedBlocksSection({ customerId }: { customerId: string }) {
+  const { blocks, loading, error } = useCustomerTimeBlocks(customerId);
+
+  return (
+    <section className="mt-3 rounded-[var(--radius)] border border-border bg-card">
+      <header className="flex items-center gap-1.5 px-3 py-2 border-b border-border">
+        <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+        <span className="text-sm font-medium">相关记录</span>
+        <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">
+          {blocks.length}
+        </span>
+      </header>
+
+      <div className="p-3">
+        {loading && (
+          <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            正在加载…
+          </div>
+        )}
+        {!loading && error && (
+          <div className="text-xs text-destructive break-words">{error}</div>
+        )}
+        {!loading && !error && blocks.length === 0 && (
+          <div className="text-xs text-muted-foreground">
+            还没有关联到该客户的时间记录。在时间轴的详情面板里选择这个客户即可关联。
+          </div>
+        )}
+        {!loading && !error && blocks.length > 0 && (
+          <ul className="divide-y divide-border">
+            {blocks.map((b) => (
+              <li key={b.id} className="py-2 first:pt-0 last:pb-0">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+                  <span className="tabular-nums">{b.date}</span>
+                  <span className="tabular-nums">
+                    {slotToTimeString(b.startSlot)} – {slotToTimeString(b.endSlot)}
+                  </span>
+                  <Link
+                    to="/"
+                    search={{ date: b.date }}
+                    className="ml-auto text-primary hover:underline"
+                  >
+                    查看时间轴
+                  </Link>
+                </div>
+                <div className="mt-0.5 text-sm truncate">
+                  {b.title || "(无标题)"}
+                </div>
+                {b.summary && (
+                  <p className="mt-0.5 text-xs leading-snug text-muted-foreground line-clamp-2 whitespace-pre-wrap break-words">
+                    {b.summary}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
+  );
+}
