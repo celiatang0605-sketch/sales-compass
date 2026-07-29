@@ -27,7 +27,7 @@ import {
   type CustomerSource,
 } from "@/lib/salesup/customerTypes";
 
-export const Route = createFileRoute("/customers")({
+export const Route = createFileRoute("/customers/")({
   head: () => ({
     meta: [
       { title: "客户看板 · Sales Up" },

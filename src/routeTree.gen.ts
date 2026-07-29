@@ -16,6 +16,7 @@ import { Route as DailyRouteImport } from './routes/daily'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ExpoIndexRouteImport } from './routes/expo.index'
+import { Route as CustomersIndexRouteImport } from './routes/customers.index'
 import { Route as ExpoNewRouteImport } from './routes/expo.new'
 import { Route as ExpoIdRouteImport } from './routes/expo.$id'
 
@@ -54,6 +55,11 @@ const ExpoIndexRoute = ExpoIndexRouteImport.update({
   path: '/expo/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CustomersIndexRoute = CustomersIndexRouteImport.update({
+  id: '/customers/',
+  path: '/customers/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ExpoNewRoute = ExpoNewRouteImport.update({
   id: '/expo/new',
   path: '/expo/new',
@@ -74,6 +80,7 @@ export interface FileRoutesByFullPath {
   '/weekly': typeof WeeklyRoute
   '/expo/$id': typeof ExpoIdRoute
   '/expo/new': typeof ExpoNewRoute
+  '/customers/': typeof CustomersIndexRoute
   '/expo/': typeof ExpoIndexRoute
 }
 export interface FileRoutesByTo {
@@ -85,6 +92,7 @@ export interface FileRoutesByTo {
   '/weekly': typeof WeeklyRoute
   '/expo/$id': typeof ExpoIdRoute
   '/expo/new': typeof ExpoNewRoute
+  '/customers': typeof CustomersIndexRoute
   '/expo': typeof ExpoIndexRoute
 }
 export interface FileRoutesById {
@@ -97,6 +105,7 @@ export interface FileRoutesById {
   '/weekly': typeof WeeklyRoute
   '/expo/$id': typeof ExpoIdRoute
   '/expo/new': typeof ExpoNewRoute
+  '/customers/': typeof CustomersIndexRoute
   '/expo/': typeof ExpoIndexRoute
 }
 export interface FileRouteTypes {
@@ -110,6 +119,7 @@ export interface FileRouteTypes {
     | '/weekly'
     | '/expo/$id'
     | '/expo/new'
+    | '/customers/'
     | '/expo/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -121,6 +131,7 @@ export interface FileRouteTypes {
     | '/weekly'
     | '/expo/$id'
     | '/expo/new'
+    | '/customers'
     | '/expo'
   id:
     | '__root__'
@@ -132,6 +143,7 @@ export interface FileRouteTypes {
     | '/weekly'
     | '/expo/$id'
     | '/expo/new'
+    | '/customers/'
     | '/expo/'
   fileRoutesById: FileRoutesById
 }
@@ -144,6 +156,7 @@ export interface RootRouteChildren {
   WeeklyRoute: typeof WeeklyRoute
   ExpoIdRoute: typeof ExpoIdRoute
   ExpoNewRoute: typeof ExpoNewRoute
+  CustomersIndexRoute: typeof CustomersIndexRoute
   ExpoIndexRoute: typeof ExpoIndexRoute
 }
 
@@ -198,6 +211,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ExpoIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/customers/': {
+      id: '/customers/'
+      path: '/customers'
+      fullPath: '/customers/'
+      preLoaderRoute: typeof CustomersIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/expo/new': {
       id: '/expo/new'
       path: '/expo/new'
@@ -224,6 +244,7 @@ const rootRouteChildren: RootRouteChildren = {
   WeeklyRoute: WeeklyRoute,
   ExpoIdRoute: ExpoIdRoute,
   ExpoNewRoute: ExpoNewRoute,
+  CustomersIndexRoute: CustomersIndexRoute,
   ExpoIndexRoute: ExpoIndexRoute,
 }
 export const routeTree = rootRouteImport
