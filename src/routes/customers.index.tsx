@@ -64,6 +64,11 @@ function CustomersBoardPage() {
   const { customers, loading, error, userId, refresh } = useCustomers();
   const [sources, setSources] = useState<CustomerSource[]>([]);
   const [productLines, setProductLines] = useState<string[]>([]);
+  const [stageTarget, setStageTarget] = useState<{
+    customer: Customer;
+    stage: CustomerStage;
+  } | null>(null);
+
 
   const active = useMemo(
     () => customers.filter((c) => c.status === "active"),
