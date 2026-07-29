@@ -336,9 +336,21 @@ function CustomerCard({
           )}
         </div>
       )}
-    </Link>
+      </Link>
+
+      <div className="mt-2 pt-2 border-t border-border/70 flex items-center justify-between gap-2">
+        <span className="text-[11px] text-muted-foreground truncate">
+          {STAGE_LABEL[customer.stage]}
+        </span>
+        <StageAdvanceControl
+          currentStage={customer.stage}
+          onPick={(s) => onPickStage(customer, s)}
+        />
+      </div>
+    </div>
   );
 }
+
 
 function StatCell({
   icon: Icon,
