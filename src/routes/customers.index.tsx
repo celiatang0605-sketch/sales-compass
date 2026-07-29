@@ -249,7 +249,14 @@ function CustomersBoardPage() {
                     </div>
                   )}
                   {col.items.map((c) => (
-                    <CustomerCard key={c.id} customer={c} today={today} />
+                    <CustomerCard
+                      key={c.id}
+                      customer={c}
+                      today={today}
+                      onPickStage={(cust, s) =>
+                        setStageTarget({ customer: cust, stage: s })
+                      }
+                    />
                   ))}
                 </div>
               </section>
@@ -257,6 +264,16 @@ function CustomersBoardPage() {
           </div>
         </div>
       )}
+
+      {stageTarget && (
+        <StageChangeDialog
+          customer={stageTarget.customer}
+          targetStage={stageTarget.stage}
+          onClose={() => setStageTarget(null)}
+          onChanged={() => void refresh()}
+        />
+      )}
+
     </AppShell>
   );
 }
