@@ -316,3 +316,30 @@ export async function deleteCustomer(id: string): Promise<void> {
     .eq("id", id);
   if (error) throw error;
 }
+
+// ---------------------------------------------------------------------------
+// stage_history
+// ---------------------------------------------------------------------------
+
+export interface StageHistoryInput {
+  customerId: string;
+  fromStage: CustomerStage | null;
+  toStage: CustomerStage;
+  reason?: string;
+  relatedBlockId?: string | null;
+}
+
+export async function insertStageHistory(
+  input: StageHistoryInput,
+): Promise<void> {
+  const uid = await requireUserId();
+  const { error } = await supabase.from("stage_history").insert({
+    user_id: uid,
+    customer_id: input.customerId,
+    from_stage: input.fromStage,
+    to_stage: input.toStage,
+    reason: input.reason?.trim() || null,
+    related_block_id: input.relatedBlockId ?? null,
+  });
+  if (error) throw error;
+}
