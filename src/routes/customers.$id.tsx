@@ -338,9 +338,15 @@ function CustomerDetailPage() {
                 {customer.companyName}
               </h1>
               <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
-                <span className="px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground">
+                <button
+                  type="button"
+                  onClick={() => setStagePickerOpen((v) => !v)}
+                  title="点击推进或回退阶段"
+                  className="px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground inline-flex items-center gap-1 hover:bg-secondary/80 transition"
+                >
                   {STAGE_LABEL[customer.stage]}
-                </span>
+                  <ChevronDown className="w-3 h-3" />
+                </button>
                 <span className="px-2 py-0.5 rounded-full border border-border text-muted-foreground">
                   {STATUS_LABEL[customer.status]}
                 </span>
@@ -348,7 +354,58 @@ function CustomerDetailPage() {
                   停滞 {staleDays(customer)} 天
                 </span>
               </div>
+
+              {stagePickerOpen && (
+                <div className="mt-2 rounded-[var(--radius)] border border-border bg-background p-2">
+                  <div className="text-[11px] text-muted-foreground mb-1.5">
+                    选择目标阶段
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {STAGE_ORDER.map((s, i) => {
+                      const cur = s === customer.stage;
+                      const backward = i < STAGE_ORDER.indexOf(customer.stage);
+                      return (
+                        <button
+                          key={s}
+                          type="button"
+                          disabled={cur}
+                          onClick={() => {
+                            setStagePickerOpen(false);
+                            setStageTarget(s);
+                          }}
+                          className={cn(
+                            "px-2.5 h-7 rounded-full text-xs border transition",
+                            cur
+                              ? "bg-secondary text-secondary-foreground border-border cursor-default"
+                              : backward
+                                ? "bg-background text-muted-foreground border-dashed border-border hover:text-foreground"
+                                : "bg-background text-muted-foreground border-border hover:text-foreground hover:border-primary/40",
+                          )}
+                        >
+                          {STAGE_LABEL[s]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </header>
+
+            {/* 阶段历史 */}
+            <StageHistorySection customerId={customer.id} refreshKey={historyKey} />
+
+            {stageTarget && (
+              <StageChangeDialog
+                customer={customer}
+                targetStage={stageTarget}
+                onClose={() => setStageTarget(null)}
+                onChanged={(updated) => {
+                  setCustomer(updated);
+                  setHistoryKey((k) => k + 1);
+                }}
+              />
+            )}
+
 
             <div className="mt-3 space-y-3">
               <Section title="来源" defaultOpen>
