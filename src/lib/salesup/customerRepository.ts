@@ -343,3 +343,149 @@ export async function insertStageHistory(
   });
   if (error) throw error;
 }
+
+export interface StageHistoryEntry {
+  id: string;
+  customerId: string;
+  fromStage: CustomerStage | null;
+  toStage: CustomerStage;
+  reason: string | null;
+  relatedBlockId: string | null;
+  changedAt: string;
+}
+
+type StageHistoryRow = {
+  id: string;
+  customer_id: string;
+  from_stage: string | null;
+  to_stage: string;
+  reason: string | null;
+  related_block_id: string | null;
+  changed_at: string | null;
+  created_at?: string | null;
+};
+
+function rowToStageHistory(r: StageHistoryRow): StageHistoryEntry {
+  return {
+    id: r.id,
+    customerId: r.customer_id,
+    fromStage: (r.from_stage as CustomerStage) ?? null,
+    toStage: r.to_stage as CustomerStage,
+    reason: r.reason,
+    relatedBlockId: r.related_block_id,
+    changedAt: r.changed_at ?? r.created_at ?? "",
+  };
+}
+
+/** 某客户的阶段历史，按 changed_at 倒序。 */
+export async function listStageHistory(
+  customerId: string,
+): Promise<StageHistoryEntry[]> {
+  const uid = await requireUserId();
+  const { data, error } = await supabase
+    .from("stage_history")
+    .select("*")
+    .eq("user_id", uid)
+    .eq("customer_id", customerId)
+    .order("changed_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((r) => rowToStageHistory(r as StageHistoryRow));
+}
+
+// ---------------------------------------------------------------------------
+// 阶段推进
+// ---------------------------------------------------------------------------
+
+export interface ChangeStageInput {
+  customerId: string;
+  fromStage: CustomerStage;
+  toStage: CustomerStage;
+  reason?: string;
+  relatedBlockId?: string | null;
+  /** 目标阶段为 signed 时，是否同时把 status 置为 won。 */
+  markWon?: boolean;
+}
+
+/** 更新阶段 + stage_changed_at，并写一条 stage_history。 */
+export async function changeCustomerStage(
+  input: ChangeStageInput,
+): Promise<Customer> {
+  const now = new Date().toISOString();
+  const patch: UpdateCustomerInput = {
+    stage: input.toStage,
+    stageChangedAt: now,
+  };
+  if (input.markWon) patch.status = "won";
+  const updated = await updateCustomer(input.customerId, patch);
+  await insertStageHistory({
+    customerId: input.customerId,
+    fromStage: input.fromStage,
+    toStage: input.toStage,
+    reason: input.reason,
+    relatedBlockId: input.relatedBlockId ?? null,
+  });
+  return updated;
+}
+
+// ---------------------------------------------------------------------------
+// 关联时间块（只读，用于阶段推进时挑选当天记录）
+// ---------------------------------------------------------------------------
+
+export interface RelatedTimeBlock {
+  id: string;
+  date: string;
+  startSlot: number;
+  endSlot: number;
+  title: string;
+  customer: string;
+  customerId: string | null;
+}
+
+type BlockRow = {
+  id: string;
+  date: string;
+  start_slot: number;
+  end_slot: number;
+  title: string | null;
+  customer: string | null;
+  customer_id: string | null;
+};
+
+/**
+ * 某一天、属于该客户的时间块：customer_id 命中，或 customer 自由文本包含公司名。
+ * 过滤在客户端做，避免公司名里的逗号破坏 PostgREST 的 or() 语法。
+ */
+export async function listTimeBlocksForCustomerOnDate(params: {
+  date: string;
+  customerId: string;
+  companyName: string;
+}): Promise<RelatedTimeBlock[]> {
+  const uid = await requireUserId();
+  const { data, error } = await supabase
+    .from("time_blocks")
+    .select("id,date,start_slot,end_slot,title,customer,customer_id")
+    .eq("user_id", uid)
+    .eq("date", params.date)
+    .order("start_slot", { ascending: true });
+  if (error) throw error;
+  const name = params.companyName.trim().toLowerCase();
+  return (data ?? [])
+    .map((r) => r as BlockRow)
+    .filter((r) => {
+      if (r.customer_id && r.customer_id === params.customerId) return true;
+      if (!name) return false;
+      const text = (r.customer ?? "").trim().toLowerCase();
+      if (!text) return false;
+      return text.includes(name) || name.includes(text);
+    })
+    .map((r) => ({
+      id: r.id,
+      date: r.date,
+      startSlot: r.start_slot,
+      endSlot: r.end_slot,
+      title: r.title ?? "",
+      customer: r.customer ?? "",
+      customerId: r.customer_id,
+    }));
+}
+

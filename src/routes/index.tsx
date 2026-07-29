@@ -32,6 +32,12 @@ import type { TimeBlock } from "@/lib/salesup/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
+  validateSearch: (search: Record<string, unknown>): { date?: string } => {
+    const d = search.date;
+    return typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d)
+      ? { date: d }
+      : {};
+  },
   head: () => ({
     meta: [
       { title: "周时间轴 · Sales Up" },
@@ -40,6 +46,7 @@ export const Route = createFileRoute("/")({
   }),
   component: TimelinePage,
 });
+
 
 type ViewMode = "week" | "month";
 
@@ -68,11 +75,23 @@ function blockToDraft(b: TimeBlock): DraftBlock {
 }
 
 function TimelinePage() {
+  const { date: dateParam } = Route.useSearch();
   const [mode, setMode] = useState<ViewMode>("week");
-  const [anchor, setAnchor] = useState<string>(() => todayKey());
+  const [anchor, setAnchor] = useState<string>(() => dateParam ?? todayKey());
   const [filter, setFilter] = useState<WorkTypeId | "all">("all");
   const [search, setSearch] = useState("");
-  const [highlightDate, setHighlightDate] = useState<string | undefined>(undefined);
+  const [highlightDate, setHighlightDate] = useState<string | undefined>(
+    dateParam,
+  );
+
+  // 从「阶段历史」等入口带 ?date= 进来时，定位到那一天。
+  useEffect(() => {
+    if (!dateParam) return;
+    setMode("week");
+    setAnchor(dateParam);
+    setHighlightDate(dateParam);
+  }, [dateParam]);
+
   const [draft, setDraft] = useState<DraftBlock | null>(null);
   const [draftLightweight, setDraftLightweight] = useState(false);
 

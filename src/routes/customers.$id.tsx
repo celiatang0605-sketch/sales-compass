@@ -2,8 +2,12 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
   ArrowLeft,
+  ArrowRight,
   Bell,
   Check,
+  ChevronDown,
+  CornerUpLeft,
+  History,
   Loader2,
   Plus,
   RefreshCw,
@@ -11,8 +15,11 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AppShell } from "@/components/salesup/AppShell";
+import { StageChangeDialog } from "@/components/salesup/customer/StageChangeDialog";
+import { useStageHistory } from "@/lib/salesup/useStageHistory";
 import { todayKey } from "@/lib/salesup/date";
 import { upsertReminder } from "@/lib/salesup/storage";
+
 import { useCustomer } from "@/lib/salesup/useCustomer";
 import {
   deleteCustomer,
@@ -158,6 +165,10 @@ function CustomerDetailPage() {
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [reminderMsg, setReminderMsg] = useState<string | null>(null);
+  const [stagePickerOpen, setStagePickerOpen] = useState(false);
+  const [stageTarget, setStageTarget] = useState<CustomerStage | null>(null);
+  const [historyKey, setHistoryKey] = useState(0);
+
 
   useEffect(() => {
     setForm(customer ? toForm(customer) : null);
@@ -338,9 +349,15 @@ function CustomerDetailPage() {
                 {customer.companyName}
               </h1>
               <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
-                <span className="px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground">
+                <button
+                  type="button"
+                  onClick={() => setStagePickerOpen((v) => !v)}
+                  title="点击推进或回退阶段"
+                  className="px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground inline-flex items-center gap-1 hover:bg-secondary/80 transition"
+                >
                   {STAGE_LABEL[customer.stage]}
-                </span>
+                  <ChevronDown className="w-3 h-3" />
+                </button>
                 <span className="px-2 py-0.5 rounded-full border border-border text-muted-foreground">
                   {STATUS_LABEL[customer.status]}
                 </span>
@@ -348,7 +365,58 @@ function CustomerDetailPage() {
                   停滞 {staleDays(customer)} 天
                 </span>
               </div>
+
+              {stagePickerOpen && (
+                <div className="mt-2 rounded-[var(--radius)] border border-border bg-background p-2">
+                  <div className="text-[11px] text-muted-foreground mb-1.5">
+                    选择目标阶段
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {STAGE_ORDER.map((s, i) => {
+                      const cur = s === customer.stage;
+                      const backward = i < STAGE_ORDER.indexOf(customer.stage);
+                      return (
+                        <button
+                          key={s}
+                          type="button"
+                          disabled={cur}
+                          onClick={() => {
+                            setStagePickerOpen(false);
+                            setStageTarget(s);
+                          }}
+                          className={cn(
+                            "px-2.5 h-7 rounded-full text-xs border transition",
+                            cur
+                              ? "bg-secondary text-secondary-foreground border-border cursor-default"
+                              : backward
+                                ? "bg-background text-muted-foreground border-dashed border-border hover:text-foreground"
+                                : "bg-background text-muted-foreground border-border hover:text-foreground hover:border-primary/40",
+                          )}
+                        >
+                          {STAGE_LABEL[s]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </header>
+
+            {/* 阶段历史 */}
+            <StageHistorySection customerId={customer.id} refreshKey={historyKey} />
+
+            {stageTarget && (
+              <StageChangeDialog
+                customer={customer}
+                targetStage={stageTarget}
+                onClose={() => setStageTarget(null)}
+                onChanged={(updated) => {
+                  setCustomer(updated);
+                  setHistoryKey((k) => k + 1);
+                }}
+              />
+            )}
+
 
             <div className="mt-3 space-y-3">
               <Section title="来源" defaultOpen>
@@ -872,3 +940,113 @@ function CustomerDetailPage() {
     </AppShell>
   );
 }
+
+/** 阶段历史时间线，按 changed_at 倒序。 */
+function StageHistorySection({
+  customerId,
+  refreshKey,
+}: {
+  customerId: string;
+  refreshKey: number;
+}) {
+  const { history, loading, error, refresh } = useStageHistory(customerId);
+
+  useEffect(() => {
+    if (refreshKey > 0) void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
+
+  return (
+    <section className="mt-3 rounded-[var(--radius)] border border-border bg-card">
+      <header className="flex items-center gap-1.5 px-3 py-2 border-b border-border">
+        <History className="w-3.5 h-3.5 text-muted-foreground" />
+        <span className="text-sm font-medium">阶段历史</span>
+        <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">
+          {history.length}
+        </span>
+      </header>
+
+      <div className="p-3">
+        {loading && (
+          <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            正在加载…
+          </div>
+        )}
+        {!loading && error && (
+          <div className="text-xs text-destructive break-words">{error}</div>
+        )}
+        {!loading && !error && history.length === 0 && (
+          <div className="text-xs text-muted-foreground">
+            还没有阶段变更记录。
+          </div>
+        )}
+        {!loading && !error && history.length > 0 && (
+          <ol className="space-y-3">
+            {history.map((h) => {
+              const fromIdx = h.fromStage
+                ? STAGE_ORDER.indexOf(h.fromStage)
+                : -1;
+              const toIdx = STAGE_ORDER.indexOf(h.toStage);
+              const backward = fromIdx >= 0 && toIdx < fromIdx;
+              const day = (h.changedAt || "").slice(0, 10);
+              return (
+                <li key={h.id} className="flex gap-2.5">
+                  <div className="flex flex-col items-center pt-1">
+                    <span
+                      className={cn(
+                        "w-1.5 h-1.5 rounded-full",
+                        backward ? "bg-muted-foreground/60" : "bg-primary",
+                      )}
+                    />
+                    <span className="flex-1 w-px bg-border mt-1" />
+                  </div>
+                  <div className="flex-1 min-w-0 pb-1">
+                    <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                      <span className="text-muted-foreground tabular-nums">
+                        {day || "—"}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <span className="text-muted-foreground">
+                          {h.fromStage ? STAGE_LABEL[h.fromStage] : "建档"}
+                        </span>
+                        {backward ? (
+                          <CornerUpLeft className="w-3 h-3 text-muted-foreground" />
+                        ) : (
+                          <ArrowRight className="w-3 h-3 text-muted-foreground" />
+                        )}
+                        <span className="font-medium">
+                          {STAGE_LABEL[h.toStage]}
+                        </span>
+                      </span>
+                      {backward && (
+                        <span className="px-1.5 py-0.5 rounded-md border border-dashed border-border text-muted-foreground">
+                          回退
+                        </span>
+                      )}
+                    </div>
+                    {h.reason && (
+                      <p className="mt-1 text-xs leading-snug text-foreground/90 whitespace-pre-wrap break-words">
+                        {h.reason}
+                      </p>
+                    )}
+                    {h.relatedBlockId && day && (
+                      <Link
+                        to="/"
+                        search={{ date: day }}
+                        className="mt-1 inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
+                      >
+                        查看当天时间轴
+                      </Link>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </div>
+    </section>
+  );
+}
+

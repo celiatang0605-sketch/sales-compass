@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AppShell } from "@/components/salesup/AppShell";
+import { StageAdvanceControl } from "@/components/salesup/customer/StageAdvanceControl";
+import { StageChangeDialog } from "@/components/salesup/customer/StageChangeDialog";
 import { useCustomers } from "@/lib/salesup/useCustomers";
 import { todayKey } from "@/lib/salesup/date";
 import {
@@ -25,7 +27,9 @@ import {
   STAGE_ORDER,
   type Customer,
   type CustomerSource,
+  type CustomerStage,
 } from "@/lib/salesup/customerTypes";
+
 
 export const Route = createFileRoute("/customers/")({
   head: () => ({
@@ -60,6 +64,11 @@ function CustomersBoardPage() {
   const { customers, loading, error, userId, refresh } = useCustomers();
   const [sources, setSources] = useState<CustomerSource[]>([]);
   const [productLines, setProductLines] = useState<string[]>([]);
+  const [stageTarget, setStageTarget] = useState<{
+    customer: Customer;
+    stage: CustomerStage;
+  } | null>(null);
+
 
   const active = useMemo(
     () => customers.filter((c) => c.status === "active"),
@@ -245,7 +254,14 @@ function CustomersBoardPage() {
                     </div>
                   )}
                   {col.items.map((c) => (
-                    <CustomerCard key={c.id} customer={c} today={today} />
+                    <CustomerCard
+                      key={c.id}
+                      customer={c}
+                      today={today}
+                      onPickStage={(cust, s) =>
+                        setStageTarget({ customer: cust, stage: s })
+                      }
+                    />
                   ))}
                 </div>
               </section>
@@ -253,6 +269,16 @@ function CustomersBoardPage() {
           </div>
         </div>
       )}
+
+      {stageTarget && (
+        <StageChangeDialog
+          customer={stageTarget.customer}
+          targetStage={stageTarget.stage}
+          onClose={() => setStageTarget(null)}
+          onChanged={() => void refresh()}
+        />
+      )}
+
     </AppShell>
   );
 }
@@ -260,9 +286,11 @@ function CustomersBoardPage() {
 function CustomerCard({
   customer,
   today,
+  onPickStage,
 }: {
   customer: Customer;
   today: string;
+  onPickStage: (customer: Customer, stage: CustomerStage) => void;
 }) {
   const stale = isStale(customer);
   const days = staleDays(customer);
@@ -273,14 +301,18 @@ function CustomerCard({
     customer.nextActionDate < today;
 
   return (
-    <Link
-      to="/customers/$id"
-      params={{ id: customer.id }}
+    <div
       className={cn(
-        "block rounded-[var(--radius)] border bg-card px-3 py-2.5 text-left shadow-sm transition hover:border-primary/40",
+        "rounded-[var(--radius)] border bg-card px-3 py-2.5 text-left shadow-sm transition hover:border-primary/40",
         stale ? "border-border border-l-2 border-l-muted-foreground/50 bg-muted/40" : "border-border",
       )}
     >
+    <Link
+      to="/customers/$id"
+      params={{ id: customer.id }}
+      className="block"
+    >
+
       <div className="text-sm font-medium leading-snug truncate">
         {customer.companyName}
       </div>
@@ -336,9 +368,21 @@ function CustomerCard({
           )}
         </div>
       )}
-    </Link>
+      </Link>
+
+      <div className="mt-2 pt-2 border-t border-border/70 flex items-center justify-between gap-2">
+        <span className="text-[11px] text-muted-foreground truncate">
+          {STAGE_LABEL[customer.stage]}
+        </span>
+        <StageAdvanceControl
+          currentStage={customer.stage}
+          onPick={(s) => onPickStage(customer, s)}
+        />
+      </div>
+    </div>
   );
 }
+
 
 function StatCell({
   icon: Icon,
