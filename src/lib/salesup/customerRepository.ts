@@ -241,6 +241,8 @@ export async function createCustomer(
     if (v === undefined) continue;
     row[col] = v ? v : null;
   }
+  if (input.expoLeadId) row.expo_lead_id = input.expoLeadId;
+
 
   const { data, error } = await supabase
     .from("customers")
