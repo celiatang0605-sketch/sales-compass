@@ -2,8 +2,12 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
   ArrowLeft,
+  ArrowRight,
   Bell,
   Check,
+  ChevronDown,
+  CornerUpLeft,
+  History,
   Loader2,
   Plus,
   RefreshCw,
@@ -11,8 +15,11 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AppShell } from "@/components/salesup/AppShell";
+import { StageChangeDialog } from "@/components/salesup/customer/StageChangeDialog";
+import { useStageHistory } from "@/lib/salesup/useStageHistory";
 import { todayKey } from "@/lib/salesup/date";
 import { upsertReminder } from "@/lib/salesup/storage";
+
 import { useCustomer } from "@/lib/salesup/useCustomer";
 import {
   deleteCustomer,
