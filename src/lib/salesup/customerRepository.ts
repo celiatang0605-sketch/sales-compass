@@ -27,6 +27,9 @@ type Row = {
   website: string | null;
   current_vendor: string | null;
   company_background: string | null;
+  pain_points: string | null;
+  needs: string | null;
+  key_info: string | null;
   contact_name: string | null;
   contact_title: string | null;
   contact_department: string | null;
@@ -74,6 +77,9 @@ function rowToCustomer(r: Row): Customer {
     website: r.website,
     currentVendor: r.current_vendor,
     companyBackground: r.company_background,
+    painPoints: r.pain_points,
+    needs: r.needs,
+    keyInfo: r.key_info,
     contactName: r.contact_name,
     contactTitle: r.contact_title,
     contactDepartment: r.contact_department,
@@ -122,6 +128,9 @@ export interface UpdateCustomerInput {
   website?: string;
   currentVendor?: string;
   companyBackground?: string;
+  painPoints?: string;
+  needs?: string;
+  keyInfo?: string;
   contactName?: string;
   contactTitle?: string;
   contactDepartment?: string;
@@ -158,6 +167,9 @@ const TEXT_MAP: Record<string, string> = {
   website: "website",
   currentVendor: "current_vendor",
   companyBackground: "company_background",
+  painPoints: "pain_points",
+  needs: "needs",
+  keyInfo: "key_info",
   contactName: "contact_name",
   contactTitle: "contact_title",
   contactDepartment: "contact_department",

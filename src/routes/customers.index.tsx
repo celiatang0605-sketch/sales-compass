@@ -30,12 +30,12 @@ import { StageChangeDialog } from "@/components/salesup/customer/StageChangeDial
 import { useCustomers } from "@/lib/salesup/useCustomers";
 import { todayKey } from "@/lib/salesup/date";
 import {
-  effectiveWinRate,
   isStale,
   staleDays,
   ROLE_LABEL,
   SOURCE_LABEL,
   SOURCE_ORDER,
+  STAGE_DEFAULT_WIN_RATE,
   STAGE_LABEL,
   STAGE_ORDER,
   type Customer,
@@ -407,7 +407,7 @@ function CustomerCard({
 }) {
   const stale = isStale(customer);
   const days = staleDays(customer);
-  const rate = effectiveWinRate(customer);
+  const stageRate = STAGE_DEFAULT_WIN_RATE[customer.stage];
   const overdue =
     !!customer.nextAction &&
     !!customer.nextActionDate &&
@@ -447,7 +447,9 @@ function CustomerCard({
           </span>
         )}
         <span className="px-1.5 py-0.5 rounded-md border border-border text-muted-foreground tabular-nums">
-          赢率 {rate}%
+          {customer.winRate !== null
+            ? `赢率 ${customer.winRate}%（阶段 ${stageRate}%）`
+            : `赢率 ${stageRate}%`}
         </span>
         <span
           className={cn(

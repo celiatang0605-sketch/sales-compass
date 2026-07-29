@@ -218,3 +218,17 @@ alter table public.expo_leads
 
 create index if not exists idx_expo_leads_converted
   on public.expo_leads (user_id, converted_customer_id);
+
+-- ---------------------------------------------------------------------------
+-- Phase 4.1: preserve structured discovery fields during expo conversion and
+-- guarantee that one expo lead can create at most one customer.
+-- ---------------------------------------------------------------------------
+
+alter table public.customers
+  add column if not exists pain_points text,
+  add column if not exists needs text,
+  add column if not exists key_info text;
+
+create unique index if not exists uq_customers_expo_lead
+  on public.customers (expo_lead_id)
+  where expo_lead_id is not null;

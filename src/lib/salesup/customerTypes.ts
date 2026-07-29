@@ -141,6 +141,9 @@ export interface Customer {
   website: string | null;
   currentVendor: string | null;
   companyBackground: string | null;
+  painPoints: string | null;
+  needs: string | null;
+  keyInfo: string | null;
 
   // 人员层
   contactName: string | null;

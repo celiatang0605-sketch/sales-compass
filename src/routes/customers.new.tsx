@@ -11,10 +11,7 @@ import {
   ROLE_LABEL,
   SOURCE_LABEL,
   SOURCE_ORDER,
-  STAGE_LABEL,
-  STAGE_ORDER,
   type CustomerSource,
-  type CustomerStage,
   type DecisionRole,
 } from "@/lib/salesup/customerTypes";
 import {
@@ -74,7 +71,6 @@ interface FormState {
   contactNote: string;
 
   productLines: string[];
-  stage: CustomerStage;
   amount: string;
   expectedCloseDate: string;
   nextAction: string;
@@ -82,7 +78,7 @@ interface FormState {
 }
 
 const EMPTY: FormState = {
-  source: "expo",
+  source: "list_claimed",
   sourceDetail: "",
   sourceDate: todayKey(),
   claimExpiresAt: "",
@@ -103,7 +99,6 @@ const EMPTY: FormState = {
   email: "",
   contactNote: "",
   productLines: [],
-  stage: "to_contact",
   amount: "",
   expectedCloseDate: "",
   nextAction: "",
@@ -119,7 +114,13 @@ function NewCustomerPage() {
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
+  const isExpoSource = form.source === "expo";
+
   const handleSave = async () => {
+    if (isExpoSource) {
+      setError("展会线索请从展会线索页录入后转化为客户。");
+      return;
+    }
     const name = form.companyName.trim();
     if (!name) {
       setError("请填写公司名。");
@@ -153,7 +154,7 @@ function NewCustomerPage() {
         email: form.email,
         contactNote: form.contactNote,
         productLines: form.productLines,
-        stage: form.stage,
+        stage: "to_contact",
         amount: amount !== null && Number.isFinite(amount) ? amount : null,
         expectedCloseDate: form.expectedCloseDate,
         nextAction: form.nextAction,
@@ -218,6 +219,15 @@ function NewCustomerPage() {
                 ))}
               </div>
             </Field>
+            {isExpoSource && (
+              <div className="sm:col-span-2 rounded-[var(--radius)] border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                展会线索不能在这里直接新建。请先到
+                <Link to="/expo" className="mx-1 text-primary hover:underline">
+                  展会线索
+                </Link>
+                录入，再从线索详情转化为客户。
+              </div>
+            )}
             <Field label={sourceDetailLabel(form.source)} full>
               <input
                 value={form.sourceDetail}
@@ -386,16 +396,8 @@ function NewCustomerPage() {
               />
             </Field>
             <Field label="阶段" full>
-              <div className="flex flex-wrap gap-1.5">
-                {STAGE_ORDER.map((s) => (
-                  <Chip
-                    key={s}
-                    active={form.stage === s}
-                    onClick={() => set("stage", s)}
-                  >
-                    {STAGE_LABEL[s]}
-                  </Chip>
-                ))}
+              <div className="text-xs text-muted-foreground">
+                待建联（直接新建的客户固定从此阶段开始）
               </div>
             </Field>
             <Field label="预估金额（元）">
@@ -435,7 +437,7 @@ function NewCustomerPage() {
         <div className="sticky bottom-0 mt-4 py-3 bg-background/95 backdrop-blur border-t border-border flex gap-2">
           <button
             type="button"
-            disabled={saving}
+            disabled={saving || isExpoSource}
             onClick={() => void handleSave()}
             className="inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-[var(--radius)] bg-primary text-primary-foreground text-sm font-medium disabled:opacity-60"
           >

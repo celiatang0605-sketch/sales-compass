@@ -39,6 +39,9 @@ interface FormState {
   companyName: string;
   industry: string;
   companyBackground: string;
+  painPoints: string;
+  needs: string;
+  keyInfo: string;
   contactName: string;
   contactTitle: string;
   phone: string;
@@ -61,6 +64,9 @@ export function ConvertLeadDialog({ lead, onClose, onConverted }: Props) {
     companyName: lead.company ?? "",
     industry: lead.industry ?? "",
     companyBackground: lead.companyBackground ?? "",
+    painPoints: lead.coreProblem ?? "",
+    needs: lead.currentNeed ?? "",
+    keyInfo: lead.keyInfo ?? "",
     contactName: lead.contactName ?? "",
     contactTitle: lead.contactTitle ?? "",
     phone: lead.phone ?? "",
@@ -100,6 +106,9 @@ export function ConvertLeadDialog({ lead, onClose, onConverted }: Props) {
         companyName: form.companyName,
         industry: form.industry,
         companyBackground: form.companyBackground,
+        painPoints: form.painPoints,
+        needs: form.needs,
+        keyInfo: form.keyInfo,
         contactName: form.contactName,
         contactTitle: form.contactTitle,
         phone: form.phone,
@@ -182,6 +191,33 @@ export function ConvertLeadDialog({ lead, onClose, onConverted }: Props) {
               <textarea
                 value={form.companyBackground}
                 onChange={(e) => patch({ companyBackground: e.target.value })}
+                rows={2}
+                className="w-full px-2 py-1.5 rounded-[var(--radius)] border border-border bg-background text-sm outline-none focus:ring-2 focus:ring-ring/20"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <FieldLabel>痛点</FieldLabel>
+              <textarea
+                value={form.painPoints}
+                onChange={(e) => patch({ painPoints: e.target.value })}
+                rows={2}
+                className="w-full px-2 py-1.5 rounded-[var(--radius)] border border-border bg-background text-sm outline-none focus:ring-2 focus:ring-ring/20"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <FieldLabel>当前需求</FieldLabel>
+              <textarea
+                value={form.needs}
+                onChange={(e) => patch({ needs: e.target.value })}
+                rows={2}
+                className="w-full px-2 py-1.5 rounded-[var(--radius)] border border-border bg-background text-sm outline-none focus:ring-2 focus:ring-ring/20"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <FieldLabel>关键信息</FieldLabel>
+              <textarea
+                value={form.keyInfo}
+                onChange={(e) => patch({ keyInfo: e.target.value })}
                 rows={2}
                 className="w-full px-2 py-1.5 rounded-[var(--radius)] border border-border bg-background text-sm outline-none focus:ring-2 focus:ring-ring/20"
               />

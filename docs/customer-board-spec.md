@@ -46,7 +46,7 @@ Owner 已开始建联客户并产生第一个商机。现有系统能记录**时
 | `signing` | 签约过程 | 80% | Best Few |
 | `signed` | 已签合同 | 100% | Best Few |
 
-默认赢率映射写在 `src/lib/salesup/customerStages.ts` 的常量里，**不落库**。
+默认赢率映射写在 `src/lib/salesup/customerTypes.ts` 的常量里，**不落库**。
 
 `status` 的四个值：
 

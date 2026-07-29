@@ -90,6 +90,9 @@ interface FormState {
   website: string;
   currentVendor: string;
   companyBackground: string;
+  painPoints: string;
+  needs: string;
+  keyInfo: string;
 
   contactName: string;
   contactTitle: string;
@@ -130,6 +133,9 @@ function toForm(c: Customer): FormState {
     website: c.website ?? "",
     currentVendor: c.currentVendor ?? "",
     companyBackground: c.companyBackground ?? "",
+    painPoints: c.painPoints ?? "",
+    needs: c.needs ?? "",
+    keyInfo: c.keyInfo ?? "",
     contactName: c.contactName ?? "",
     contactTitle: c.contactTitle ?? "",
     contactDepartment: c.contactDepartment ?? "",
@@ -222,6 +228,9 @@ function CustomerDetailPage() {
         website: form.website,
         currentVendor: form.currentVendor,
         companyBackground: form.companyBackground,
+        painPoints: form.painPoints,
+        needs: form.needs,
+        keyInfo: form.keyInfo,
         contactName: form.contactName,
         contactTitle: form.contactTitle,
         contactDepartment: form.contactDepartment,
@@ -524,6 +533,30 @@ function CustomerDetailPage() {
                     className={textareaClass}
                   />
                 </Field>
+                <Field label="痛点" full>
+                  <textarea
+                    rows={3}
+                    value={form.painPoints}
+                    onChange={(e) => set("painPoints", e.target.value)}
+                    className={textareaClass}
+                  />
+                </Field>
+                <Field label="当前需求" full>
+                  <textarea
+                    rows={3}
+                    value={form.needs}
+                    onChange={(e) => set("needs", e.target.value)}
+                    className={textareaClass}
+                  />
+                </Field>
+                <Field label="关键信息" full>
+                  <textarea
+                    rows={3}
+                    value={form.keyInfo}
+                    onChange={(e) => set("keyInfo", e.target.value)}
+                    className={textareaClass}
+                  />
+                </Field>
               </Section>
 
               <Section title="主联系人">
@@ -729,7 +762,6 @@ function CustomerDetailPage() {
                 <Field label="当前阶段" full>
                   <div className="text-xs text-muted-foreground">
                     {STAGE_LABEL[form.stage]}
-                    <span className="ml-2">（阶段推进在后续版本提供）</span>
                   </div>
                 </Field>
                 <Field label="预估金额（元）">
@@ -792,11 +824,26 @@ function CustomerDetailPage() {
               {/* 赢率 */}
               <Section title="赢率" defaultOpen>
                 <div className="sm:col-span-2 space-y-2">
-                  {!form.overrideWinRate && (
-                    <div className="text-sm text-muted-foreground tabular-nums">
-                      {stageRate}%
-                      <span className="ml-2 text-xs">（按阶段）</span>
-                    </div>
+                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 tabular-nums">
+                    {form.overrideWinRate ? (
+                      <>
+                        <span className="text-sm font-medium">
+                          你的判断 {form.winRate || "—"}%
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          阶段默认 {stageRate}%
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">
+                        阶段默认 {stageRate}%
+                      </span>
+                    )}
+                  </div>
+                  {form.overrideWinRate && form.winRateOverrideReason.trim() && (
+                    <p className="text-xs text-muted-foreground whitespace-pre-wrap break-words">
+                      覆盖理由：{form.winRateOverrideReason}
+                    </p>
                   )}
                   <label className="inline-flex items-center gap-2 text-xs">
                     <input
