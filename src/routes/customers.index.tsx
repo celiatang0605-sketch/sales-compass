@@ -273,43 +273,56 @@ function CustomersBoardPage() {
       )}
 
       {showBoard && filtered.length > 0 && (
-        <div className="-mx-4 md:-mx-8 px-4 md:px-8 overflow-x-auto pb-4">
-          <div className="flex gap-3 min-w-max items-start">
-            {columns.map((col) => (
-              <section
-                key={col.stage}
-                className="w-[240px] md:w-[264px] shrink-0 rounded-[var(--radius)] border border-border bg-card/60"
-              >
-                <header className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border">
-                  <span className="text-xs font-medium">
-                    {STAGE_LABEL[col.stage]}
-                  </span>
-                  <span className="text-[11px] text-muted-foreground tabular-nums">
-                    {col.items.length}
-                  </span>
-                </header>
-                <div className="p-2 space-y-2 min-h-[80px]">
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragCancel={() => setDraggingId(null)}
+        >
+          <div className="-mx-4 md:-mx-8 px-4 md:px-8 overflow-x-auto pb-4">
+            <div className="flex gap-3 min-w-max items-start">
+              {columns.map((col) => (
+                <StageColumn
+                  key={col.stage}
+                  stage={col.stage}
+                  count={col.items.length}
+                  dragging={!!draggingId}
+                >
                   {col.items.length === 0 && (
                     <div className="text-[11px] text-muted-foreground/70 text-center py-4">
                       暂无客户
                     </div>
                   )}
                   {col.items.map((c) => (
-                    <CustomerCard
-                      key={c.id}
-                      customer={c}
-                      today={today}
-                      onPickStage={(cust, s) =>
-                        setStageTarget({ customer: cust, stage: s })
-                      }
-                    />
+                    <DraggableCard key={c.id} id={c.id}>
+                      <CustomerCard
+                        customer={c}
+                        today={today}
+                        onPickStage={(cust, s) =>
+                          setStageTarget({ customer: cust, stage: s })
+                        }
+                      />
+                    </DraggableCard>
                   ))}
-                </div>
-              </section>
-            ))}
+                </StageColumn>
+              ))}
+            </div>
           </div>
-        </div>
+          <DragOverlay>
+            {draggingCustomer ? (
+              <div className="w-[240px] md:w-[264px] opacity-90 rotate-1">
+                <CustomerCard
+                  customer={draggingCustomer}
+                  today={today}
+                  onPickStage={() => {}}
+                />
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       )}
+
 
       {stageTarget && (
         <StageChangeDialog
