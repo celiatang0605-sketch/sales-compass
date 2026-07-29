@@ -283,3 +283,21 @@ export async function listUserCompanies(): Promise<string[]> {
   }
   return out;
 }
+
+/**
+ * 标记线索已转化：写入 converted_customer_id，并把状态改为 converted。
+ * 由 customerRepository.convertExpoLeadToCustomer 在创建客户成功后调用。
+ */
+export async function markLeadConverted(
+  leadId: string,
+  customerId: string,
+): Promise<ExpoLead> {
+  const { data, error } = await supabase
+    .from("expo_leads")
+    .update({ converted_customer_id: customerId, status: "converted" })
+    .eq("id", leadId)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return rowToLead(data as Row);
+}
