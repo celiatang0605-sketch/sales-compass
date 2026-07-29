@@ -64,6 +64,7 @@ function blockToDraft(b: TimeBlock): DraftBlock {
     work_type: b.work_type,
     title: b.title,
     customer: b.customer,
+    customer_id: b.customer_id ?? null,
     summary: b.summary,
     key_info: b.key_info,
     next_action: b.next_action,
