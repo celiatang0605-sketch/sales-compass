@@ -1,0 +1,133 @@
+# 客户看板 / 商机跟进 — 设计说明（Phase 4）
+
+> 本文是 `CLAUDE.md` 的补充，只覆盖客户看板模块。做这个模块前先读 CLAUDE.md 的「产品原则」三条。
+> 配套 SQL：`db/customers.sql`（需先跑过 `db/expo_leads.sql`）。
+
+---
+
+## 1. 这个模块解决什么
+
+Owner 已开始建联客户并产生第一个商机。现有系统能记录**时间怎么花的**（time_blocks）和**展会线索**（expo_leads），但没有地方回答：
+
+- 我手上现在有哪些客户，各自推进到哪一步了？
+- 哪些卡住了？卡了多久？
+- 这些客户是从哪来的？哪个来源真正出单？
+
+看板负责**看**，不负责替代已有的录入习惯。
+
+---
+
+## 2. 已确定的架构决策（不要在实现时推翻）
+
+| # | 决策 | 说明 |
+|---|---|---|
+| D1 | **一层模型** | 一行 `customers` = 一个客户 = 一个商机。商机字段内联在同一张表，但在 SQL 里集中成一块，便于将来整体迁出。 |
+| D2 | **expo_leads 与 customers 分离** | 展会线索是「未结构化输入的加工车间」，不是普通来源。线索在 `/expo` 里被判定为真机会后，点「转为客户」生成 customers 行，并回写 `expo_leads.converted_customer_id`。**未转化的线索不出现在看板上。** |
+| D3 | **其他来源直接入库** | 市场分配 / 名单认领 / 老客转化 / 老客推荐 拿到手就是结构化数据，不经过 expo 车间，直接建 customers 行，初始阶段 `to_contact`。 |
+| D4 | **阶段推进靠拖卡片** | 看板上拖动卡片改 stage，拖完弹轻量确认框（推进原因 + 可勾选关联今天的 time_block），写入 `stage_history`。 |
+| D5 | **stage 与 status 正交** | `stage` 管走到第几步，`status` 管生死（active / won / lost / on_hold）。丢单时 stage 停在死亡位置，用于后续「我的单子都死在哪一级」分析。 |
+| D6 | **赢率默认带出、可覆盖、覆盖需理由** | 数据库层有 CHECK 约束强制。见 §4。 |
+| D7 | **主联系人 + 结构化「其他关键人」** | 不建联系人子表，用 `other_contacts` jsonb 数组。 |
+
+---
+
+## 3. 阶段定义
+
+漏斗照搬公司口径，顶上加一级 `to_contact`（因为 D3 的三个来源入库时还没接触上任何人）。
+
+| stage | 中文 | 默认赢率 | 分组 |
+|---|---|---|---|
+| `to_contact` | 待建联 | 0% | Above The Funnel |
+| `opportunity_confirmed` | 机会确认 | 10% | Above The Funnel |
+| `need_confirmed` | 需求确认 | 20% | In The Funnel |
+| `solution_confirmed` | 方案确认 | 40% | In The Funnel |
+| `quote_confirmed` | 报价确认 | 50% | In The Funnel |
+| `negotiation` | 商务谈判 | 60% | In The Funnel |
+| `signing` | 签约过程 | 80% | Best Few |
+| `signed` | 已签合同 | 100% | Best Few |
+
+默认赢率映射写在 `src/lib/salesup/customerStages.ts` 的常量里，**不落库**。
+
+`status` 的四个值：
+
+- `active` — 进行中，进看板主视图，计入预测
+- `won` — 已赢（通常 stage = signed）
+- `lost` — 已丢，必填 `loss_reason`（应用层校验），从主看板收起
+- `on_hold` — 暂缓培育，设 `on_hold_until` 唤醒日期，**不计入预测**，从主看板收起
+
+---
+
+## 4. 赢率规则
+
+- `win_rate` 为 null 时，UI 显示该 stage 的默认赢率（灰字）。
+- 用户手动填 `win_rate` 时，**必须同时填 `win_rate_override_reason`**，否则数据库 CHECK 约束会拒绝写入。
+- 卡片上同时显示默认值和覆盖值，让落差可见——这个落差是这条商机最有信息量的部分。
+- **本期不显示「加权预测总额」。** 商机数量 < 15 时这个数字是噪音但长得像结论。等样本量够了再开。
+
+---
+
+## 5. 页面结构
+
+```
+/customers            看板主视图（Kanban，按 stage 分 8 列）
+/customers/$id        客户详情（全字段编辑 + 阶段历史时间线 + 相关时间块）
+/customers/new        新建（来源必选，其余渐进填写）
+```
+
+**看板主视图**
+
+- 8 列对应 8 个 stage，只显示 `status = 'active'` 的卡片。
+- 顶部筛选：来源、产品线、停滞天数。
+- 顶部统计：进行中商机数 / 今日待跟进数 / 停滞超阈值数。
+- 卡片上显示：公司名、主联系人、金额、赢率、**停滞天数**（`now() - stage_changed_at`）、下一步动作及日期（逾期标红）。
+- 停滞天数超过阈值的卡片加视觉警示。阈值先按 stage 定死在常量里（早期阶段容忍度低，谈判阶段容忍度高），后续可做成设置项。
+- `won` / `lost` / `on_hold` 通过顶部切换查看，不占主视图。
+
+**拖拽确认框**（D4 的核心）
+
+拖动后弹出，包含：
+
+1. 从 X 到 Y 的展示（回退也允许，但视觉上区分）
+2. 「因为什么推进？」文本框（选填但强提示）
+3. 今天与该客户相关的 time_blocks 列表，可勾选关联
+4. 确认后：更新 `customers.stage` + `stage_changed_at`，插入一条 `stage_history`
+
+拖到 `signed` 时额外提示是否同时把 status 置为 `won`。
+
+**详情页阶段历史**
+
+按 `changed_at` 倒序的时间线，每条显示阶段变化、原因、关联时间块（可点击跳回时间轴）。这是这个模块长期最有价值的产出。
+
+---
+
+## 6. 与既有模块的关系
+
+| 模块 | 关系 |
+|---|---|
+| `expo_leads` | 单向：线索 → 客户。转化时复制 company / contact / 痛点 / 决策角色等字段，回写 `converted_customer_id` 防重复转化。 |
+| `time_blocks` | `customer_id` 开始真正写入（此前恒为 null）。时间块详情面板的客户字段从自由文本升级为可选择已有客户（保留自由文本兜底）。**`opportunity_id` 继续留 null**，等拆两层时迁移脚本回填。 |
+| `reminders` | 客户的 `next_action` / `next_action_date` 可一键生成提醒，复用 BlockDetailPanel 已有的模式。 |
+| `stats.ts` | **不动。** 时间统计仍然只从 time_blocks 聚合。客户看板的统计（停滞天数、来源转化率）单独计算，不要塞进 `computeStats`。 |
+
+---
+
+## 7. 本期不做
+
+- 加权预测总额视图（等商机数 ≥ 15）
+- 来源转化率分析看板（等有足够已关闭商机）
+- 联系人子表
+- 合同 / 回款 / 续约
+- 客户共享或团队视图（这是个人工作台，RLS 按 `auth.uid()` 隔离）
+
+---
+
+## 8. 将来拆成两层的迁移路径
+
+触发信号：同一个公司需要挂第二条不同产品线的商机时。
+
+1. 建 `opportunities` 表，把 `db/customers.sql` 里「商机层」注释块内的字段整体搬过去，加 `customer_id` 外键。
+2. 迁移脚本：每条 customers 生成一条默认 opportunity，回填 `stage_history.opportunity_id` 和 `time_blocks.opportunity_id`。
+3. `customers` 表只留来源层 + 公司层 + 人员层。
+4. 看板卡片单位从「客户」变成「商机」，客户详情页新增商机列表。
+
+因为商机字段在 SQL 里是连续一块且有注释边界，这次迁移只碰一张表。**新增商机相关字段时务必加在那个块内。**
