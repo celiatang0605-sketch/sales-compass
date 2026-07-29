@@ -13,9 +13,12 @@ import {
   Pencil,
   X,
   Save,
+  UserPlus,
+  UserCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/salesup/AppShell";
+import { ConvertLeadDialog } from "@/components/salesup/expo/ConvertLeadDialog";
 import {
   PRIORITY_LABEL,
   PRIORITY_STYLE,
