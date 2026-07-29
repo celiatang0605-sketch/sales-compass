@@ -17,7 +17,8 @@ import { cn } from "@/lib/utils";
 import { AppShell } from "@/components/salesup/AppShell";
 import { StageChangeDialog } from "@/components/salesup/customer/StageChangeDialog";
 import { useStageHistory } from "@/lib/salesup/useStageHistory";
-import { todayKey } from "@/lib/salesup/date";
+import { slotToTimeString, todayKey } from "@/lib/salesup/date";
+import { useCustomerTimeBlocks } from "@/lib/salesup/useCustomerTimeBlocks";
 import { upsertReminder } from "@/lib/salesup/storage";
 
 import { useCustomer } from "@/lib/salesup/useCustomer";
