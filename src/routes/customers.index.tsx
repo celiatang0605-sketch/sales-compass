@@ -260,9 +260,11 @@ function CustomersBoardPage() {
 function CustomerCard({
   customer,
   today,
+  onPickStage,
 }: {
   customer: Customer;
   today: string;
+  onPickStage: (customer: Customer, stage: CustomerStage) => void;
 }) {
   const stale = isStale(customer);
   const days = staleDays(customer);
@@ -273,14 +275,18 @@ function CustomerCard({
     customer.nextActionDate < today;
 
   return (
-    <Link
-      to="/customers/$id"
-      params={{ id: customer.id }}
+    <div
       className={cn(
-        "block rounded-[var(--radius)] border bg-card px-3 py-2.5 text-left shadow-sm transition hover:border-primary/40",
+        "rounded-[var(--radius)] border bg-card px-3 py-2.5 text-left shadow-sm transition hover:border-primary/40",
         stale ? "border-border border-l-2 border-l-muted-foreground/50 bg-muted/40" : "border-border",
       )}
     >
+    <Link
+      to="/customers/$id"
+      params={{ id: customer.id }}
+      className="block"
+    >
+
       <div className="text-sm font-medium leading-snug truncate">
         {customer.companyName}
       </div>
