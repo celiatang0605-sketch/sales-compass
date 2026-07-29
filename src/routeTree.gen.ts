@@ -19,6 +19,8 @@ import { Route as ExpoIndexRouteImport } from './routes/expo.index'
 import { Route as CustomersIndexRouteImport } from './routes/customers.index'
 import { Route as ExpoNewRouteImport } from './routes/expo.new'
 import { Route as ExpoIdRouteImport } from './routes/expo.$id'
+import { Route as CustomersNewRouteImport } from './routes/customers.new'
+import { Route as CustomersIdRouteImport } from './routes/customers.$id'
 
 const WeeklyRoute = WeeklyRouteImport.update({
   id: '/weekly',
@@ -70,6 +72,16 @@ const ExpoIdRoute = ExpoIdRouteImport.update({
   path: '/expo/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CustomersNewRoute = CustomersNewRouteImport.update({
+  id: '/customers/new',
+  path: '/customers/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CustomersIdRoute = CustomersIdRouteImport.update({
+  id: '/customers/$id',
+  path: '/customers/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -78,6 +90,8 @@ export interface FileRoutesByFullPath {
   '/monthly': typeof MonthlyRoute
   '/reminders': typeof RemindersRoute
   '/weekly': typeof WeeklyRoute
+  '/customers/$id': typeof CustomersIdRoute
+  '/customers/new': typeof CustomersNewRoute
   '/expo/$id': typeof ExpoIdRoute
   '/expo/new': typeof ExpoNewRoute
   '/customers/': typeof CustomersIndexRoute
@@ -90,6 +104,8 @@ export interface FileRoutesByTo {
   '/monthly': typeof MonthlyRoute
   '/reminders': typeof RemindersRoute
   '/weekly': typeof WeeklyRoute
+  '/customers/$id': typeof CustomersIdRoute
+  '/customers/new': typeof CustomersNewRoute
   '/expo/$id': typeof ExpoIdRoute
   '/expo/new': typeof ExpoNewRoute
   '/customers': typeof CustomersIndexRoute
@@ -103,6 +119,8 @@ export interface FileRoutesById {
   '/monthly': typeof MonthlyRoute
   '/reminders': typeof RemindersRoute
   '/weekly': typeof WeeklyRoute
+  '/customers/$id': typeof CustomersIdRoute
+  '/customers/new': typeof CustomersNewRoute
   '/expo/$id': typeof ExpoIdRoute
   '/expo/new': typeof ExpoNewRoute
   '/customers/': typeof CustomersIndexRoute
@@ -117,6 +135,8 @@ export interface FileRouteTypes {
     | '/monthly'
     | '/reminders'
     | '/weekly'
+    | '/customers/$id'
+    | '/customers/new'
     | '/expo/$id'
     | '/expo/new'
     | '/customers/'
@@ -129,6 +149,8 @@ export interface FileRouteTypes {
     | '/monthly'
     | '/reminders'
     | '/weekly'
+    | '/customers/$id'
+    | '/customers/new'
     | '/expo/$id'
     | '/expo/new'
     | '/customers'
@@ -141,6 +163,8 @@ export interface FileRouteTypes {
     | '/monthly'
     | '/reminders'
     | '/weekly'
+    | '/customers/$id'
+    | '/customers/new'
     | '/expo/$id'
     | '/expo/new'
     | '/customers/'
@@ -154,6 +178,8 @@ export interface RootRouteChildren {
   MonthlyRoute: typeof MonthlyRoute
   RemindersRoute: typeof RemindersRoute
   WeeklyRoute: typeof WeeklyRoute
+  CustomersIdRoute: typeof CustomersIdRoute
+  CustomersNewRoute: typeof CustomersNewRoute
   ExpoIdRoute: typeof ExpoIdRoute
   ExpoNewRoute: typeof ExpoNewRoute
   CustomersIndexRoute: typeof CustomersIndexRoute
@@ -232,6 +258,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ExpoIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/customers/new': {
+      id: '/customers/new'
+      path: '/customers/new'
+      fullPath: '/customers/new'
+      preLoaderRoute: typeof CustomersNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/customers/$id': {
+      id: '/customers/$id'
+      path: '/customers/$id'
+      fullPath: '/customers/$id'
+      preLoaderRoute: typeof CustomersIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -242,6 +282,8 @@ const rootRouteChildren: RootRouteChildren = {
   MonthlyRoute: MonthlyRoute,
   RemindersRoute: RemindersRoute,
   WeeklyRoute: WeeklyRoute,
+  CustomersIdRoute: CustomersIdRoute,
+  CustomersNewRoute: CustomersNewRoute,
   ExpoIdRoute: ExpoIdRoute,
   ExpoNewRoute: ExpoNewRoute,
   CustomersIndexRoute: CustomersIndexRoute,
