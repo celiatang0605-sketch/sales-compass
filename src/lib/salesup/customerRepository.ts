@@ -229,14 +229,14 @@ export async function createCustomer(
     next_action_date: input.nextAction?.trim() ? input.nextActionDate || null : null,
   };
   for (const [k, col] of Object.entries(TEXT_MAP)) {
-    const v = (input as Record<string, unknown>)[k];
+    const v = (input as unknown as Record<string, unknown>)[k];
     if (v === undefined) continue;
     const s = typeof v === "string" ? v.trim() : "";
     row[col] = s.length > 0 ? s : null;
   }
   row.company_name = input.companyName.trim();
   for (const [k, col] of Object.entries(DATE_MAP)) {
-    const v = (input as Record<string, unknown>)[k];
+    const v = (input as unknown as Record<string, unknown>)[k];
     if (v === undefined) continue;
     row[col] = v ? v : null;
   }
