@@ -405,6 +405,10 @@ function CustomerDetailPage() {
             {/* 阶段历史 */}
             <StageHistorySection customerId={customer.id} refreshKey={historyKey} />
 
+            {/* 相关记录 */}
+            <RelatedBlocksSection customerId={customer.id} />
+
+
             {stageTarget && (
               <StageChangeDialog
                 customer={customer}
