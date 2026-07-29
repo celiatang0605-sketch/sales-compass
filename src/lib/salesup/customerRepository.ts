@@ -114,6 +114,7 @@ export interface UpdateCustomerInput {
   sourceDetail?: string;
   sourceDate?: string;
   claimExpiresAt?: string;
+  expoLeadId?: string;
   industry?: string;
   companySize?: string;
   overseasMarkets?: string[];
