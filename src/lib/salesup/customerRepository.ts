@@ -216,24 +216,31 @@ export async function createCustomer(
     user_id: uid,
     company_name: input.companyName.trim(),
     source: input.source ?? "other",
-    source_detail: input.sourceDetail?.trim() || null,
-    source_date: input.sourceDate || null,
-    industry: input.industry?.trim() || null,
-    contact_name: input.contactName?.trim() || null,
-    contact_title: input.contactTitle?.trim() || null,
     decision_role: input.decisionRole ?? "unknown",
-    phone: input.phone?.trim() || null,
-    wechat: input.wechat?.trim() || null,
-    email: input.email?.trim() || null,
+    overseas_markets: input.overseasMarkets ?? [],
+    other_contacts: input.otherContacts ?? [],
     product_lines: input.productLines ?? [],
     stage: input.stage ?? "to_contact",
     status: input.status ?? "active",
+    win_rate: input.winRate ?? null,
     amount: input.amount ?? null,
-    expected_close_date: input.expectedCloseDate || null,
+    currency: input.currency || "CNY",
     next_action: input.nextAction?.trim() || null,
     next_action_date: input.nextAction?.trim() ? input.nextActionDate || null : null,
-    notes: input.notes?.trim() || null,
   };
+  for (const [k, col] of Object.entries(TEXT_MAP)) {
+    const v = (input as Record<string, unknown>)[k];
+    if (v === undefined) continue;
+    const s = typeof v === "string" ? v.trim() : "";
+    row[col] = s.length > 0 ? s : null;
+  }
+  row.company_name = input.companyName.trim();
+  for (const [k, col] of Object.entries(DATE_MAP)) {
+    const v = (input as Record<string, unknown>)[k];
+    if (v === undefined) continue;
+    row[col] = v ? v : null;
+  }
+
   const { data, error } = await supabase
     .from("customers")
     .insert(row)
