@@ -30,6 +30,8 @@ export interface DraftBlock {
   work_type: WorkTypeId;
   title: string;
   customer: string;
+  /** 选中客户看板里的客户时写入 customers.id；自由文本时为 null。 */
+  customer_id?: string | null;
   summary: string;
   key_info: string;
   next_action: string;
