@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AppShell } from "@/components/salesup/AppShell";
+import { StageAdvanceControl } from "@/components/salesup/customer/StageAdvanceControl";
+import { StageChangeDialog } from "@/components/salesup/customer/StageChangeDialog";
 import { useCustomers } from "@/lib/salesup/useCustomers";
 import { todayKey } from "@/lib/salesup/date";
 import {
@@ -25,7 +27,9 @@ import {
   STAGE_ORDER,
   type Customer,
   type CustomerSource,
+  type CustomerStage,
 } from "@/lib/salesup/customerTypes";
+
 
 export const Route = createFileRoute("/customers/")({
   head: () => ({
