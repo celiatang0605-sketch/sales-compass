@@ -1,6 +1,19 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  useDraggable,
+  useDroppable,
+  closestCorners,
+  type DragStartEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
   Plus,
   Loader2,
   RefreshCw,
@@ -121,6 +134,34 @@ function CustomersBoardPage() {
 
   const showBoard = !!userId && !loading && !error;
 
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const draggingCustomer = useMemo(
+    () => filtered.find((c) => c.id === draggingId) ?? null,
+    [filtered, draggingId],
+  );
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 8 },
+    }),
+  );
+
+  const handleDragStart = (e: DragStartEvent) => {
+    setDraggingId(String(e.active.id));
+  };
+
+  const handleDragEnd = (e: DragEndEvent) => {
+    const activeId = String(e.active.id);
+    setDraggingId(null);
+    const overStage = e.over?.id ? (String(e.over.id) as CustomerStage) : null;
+    if (!overStage) return;
+    const cust = filtered.find((c) => c.id === activeId);
+    if (!cust || cust.stage === overStage) return;
+    setStageTarget({ customer: cust, stage: overStage });
+  };
+
+
   return (
     <AppShell>
       <div className="mb-4 md:mb-6 flex items-start gap-3">
@@ -232,43 +273,56 @@ function CustomersBoardPage() {
       )}
 
       {showBoard && filtered.length > 0 && (
-        <div className="-mx-4 md:-mx-8 px-4 md:px-8 overflow-x-auto pb-4">
-          <div className="flex gap-3 min-w-max items-start">
-            {columns.map((col) => (
-              <section
-                key={col.stage}
-                className="w-[240px] md:w-[264px] shrink-0 rounded-[var(--radius)] border border-border bg-card/60"
-              >
-                <header className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border">
-                  <span className="text-xs font-medium">
-                    {STAGE_LABEL[col.stage]}
-                  </span>
-                  <span className="text-[11px] text-muted-foreground tabular-nums">
-                    {col.items.length}
-                  </span>
-                </header>
-                <div className="p-2 space-y-2 min-h-[80px]">
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragCancel={() => setDraggingId(null)}
+        >
+          <div className="-mx-4 md:-mx-8 px-4 md:px-8 overflow-x-auto pb-4">
+            <div className="flex gap-3 min-w-max items-start">
+              {columns.map((col) => (
+                <StageColumn
+                  key={col.stage}
+                  stage={col.stage}
+                  count={col.items.length}
+                  dragging={!!draggingId}
+                >
                   {col.items.length === 0 && (
                     <div className="text-[11px] text-muted-foreground/70 text-center py-4">
                       暂无客户
                     </div>
                   )}
                   {col.items.map((c) => (
-                    <CustomerCard
-                      key={c.id}
-                      customer={c}
-                      today={today}
-                      onPickStage={(cust, s) =>
-                        setStageTarget({ customer: cust, stage: s })
-                      }
-                    />
+                    <DraggableCard key={c.id} id={c.id}>
+                      <CustomerCard
+                        customer={c}
+                        today={today}
+                        onPickStage={(cust, s) =>
+                          setStageTarget({ customer: cust, stage: s })
+                        }
+                      />
+                    </DraggableCard>
                   ))}
-                </div>
-              </section>
-            ))}
+                </StageColumn>
+              ))}
+            </div>
           </div>
-        </div>
+          <DragOverlay>
+            {draggingCustomer ? (
+              <div className="w-[240px] md:w-[264px] opacity-90 rotate-1">
+                <CustomerCard
+                  customer={draggingCustomer}
+                  today={today}
+                  onPickStage={() => {}}
+                />
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       )}
+
 
       {stageTarget && (
         <StageChangeDialog
@@ -282,6 +336,65 @@ function CustomersBoardPage() {
     </AppShell>
   );
 }
+
+function StageColumn({
+  stage,
+  count,
+  dragging,
+  children,
+}: {
+  stage: CustomerStage;
+  count: number;
+  dragging: boolean;
+  children: React.ReactNode;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: stage });
+  return (
+    <section
+      className={cn(
+        "w-[240px] md:w-[264px] shrink-0 rounded-[var(--radius)] border bg-card/60 transition",
+        isOver ? "border-primary bg-primary/5" : "border-border",
+      )}
+    >
+      <header className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border">
+        <span className="text-xs font-medium">{STAGE_LABEL[stage]}</span>
+        <span className="text-[11px] text-muted-foreground tabular-nums">
+          {count}
+        </span>
+      </header>
+      <div
+        ref={setNodeRef}
+        className={cn(
+          "p-2 space-y-2 min-h-[80px]",
+          dragging && "min-h-[120px]",
+        )}
+      >
+        {children}
+      </div>
+    </section>
+  );
+}
+
+function DraggableCard({
+  id,
+  children,
+}: {
+  id: string;
+  children: React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      className={cn("touch-manipulation", isDragging && "opacity-40")}
+    >
+      {children}
+    </div>
+  );
+}
+
 
 function CustomerCard({
   customer,
