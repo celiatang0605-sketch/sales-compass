@@ -10,13 +10,7 @@
 //   prototype data captured before login is preserved for migration.
 
 import { useEffect, useState, useCallback } from "react";
-import type {
-  TimeBlock,
-  DailyReview,
-  WeeklyReview,
-  MonthlyReview,
-  Reminder,
-} from "./types";
+import type { TimeBlock, DailyReview, WeeklyReview, MonthlyReview, Reminder } from "./types";
 import { uid, nowIso } from "./date";
 import {
   scopedKey,
@@ -85,7 +79,9 @@ export function useTimeBlocksForDates(dates: string[]): TimeBlock[] {
   const set = new Set(dates);
   return all
     .filter((b) => set.has(b.date))
-    .sort((a, b) => (a.date === b.date ? a.start_slot - b.start_slot : a.date.localeCompare(b.date)));
+    .sort((a, b) =>
+      a.date === b.date ? a.start_slot - b.start_slot : a.date.localeCompare(b.date),
+    );
 }
 
 export function upsertTimeBlock(

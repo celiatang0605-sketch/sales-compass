@@ -2,11 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  STAGE_LABEL,
-  STAGE_ORDER,
-  type CustomerStage,
-} from "@/lib/salesup/customerTypes";
+import { STAGE_LABEL, STAGE_ORDER, type CustomerStage } from "@/lib/salesup/customerTypes";
 
 interface Props {
   currentStage: CustomerStage;

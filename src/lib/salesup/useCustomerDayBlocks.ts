@@ -1,10 +1,7 @@
 // Client-side hook: 某客户在指定日期下的时间块（用于阶段推进时关联记录）。
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  listTimeBlocksForCustomerOnDate,
-  type RelatedTimeBlock,
-} from "./customerRepository";
+import { listTimeBlocksForCustomerOnDate, type RelatedTimeBlock } from "./customerRepository";
 
 export interface CustomerDayBlocksState {
   blocks: RelatedTimeBlock[];
@@ -36,9 +33,7 @@ export function useCustomerDayBlocks(params: {
       setLoading(true);
       setError(null);
       try {
-        setBlocks(
-          await listTimeBlocksForCustomerOnDate({ date, customerId, companyName }),
-        );
+        setBlocks(await listTimeBlocksForCustomerOnDate({ date, customerId, companyName }));
       } catch (e) {
         setError(e instanceof Error ? e.message : "读取当天记录失败");
         setBlocks([]);

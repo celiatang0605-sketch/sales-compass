@@ -5,10 +5,7 @@ import { AppShell } from "@/components/salesup/AppShell";
 import { WeekTimeline } from "@/components/salesup/WeekTimeline";
 import { WorkTypeLegend } from "@/components/salesup/Timeline";
 import { MonthCalendar } from "@/components/salesup/MonthCalendar";
-import {
-  BlockDetailPanel,
-  type DraftBlock,
-} from "@/components/salesup/BlockDetailPanel";
+import { BlockDetailPanel, type DraftBlock } from "@/components/salesup/BlockDetailPanel";
 import { StatsCards } from "@/components/salesup/StatsCards";
 import {
   useTimeBlocks,
@@ -34,9 +31,7 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/")({
   validateSearch: (search: Record<string, unknown>): { date?: string } => {
     const d = search.date;
-    return typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d)
-      ? { date: d }
-      : {};
+    return typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d) ? { date: d } : {};
   },
   head: () => ({
     meta: [
@@ -46,7 +41,6 @@ export const Route = createFileRoute("/")({
   }),
   component: TimelinePage,
 });
-
 
 type ViewMode = "week" | "month";
 
@@ -81,9 +75,7 @@ function TimelinePage() {
   const [anchor, setAnchor] = useState<string>(() => dateParam ?? todayKey());
   const [filter, setFilter] = useState<WorkTypeId | "all">("all");
   const [search, setSearch] = useState("");
-  const [highlightDate, setHighlightDate] = useState<string | undefined>(
-    dateParam,
-  );
+  const [highlightDate, setHighlightDate] = useState<string | undefined>(dateParam);
 
   // 从「阶段历史」等入口带 ?date= 进来时，定位到那一天。
   useEffect(() => {
@@ -154,12 +146,7 @@ function TimelinePage() {
       // Ignore when focused in an input / textarea / contenteditable
       if (t) {
         const tag = t.tagName;
-        if (
-          tag === "INPUT" ||
-          tag === "TEXTAREA" ||
-          tag === "SELECT" ||
-          t.isContentEditable
-        ) {
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || t.isContentEditable) {
           return;
         }
       }
@@ -205,8 +192,7 @@ function TimelinePage() {
   };
 
   const todayIso = useMemo(() => getISOWeek(new Date()), []);
-  const isThisWeek =
-    isoInfo.year === todayIso.year && isoInfo.week === todayIso.week;
+  const isThisWeek = isoInfo.year === todayIso.year && isoInfo.week === todayIso.week;
 
   return (
     <AppShell>
@@ -238,9 +224,7 @@ function TimelinePage() {
                 onClick={() => setMode("week")}
                 className={cn(
                   "px-3 py-1.5 text-xs",
-                  mode === "week"
-                    ? "bg-primary text-primary-foreground"
-                    : "hover:bg-secondary",
+                  mode === "week" ? "bg-primary text-primary-foreground" : "hover:bg-secondary",
                 )}
               >
                 周视图
@@ -249,9 +233,7 @@ function TimelinePage() {
                 onClick={() => setMode("month")}
                 className={cn(
                   "px-3 py-1.5 text-xs border-l border-border",
-                  mode === "month"
-                    ? "bg-primary text-primary-foreground"
-                    : "hover:bg-secondary",
+                  mode === "month" ? "bg-primary text-primary-foreground" : "hover:bg-secondary",
                 )}
               >
                 月视图

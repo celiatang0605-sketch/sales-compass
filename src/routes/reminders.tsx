@@ -2,11 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { Plus, Trash2, Check } from "lucide-react";
 import { AppShell } from "@/components/salesup/AppShell";
-import {
-  useReminders,
-  upsertReminder,
-  deleteReminder,
-} from "@/lib/salesup/storage";
+import { useReminders, upsertReminder, deleteReminder } from "@/lib/salesup/storage";
 import type {
   Reminder,
   ReminderFrequency,
@@ -51,20 +47,12 @@ function RemindersPage() {
   const monthDays = useMemo(() => monthDaysOf(today), [today]);
 
   const todayItems = reminders.filter((r) => matchesToday(r, today));
-  const weekItems = reminders.filter(
-    (r) => matchesWeek(r, weekDays) && !matchesToday(r, today),
-  );
+  const weekItems = reminders.filter((r) => matchesWeek(r, weekDays) && !matchesToday(r, today));
   const monthItems = reminders.filter(
-    (r) =>
-      matchesMonth(r, monthDays) &&
-      !matchesWeek(r, weekDays) &&
-      !matchesToday(r, today),
+    (r) => matchesMonth(r, monthDays) && !matchesWeek(r, weekDays) && !matchesToday(r, today),
   );
   const others = reminders.filter(
-    (r) =>
-      !matchesToday(r, today) &&
-      !matchesWeek(r, weekDays) &&
-      !matchesMonth(r, monthDays),
+    (r) => !matchesToday(r, today) && !matchesWeek(r, weekDays) && !matchesMonth(r, monthDays),
   );
 
   const [editing, setEditing] = useState<Partial<Reminder> | null>(null);
@@ -75,12 +63,18 @@ function RemindersPage() {
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
             <h1 className="text-xl md:text-2xl font-semibold">提醒中心</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              待办、问题、注意事项与定期提醒
-            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">待办、问题、注意事项与定期提醒</p>
           </div>
           <button
-            onClick={() => setEditing({ title: "", type: "todo", frequency: "once", priority: "medium", status: "pending" })}
+            onClick={() =>
+              setEditing({
+                title: "",
+                type: "todo",
+                frequency: "once",
+                priority: "medium",
+                status: "pending",
+              })
+            }
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:opacity-90"
           >
             <Plus className="w-4 h-4" /> 新增提醒
@@ -141,13 +135,7 @@ function Group({
   );
 }
 
-function ReminderItem({
-  reminder,
-  onEdit,
-}: {
-  reminder: Reminder;
-  onEdit: (r: Reminder) => void;
-}) {
+function ReminderItem({ reminder, onEdit }: { reminder: Reminder; onEdit: (r: Reminder) => void }) {
   const priorityColor =
     reminder.priority === "high"
       ? "var(--destructive)"
@@ -172,28 +160,34 @@ function ReminderItem({
         }
         className={cn(
           "mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-colors",
-          isDone ? "bg-primary border-primary text-primary-foreground" : "border-border hover:border-foreground/40",
+          isDone
+            ? "bg-primary border-primary text-primary-foreground"
+            : "border-border hover:border-foreground/40",
         )}
         aria-label={isDone ? "标记为未完成" : "标记为已完成"}
       >
         {isDone && <Check className="w-3 h-3" />}
       </button>
-      <button
-        onClick={() => onEdit(reminder)}
-        className="flex-1 text-left"
-      >
+      <button onClick={() => onEdit(reminder)} className="flex-1 text-left">
         <div className={cn("text-sm font-medium", isDone && "line-through")}>
           {reminder.title || "(未命名提醒)"}
         </div>
         <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[11px] text-muted-foreground">
           <span
             className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full"
-            style={{ background: "color-mix(in oklch, " + priorityColor + " 12%, transparent)", color: priorityColor }}
+            style={{
+              background: "color-mix(in oklch, " + priorityColor + " 12%, transparent)",
+              color: priorityColor,
+            }}
           >
             优先级 {PRIORITY_LABEL[reminder.priority]}
           </span>
-          <span className="px-1.5 py-0.5 rounded-full bg-secondary">{TYPE_LABEL[reminder.type]}</span>
-          <span className="px-1.5 py-0.5 rounded-full bg-secondary">{FREQ_LABEL[reminder.frequency]}</span>
+          <span className="px-1.5 py-0.5 rounded-full bg-secondary">
+            {TYPE_LABEL[reminder.type]}
+          </span>
+          <span className="px-1.5 py-0.5 rounded-full bg-secondary">
+            {FREQ_LABEL[reminder.frequency]}
+          </span>
           {reminder.related_date && <span>· {reminder.related_date}</span>}
           {reminder.customer && <span>· @{reminder.customer}</span>}
           <span>· {STATUS_LABEL[reminder.status]}</span>
@@ -215,13 +209,7 @@ function ReminderItem({
   );
 }
 
-function EditorDialog({
-  draft,
-  onClose,
-}: {
-  draft: Partial<Reminder>;
-  onClose: () => void;
-}) {
+function EditorDialog({ draft, onClose }: { draft: Partial<Reminder>; onClose: () => void }) {
   const [form, setForm] = useState<Partial<Reminder>>(draft);
   const update = <K extends keyof Reminder>(k: K, v: Reminder[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
@@ -243,51 +231,98 @@ function EditorDialog({
         </div>
         <div className="p-4 space-y-3">
           <FormField label="标题">
-            <input className="rinput" value={form.title ?? ""} onChange={(e) => update("title", e.target.value)} autoFocus />
+            <input
+              className="rinput"
+              value={form.title ?? ""}
+              onChange={(e) => update("title", e.target.value)}
+              autoFocus
+            />
           </FormField>
           <div className="grid grid-cols-2 gap-3">
             <FormField label="提醒类型">
-              <select className="rinput" value={form.type} onChange={(e) => update("type", e.target.value as ReminderType)}>
+              <select
+                className="rinput"
+                value={form.type}
+                onChange={(e) => update("type", e.target.value as ReminderType)}
+              >
                 {Object.entries(TYPE_LABEL).map(([k, v]) => (
-                  <option key={k} value={k}>{v}</option>
+                  <option key={k} value={k}>
+                    {v}
+                  </option>
                 ))}
               </select>
             </FormField>
             <FormField label="提醒频率">
-              <select className="rinput" value={form.frequency} onChange={(e) => update("frequency", e.target.value as ReminderFrequency)}>
+              <select
+                className="rinput"
+                value={form.frequency}
+                onChange={(e) => update("frequency", e.target.value as ReminderFrequency)}
+              >
                 {Object.entries(FREQ_LABEL).map(([k, v]) => (
-                  <option key={k} value={k}>{v}</option>
+                  <option key={k} value={k}>
+                    {v}
+                  </option>
                 ))}
               </select>
             </FormField>
             <FormField label="关联日期">
-              <input type="date" className="rinput" value={form.related_date ?? ""} onChange={(e) => update("related_date", e.target.value)} />
+              <input
+                type="date"
+                className="rinput"
+                value={form.related_date ?? ""}
+                onChange={(e) => update("related_date", e.target.value)}
+              />
             </FormField>
             <FormField label="关联客户">
-              <input className="rinput" value={form.customer ?? ""} onChange={(e) => update("customer", e.target.value)} />
+              <input
+                className="rinput"
+                value={form.customer ?? ""}
+                onChange={(e) => update("customer", e.target.value)}
+              />
             </FormField>
             <FormField label="优先级">
-              <select className="rinput" value={form.priority} onChange={(e) => update("priority", e.target.value as ReminderPriority)}>
+              <select
+                className="rinput"
+                value={form.priority}
+                onChange={(e) => update("priority", e.target.value as ReminderPriority)}
+              >
                 {Object.entries(PRIORITY_LABEL).map(([k, v]) => (
-                  <option key={k} value={k}>{v}</option>
+                  <option key={k} value={k}>
+                    {v}
+                  </option>
                 ))}
               </select>
             </FormField>
             <FormField label="状态">
-              <select className="rinput" value={form.status} onChange={(e) => update("status", e.target.value as ReminderStatus)}>
+              <select
+                className="rinput"
+                value={form.status}
+                onChange={(e) => update("status", e.target.value as ReminderStatus)}
+              >
                 {Object.entries(STATUS_LABEL).map(([k, v]) => (
-                  <option key={k} value={k}>{v}</option>
+                  <option key={k} value={k}>
+                    {v}
+                  </option>
                 ))}
               </select>
             </FormField>
           </div>
           <FormField label="备注">
-            <textarea className="rinput min-h-[70px] resize-y" value={form.note ?? ""} onChange={(e) => update("note", e.target.value)} />
+            <textarea
+              className="rinput min-h-[70px] resize-y"
+              value={form.note ?? ""}
+              onChange={(e) => update("note", e.target.value)}
+            />
           </FormField>
         </div>
         <div className="px-4 py-3 border-t border-border flex justify-end gap-2">
-          <button onClick={onClose} className="px-3 py-2 rounded-md text-sm hover:bg-secondary">取消</button>
-          <button onClick={save} className="px-4 py-2 rounded-md text-sm bg-primary text-primary-foreground hover:opacity-90">
+          <button onClick={onClose} className="px-3 py-2 rounded-md text-sm hover:bg-secondary">
+            取消
+          </button>
+          <button
+            onClick={save}
+            className="px-4 py-2 rounded-md text-sm bg-primary text-primary-foreground hover:opacity-90"
+          >
             保存
           </button>
         </div>

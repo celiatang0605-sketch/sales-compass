@@ -30,7 +30,10 @@ function AuthPage() {
       if (error) {
         setMsg({ type: "err", text: error.message });
       } else if (mode === "signup") {
-        setMsg({ type: "ok", text: "已发送验证邮件，请查收后登录（或在 Supabase 控制台关闭邮箱验证）。" });
+        setMsg({
+          type: "ok",
+          text: "已发送验证邮件，请查收后登录（或在 Supabase 控制台关闭邮箱验证）。",
+        });
       } else {
         navigate({ to: "/" });
       }
@@ -43,7 +46,9 @@ function AuthPage() {
     <div className="min-h-screen bg-background text-foreground grid place-items-center px-4">
       <div className="w-full max-w-sm rounded-2xl border border-border bg-card shadow-sm p-6">
         <div className="flex items-center gap-2 mb-5">
-          <div className="w-8 h-8 rounded-lg bg-primary text-primary-foreground grid place-items-center font-bold">S</div>
+          <div className="w-8 h-8 rounded-lg bg-primary text-primary-foreground grid place-items-center font-bold">
+            S
+          </div>
           <div>
             <div className="text-base font-semibold">Sales Up</div>
             <div className="text-xs text-muted-foreground">销售个人工作台</div>

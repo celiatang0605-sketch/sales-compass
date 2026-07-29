@@ -17,11 +17,7 @@ import {
   formatDuration,
   formatDateLabel,
 } from "@/lib/salesup/date";
-import {
-  deleteTimeBlock,
-  upsertTimeBlock,
-  upsertReminder,
-} from "@/lib/salesup/storage";
+import { deleteTimeBlock, upsertTimeBlock, upsertReminder } from "@/lib/salesup/storage";
 import { cn } from "@/lib/utils";
 
 export interface DraftBlock {
@@ -112,30 +108,24 @@ export function BlockDetailPanel({ draft, lightweight = false, embedded = false,
 
   return (
     <>
-      {!embedded && (
-        <div
-          className="fixed inset-0 bg-black/30 z-40 md:hidden"
-          onClick={onClose}
-        />
-      )}
+      {!embedded && <div className="fixed inset-0 bg-black/30 z-40 md:hidden" onClick={onClose} />}
       <aside
         className={cn(
           "bg-card border-border flex flex-col",
           embedded
             ? // Embedded: desktop sticky rail, mobile bottom sheet
               "fixed inset-x-0 bottom-0 top-auto z-50 border-t shadow-xl max-h-[85vh] rounded-t-2xl " +
-              "md:static md:inset-auto md:max-h-none md:rounded-xl md:border md:shadow-none md:h-full"
+                "md:static md:inset-auto md:max-h-none md:rounded-xl md:border md:shadow-none md:h-full"
             : // Default fixed sheet
               "fixed shadow-xl z-50 inset-0 md:inset-auto md:top-0 md:right-0 md:bottom-0 md:left-auto md:w-[420px] md:border-l",
         )}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div>
-            <div className="text-sm font-semibold">
-              {form.id ? "编辑时间段" : "新建时间段"}
-            </div>
+            <div className="text-sm font-semibold">{form.id ? "编辑时间段" : "新建时间段"}</div>
             <div className="text-xs text-muted-foreground">
-              {formatDateLabel(form.date)} · {slotToTimeString(form.start_slot)} – {slotToTimeString(form.end_slot)} · {duration}
+              {formatDateLabel(form.date)} · {slotToTimeString(form.start_slot)} –{" "}
+              {slotToTimeString(form.end_slot)} · {duration}
             </div>
           </div>
           <button
@@ -183,10 +173,7 @@ export function BlockDetailPanel({ draft, lightweight = false, embedded = false,
                       : "border-border hover:bg-secondary/60",
                   )}
                 >
-                  <span
-                    className="w-2.5 h-2.5 rounded-sm"
-                    style={{ background: wt.colorCss }}
-                  />
+                  <span className="w-2.5 h-2.5 rounded-sm" style={{ background: wt.colorCss }} />
                   {wt.label}
                 </button>
               ))}
@@ -217,7 +204,6 @@ export function BlockDetailPanel({ draft, lightweight = false, embedded = false,
             </Field>
           )}
 
-
           {!lightweight && (
             <Field label="价值等级">
               <div className="flex gap-1.5">
@@ -245,7 +231,11 @@ export function BlockDetailPanel({ draft, lightweight = false, embedded = false,
           <Field label="简短记录 (MM / Summary)">
             <textarea
               className="input min-h-[140px] resize-y text-sm"
-              placeholder={lightweight ? "简短记录这段时间的要点…" : "会议重点、客户反馈、内部同步结论或个人观察…"}
+              placeholder={
+                lightweight
+                  ? "简短记录这段时间的要点…"
+                  : "会议重点、客户反馈、内部同步结论或个人观察…"
+              }
               value={form.summary}
               onChange={(e) => update("summary", e.target.value)}
             />
@@ -448,9 +438,7 @@ function CustomerPicker({
   const [open, setOpen] = useState(false);
 
   const q = value.trim().toLowerCase();
-  const matches = q
-    ? customers.filter((c) => c.companyName.toLowerCase().includes(q))
-    : customers;
+  const matches = q ? customers.filter((c) => c.companyName.toLowerCase().includes(q)) : customers;
   const visible = matches.slice(0, 20);
 
   return (
@@ -494,11 +482,7 @@ function CustomerPicker({
 
       {open && (
         <div className="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto rounded-[var(--radius)] border border-border bg-card shadow-lg">
-          {loading && (
-            <div className="px-3 py-2 text-xs text-muted-foreground">
-              正在加载客户…
-            </div>
-          )}
+          {loading && <div className="px-3 py-2 text-xs text-muted-foreground">正在加载客户…</div>}
           {!loading && visible.length === 0 && (
             <div className="px-3 py-2 text-xs text-muted-foreground">
               没有匹配的客户，可直接输入自由文本。

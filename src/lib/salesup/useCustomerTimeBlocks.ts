@@ -1,10 +1,7 @@
 // Client-side hook: subscribes to Supabase auth and exposes a customer's related time blocks.
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  listTimeBlocksForCustomer,
-  type CustomerTimeBlock,
-} from "./customerRepository";
+import { listTimeBlocksForCustomer, type CustomerTimeBlock } from "./customerRepository";
 
 export interface CustomerTimeBlocksState {
   blocks: CustomerTimeBlock[];
@@ -14,9 +11,7 @@ export interface CustomerTimeBlocksState {
   refresh: () => Promise<void>;
 }
 
-export function useCustomerTimeBlocks(
-  customerId: string,
-): CustomerTimeBlocksState {
+export function useCustomerTimeBlocks(customerId: string): CustomerTimeBlocksState {
   const [blocks, setBlocks] = useState<CustomerTimeBlock[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

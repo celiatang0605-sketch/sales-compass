@@ -53,10 +53,7 @@ function isDraftEmpty(d: ExpoDraft): boolean {
 
 export function getDraft(userId: string | null | undefined): ExpoDraft | null {
   if (!isBrowser()) return null;
-  const d = safeParse<ExpoDraft | null>(
-    window.localStorage.getItem(draftKey(userId)),
-    null,
-  );
+  const d = safeParse<ExpoDraft | null>(window.localStorage.getItem(draftKey(userId)), null);
   if (!d) return null;
   return isDraftEmpty(d) ? null : d;
 }
@@ -73,11 +70,7 @@ export function clearDraft(userId: string | null | undefined): void {
 
 // --- Company autocomplete pool ---
 
-export function searchCompanies(
-  kw: string,
-  history: string[],
-  limit = 6,
-): string[] {
+export function searchCompanies(kw: string, history: string[], limit = 6): string[] {
   const k = kw.trim().toLowerCase();
   if (!k) return [];
   const seen = new Set<string>();
@@ -123,10 +116,7 @@ export function hasLegacyLocalLeads(userId: string | null | undefined): boolean 
 
 export function countLegacyLocalLeads(): number {
   if (!isBrowser()) return 0;
-  const arr = safeParse<LegacyLead[]>(
-    window.localStorage.getItem(LEGACY_LS_KEY_LEADS),
-    [],
-  );
+  const arr = safeParse<LegacyLead[]>(window.localStorage.getItem(LEGACY_LS_KEY_LEADS), []);
   return Array.isArray(arr) ? arr.length : 0;
 }
 
@@ -137,10 +127,7 @@ export async function importLegacyLocalLeads(userId: string): Promise<{
   failed: number;
 }> {
   if (!isBrowser()) return { imported: 0, failed: 0 };
-  const arr = safeParse<LegacyLead[]>(
-    window.localStorage.getItem(LEGACY_LS_KEY_LEADS),
-    [],
-  );
+  const arr = safeParse<LegacyLead[]>(window.localStorage.getItem(LEGACY_LS_KEY_LEADS), []);
   if (!Array.isArray(arr) || arr.length === 0) {
     window.localStorage.setItem(migratedFlagKey(userId), String(Date.now()));
     return { imported: 0, failed: 0 };
@@ -150,9 +137,9 @@ export async function importLegacyLocalLeads(userId: string): Promise<{
   let failed = 0;
   for (const l of arr) {
     try {
-      const priority = (LEGACY_PRIORITIES.has(l.rating ?? "")
-        ? l.rating
-        : "unrated") as ExpoPriority;
+      const priority = (
+        LEGACY_PRIORITIES.has(l.rating ?? "") ? l.rating : "unrated"
+      ) as ExpoPriority;
       await createLead({
         company: l.company ?? "",
         rawNote: l.rawNote ?? "",

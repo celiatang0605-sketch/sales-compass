@@ -43,7 +43,6 @@ import {
   type CustomerStage,
 } from "@/lib/salesup/customerTypes";
 
-
 export const Route = createFileRoute("/customers/")({
   head: () => ({
     meta: [
@@ -82,11 +81,7 @@ function CustomersBoardPage() {
     stage: CustomerStage;
   } | null>(null);
 
-
-  const active = useMemo(
-    () => customers.filter((c) => c.status === "active"),
-    [customers],
-  );
+  const active = useMemo(() => customers.filter((c) => c.status === "active"), [customers]);
 
   const allProductLines = useMemo(() => {
     const set = new Set<string>();
@@ -97,10 +92,7 @@ function CustomersBoardPage() {
   const filtered = useMemo(() => {
     return active.filter((c) => {
       if (sources.length > 0 && !sources.includes(c.source)) return false;
-      if (
-        productLines.length > 0 &&
-        !c.productLines.some((p) => productLines.includes(p))
-      )
+      if (productLines.length > 0 && !c.productLines.some((p) => productLines.includes(p)))
         return false;
       return true;
     });
@@ -112,8 +104,7 @@ function CustomersBoardPage() {
     let followupToday = 0;
     let stalled = 0;
     for (const c of filtered) {
-      if (c.nextAction && c.nextActionDate && c.nextActionDate <= today)
-        followupToday += 1;
+      if (c.nextAction && c.nextActionDate && c.nextActionDate <= today) followupToday += 1;
       if (isStale(c)) stalled += 1;
     }
     return { total: filtered.length, followupToday, stalled };
@@ -161,14 +152,11 @@ function CustomersBoardPage() {
     setStageTarget({ customer: cust, stage: overStage });
   };
 
-
   return (
     <AppShell>
       <div className="mb-4 md:mb-6 flex items-start gap-3">
         <div className="flex-1 min-w-0">
-          <h1 className="text-xl md:text-2xl font-semibold tracking-tight">
-            客户看板
-          </h1>
+          <h1 className="text-xl md:text-2xl font-semibold tracking-tight">客户看板</h1>
           <p className="text-sm text-muted-foreground mt-1">
             按阶段查看进行中的客户，识别停滞与逾期跟进。
           </p>
@@ -185,11 +173,7 @@ function CustomersBoardPage() {
       {/* 顶部统计条 */}
       <div className="grid grid-cols-3 gap-2 md:gap-3 mb-4">
         <StatCell icon={Briefcase} label="进行中商机" value={stats.total} />
-        <StatCell
-          icon={CalendarClock}
-          label="今日待跟进"
-          value={stats.followupToday}
-        />
+        <StatCell icon={CalendarClock} label="今日待跟进" value={stats.followupToday} />
         <StatCell icon={Timer} label="停滞" value={stats.stalled} />
       </div>
 
@@ -225,9 +209,7 @@ function CustomersBoardPage() {
       {!userId && !loading && (
         <div className="rounded-xl border border-dashed border-border py-12 text-center">
           <div className="text-sm font-medium">请先登录</div>
-          <div className="text-xs text-muted-foreground mt-1">
-            客户数据按账号保存到云端。
-          </div>
+          <div className="text-xs text-muted-foreground mt-1">客户数据按账号保存到云端。</div>
           <Link
             to="/auth"
             className="mt-3 inline-flex h-8 px-3 items-center rounded-md bg-primary text-primary-foreground text-xs"
@@ -299,9 +281,7 @@ function CustomersBoardPage() {
                       <CustomerCard
                         customer={c}
                         today={today}
-                        onPickStage={(cust, s) =>
-                          setStageTarget({ customer: cust, stage: s })
-                        }
+                        onPickStage={(cust, s) => setStageTarget({ customer: cust, stage: s })}
                       />
                     </DraggableCard>
                   ))}
@@ -312,17 +292,12 @@ function CustomersBoardPage() {
           <DragOverlay>
             {draggingCustomer ? (
               <div className="w-[240px] md:w-[264px] opacity-90 rotate-1">
-                <CustomerCard
-                  customer={draggingCustomer}
-                  today={today}
-                  onPickStage={() => {}}
-                />
+                <CustomerCard customer={draggingCustomer} today={today} onPickStage={() => {}} />
               </div>
             ) : null}
           </DragOverlay>
         </DndContext>
       )}
-
 
       {stageTarget && (
         <StageChangeDialog
@@ -332,7 +307,6 @@ function CustomersBoardPage() {
           onChanged={() => void refresh()}
         />
       )}
-
     </AppShell>
   );
 }
@@ -358,16 +332,11 @@ function StageColumn({
     >
       <header className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border">
         <span className="text-xs font-medium">{STAGE_LABEL[stage]}</span>
-        <span className="text-[11px] text-muted-foreground tabular-nums">
-          {count}
-        </span>
+        <span className="text-[11px] text-muted-foreground tabular-nums">{count}</span>
       </header>
       <div
         ref={setNodeRef}
-        className={cn(
-          "p-2 space-y-2 min-h-[80px]",
-          dragging && "min-h-[120px]",
-        )}
+        className={cn("p-2 space-y-2 min-h-[80px]", dragging && "min-h-[120px]")}
       >
         {children}
       </div>
@@ -375,13 +344,7 @@ function StageColumn({
   );
 }
 
-function DraggableCard({
-  id,
-  children,
-}: {
-  id: string;
-  children: React.ReactNode;
-}) {
+function DraggableCard({ id, children }: { id: string; children: React.ReactNode }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id });
   return (
     <div
@@ -394,7 +357,6 @@ function DraggableCard({
     </div>
   );
 }
-
 
 function CustomerCard({
   customer,
@@ -409,80 +371,69 @@ function CustomerCard({
   const days = staleDays(customer);
   const stageRate = STAGE_DEFAULT_WIN_RATE[customer.stage];
   const overdue =
-    !!customer.nextAction &&
-    !!customer.nextActionDate &&
-    customer.nextActionDate < today;
+    !!customer.nextAction && !!customer.nextActionDate && customer.nextActionDate < today;
 
   return (
     <div
       className={cn(
         "rounded-[var(--radius)] border bg-card px-3 py-2.5 text-left shadow-sm transition hover:border-primary/40",
-        stale ? "border-border border-l-2 border-l-muted-foreground/50 bg-muted/40" : "border-border",
+        stale
+          ? "border-border border-l-2 border-l-muted-foreground/50 bg-muted/40"
+          : "border-border",
       )}
     >
-    <Link
-      to="/customers/$id"
-      params={{ id: customer.id }}
-      className="block"
-    >
+      <Link to="/customers/$id" params={{ id: customer.id }} className="block">
+        <div className="text-sm font-medium leading-snug truncate">{customer.companyName}</div>
 
-      <div className="text-sm font-medium leading-snug truncate">
-        {customer.companyName}
-      </div>
-
-      {(customer.contactName || customer.contactTitle) && (
-        <div className="mt-0.5 text-xs text-muted-foreground truncate">
-          {customer.contactName ?? "未填联系人"}
-          {customer.contactTitle ? ` · ${customer.contactTitle}` : ""}
-          {customer.decisionRole !== "unknown"
-            ? ` · ${ROLE_LABEL[customer.decisionRole]}`
-            : ""}
-        </div>
-      )}
-
-      <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
-        {customer.amount !== null && (
-          <span className="px-1.5 py-0.5 rounded-md bg-secondary text-secondary-foreground tabular-nums">
-            {formatAmount(customer.amount, customer.currency)}
-          </span>
+        {(customer.contactName || customer.contactTitle) && (
+          <div className="mt-0.5 text-xs text-muted-foreground truncate">
+            {customer.contactName ?? "未填联系人"}
+            {customer.contactTitle ? ` · ${customer.contactTitle}` : ""}
+            {customer.decisionRole !== "unknown" ? ` · ${ROLE_LABEL[customer.decisionRole]}` : ""}
+          </div>
         )}
-        <span className="px-1.5 py-0.5 rounded-md border border-border text-muted-foreground tabular-nums">
-          {customer.winRate !== null
-            ? `赢率 ${customer.winRate}%（阶段 ${stageRate}%）`
-            : `赢率 ${stageRate}%`}
-        </span>
-        <span
-          className={cn(
-            "px-1.5 py-0.5 rounded-md tabular-nums",
-            stale
-              ? "bg-muted text-foreground/80 inline-flex items-center gap-1"
-              : "text-muted-foreground",
-          )}
-        >
-          {stale && <AlertTriangle className="w-3 h-3" />}
-          停滞 {days} 天
-        </span>
-      </div>
 
-      {customer.nextAction && (
-        <div className="mt-2 pt-2 border-t border-border/70 text-[11px] leading-snug">
-          <span className="text-muted-foreground">下一步：</span>
-          <span className="text-foreground">{customer.nextAction}</span>
-          {customer.nextActionDate && (
-            <span
-              className={cn(
-                "ml-1 tabular-nums",
-                overdue
-                  ? "text-destructive font-medium"
-                  : "text-muted-foreground",
-              )}
-            >
-              {customer.nextActionDate}
-              {overdue ? "（逾期）" : ""}
+        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
+          {customer.amount !== null && (
+            <span className="px-1.5 py-0.5 rounded-md bg-secondary text-secondary-foreground tabular-nums">
+              {formatAmount(customer.amount, customer.currency)}
             </span>
           )}
+          <span className="px-1.5 py-0.5 rounded-md border border-border text-muted-foreground tabular-nums">
+            {customer.winRate !== null
+              ? `赢率 ${customer.winRate}%（阶段 ${stageRate}%）`
+              : `赢率 ${stageRate}%`}
+          </span>
+          <span
+            className={cn(
+              "px-1.5 py-0.5 rounded-md tabular-nums",
+              stale
+                ? "bg-muted text-foreground/80 inline-flex items-center gap-1"
+                : "text-muted-foreground",
+            )}
+          >
+            {stale && <AlertTriangle className="w-3 h-3" />}
+            停滞 {days} 天
+          </span>
         </div>
-      )}
+
+        {customer.nextAction && (
+          <div className="mt-2 pt-2 border-t border-border/70 text-[11px] leading-snug">
+            <span className="text-muted-foreground">下一步：</span>
+            <span className="text-foreground">{customer.nextAction}</span>
+            {customer.nextActionDate && (
+              <span
+                className={cn(
+                  "ml-1 tabular-nums",
+                  overdue ? "text-destructive font-medium" : "text-muted-foreground",
+                )}
+              >
+                {customer.nextActionDate}
+                {overdue ? "（逾期）" : ""}
+              </span>
+            )}
+          </div>
+        )}
       </Link>
 
       <div className="mt-2 pt-2 border-t border-border/70 flex items-center justify-between gap-2">
@@ -497,7 +448,6 @@ function CustomerCard({
     </div>
   );
 }
-
 
 function StatCell({
   icon: Icon,
@@ -519,21 +469,11 @@ function StatCell({
   );
 }
 
-function FilterRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function FilterRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="shrink-0 text-[11px] text-muted-foreground w-10">
-        {label}
-      </span>
-      <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-        {children}
-      </div>
+      <span className="shrink-0 text-[11px] text-muted-foreground w-10">{label}</span>
+      <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-0.5">{children}</div>
     </div>
   );
 }

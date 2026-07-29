@@ -1,11 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Settings2 } from "lucide-react";
-import {
-  TOTAL_SLOTS,
-  SLOTS_PER_HOUR,
-  DAY_START_HOUR,
-  slotToTimeString,
-} from "@/lib/salesup/date";
+import { TOTAL_SLOTS, SLOTS_PER_HOUR, DAY_START_HOUR, slotToTimeString } from "@/lib/salesup/date";
 import { WORK_TYPE_MAP, type BuiltinWorkTypeId, type WorkTypeId } from "@/lib/salesup/workTypes";
 import {
   colorOf,
@@ -92,7 +87,7 @@ export function Timeline({ date, blocks, filter, onSelectBlock, onCreateRange }:
     };
   }, [commit]);
 
-  const hours = (24 - DAY_START_HOUR);
+  const hours = 24 - DAY_START_HOUR;
 
   return (
     <div className="bg-card rounded-xl border border-border overflow-hidden select-none" key={date}>
@@ -112,11 +107,8 @@ export function Timeline({ date, blocks, filter, onSelectBlock, onCreateRange }:
                   const isSelected = inRange(slot);
                   const eff = block ? resolveWorkType(block.work_type, settings) : null;
                   const dimmed = block && filter !== "all" && block.work_type !== filter;
-                  const bg = block && eff
-                    ? eff.colorCss
-                    : isSelected
-                      ? "var(--accent)"
-                      : "transparent";
+                  const bg =
+                    block && eff ? eff.colorCss : isSelected ? "var(--accent)" : "transparent";
                   return (
                     <button
                       type="button"
@@ -213,7 +205,11 @@ export function WorkTypeLegend({
               if (isEditing) return;
               onChange(selected ? "all" : wt.id);
             }}
-            title={wt.isCustom ? "单击选中 · 双击文字改名 · 在管理中改颜色" : "单击选中 · 双击文字改名 · 双击色块改颜色"}
+            title={
+              wt.isCustom
+                ? "单击选中 · 双击文字改名 · 在管理中改颜色"
+                : "单击选中 · 双击文字改名 · 双击色块改颜色"
+            }
             className={cn(
               "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border transition-all cursor-pointer select-none",
               selected
@@ -287,4 +283,3 @@ export function WorkTypeLegend({
     </div>
   );
 }
-

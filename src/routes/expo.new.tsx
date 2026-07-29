@@ -14,10 +14,7 @@ import {
 import { toast } from "sonner";
 import { AppShell } from "@/components/salesup/AppShell";
 import { addDays, todayKey } from "@/lib/salesup/date";
-import {
-  PRIORITY_LABEL,
-  type ExpoPriority,
-} from "@/lib/salesup/expoMock";
+import { PRIORITY_LABEL, type ExpoPriority } from "@/lib/salesup/expoMock";
 import {
   clearDraft,
   getDraft,
@@ -91,7 +88,9 @@ function ExpoNewPage() {
       const d = getDraft(userId);
       if (d) setDraftPrompt(d);
     }
-    listUserCompanies().then(setHistoryCompanies).catch(() => {});
+    listUserCompanies()
+      .then(setHistoryCompanies)
+      .catch(() => {});
   }, [userId]);
 
   // Debounced draft persist (scoped to current user).
@@ -258,9 +257,7 @@ function ExpoNewPage() {
 
         <div className="mb-3">
           <h1 className="text-xl md:text-2xl font-semibold tracking-tight">快速记录</h1>
-          <p className="text-xs text-muted-foreground mt-1">
-            现场先把关键信息落下来，回去再补齐。
-          </p>
+          <p className="text-xs text-muted-foreground mt-1">现场先把关键信息落下来，回去再补齐。</p>
         </div>
 
         <div className="space-y-4 rounded-xl border border-border bg-card p-4 md:p-5">

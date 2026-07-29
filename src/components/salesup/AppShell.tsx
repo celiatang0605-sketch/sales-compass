@@ -1,9 +1,31 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
-import { Clock, CalendarCheck, CalendarRange, CalendarDays, Bell, Lock, LogOut, Upload, Loader2, Cloud, CloudOff, CheckCircle2, AlertCircle, Sparkles, Users } from "lucide-react";
+import {
+  Clock,
+  CalendarCheck,
+  CalendarRange,
+  CalendarDays,
+  Bell,
+  Lock,
+  LogOut,
+  Upload,
+  Loader2,
+  Cloud,
+  CloudOff,
+  CheckCircle2,
+  AlertCircle,
+  Sparkles,
+  Users,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth, signOut } from "@/lib/salesup/auth";
-import { initSync, migrateLocalToCloud, hasLegacyLocalData, onSyncState, type SyncState } from "@/lib/salesup/sync";
+import {
+  initSync,
+  migrateLocalToCloud,
+  hasLegacyLocalData,
+  onSyncState,
+  type SyncState,
+} from "@/lib/salesup/sync";
 
 const NAV_ITEMS: { to: string; label: string; icon: typeof Clock }[] = [
   { to: "/", label: "时间轴", icon: Clock },
@@ -31,7 +53,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     initSync();
     const unsub = onSyncState(setSync);
-    return () => { unsub(); };
+    return () => {
+      unsub();
+    };
   }, []);
 
   useEffect(() => {
@@ -129,13 +153,19 @@ export function AppShell({ children }: { children: ReactNode }) {
               disabled={migrating}
               className="w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs bg-primary/10 text-primary hover:bg-primary/15 disabled:opacity-50"
             >
-              {migrating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+              {migrating ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Upload className="w-3.5 h-3.5" />
+              )}
               导入本地数据
             </button>
           )}
           <SyncStatusBadge sync={sync} />
           <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-            <span className="truncate flex-1" title={user?.email ?? ""}>{user?.email}</span>
+            <span className="truncate flex-1" title={user?.email ?? ""}>
+              {user?.email}
+            </span>
             <button
               onClick={onSignOut}
               className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground"
@@ -162,7 +192,11 @@ export function AppShell({ children }: { children: ReactNode }) {
               disabled={migrating}
               className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] bg-primary/10 text-primary disabled:opacity-50"
             >
-              {migrating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+              {migrating ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Upload className="w-3 h-3" />
+              )}
               导入
             </button>
           )}
@@ -228,11 +262,16 @@ function SyncStatusBadge({ sync }: { sync: SyncState | null }) {
   return (
     <div className="rounded-md border border-border bg-background/50 px-2 py-1.5 space-y-0.5">
       <div className="flex items-center gap-1.5 text-[11px]">
-        <span className={cls + " inline-flex items-center gap-1"}>{icon}{label}</span>
+        <span className={cls + " inline-flex items-center gap-1"}>
+          {icon}
+          {label}
+        </span>
         <span className="ml-auto text-[10px] text-muted-foreground/70">源：{source}</span>
       </div>
       {s?.lastError && (
-        <div className="text-[10px] text-destructive truncate" title={s.lastError}>{s.lastError}</div>
+        <div className="text-[10px] text-destructive truncate" title={s.lastError}>
+          {s.lastError}
+        </div>
       )}
     </div>
   );

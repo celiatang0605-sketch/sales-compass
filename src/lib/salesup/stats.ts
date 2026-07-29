@@ -115,7 +115,10 @@ export function computeStats(blocks: TimeBlock[], settings?: WorkTypeSettings): 
   return s;
 }
 
-export function topProblemTags(counts: Record<string, number>, limit = 5): { tag: string; count: number }[] {
+export function topProblemTags(
+  counts: Record<string, number>,
+  limit = 5,
+): { tag: string; count: number }[] {
   return Object.entries(counts)
     .map(([tag, count]) => ({ tag, count }))
     .sort((a, b) => b.count - a.count)

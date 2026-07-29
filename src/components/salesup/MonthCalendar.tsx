@@ -188,7 +188,7 @@ export function MonthCalendar({ monthAnchor, blocks, onChangeMonth, onSelectDay 
           const dt = fromDateKey(d);
           const stat = perDay[d];
           const isToday = d === today;
-          const isWeekend = ((dt.getDay() + 6) % 7) >= 5;
+          const isWeekend = (dt.getDay() + 6) % 7 >= 5;
           // Sort top work types for the color bar
           const segments = Object.entries(stat.byType)
             .sort((a, b) => b[1] - a[1])
@@ -208,12 +208,7 @@ export function MonthCalendar({ monthAnchor, blocks, onChangeMonth, onSelectDay 
               )}
             >
               <div className="flex items-center justify-between">
-                <span
-                  className={cn(
-                    "text-sm font-semibold",
-                    isToday && "text-primary",
-                  )}
-                >
+                <span className={cn("text-sm font-semibold", isToday && "text-primary")}>
                   {dt.getDate()}
                 </span>
                 {stat.total > 0 && (

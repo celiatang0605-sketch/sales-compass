@@ -1,10 +1,7 @@
 // Client-side hook: subscribes to Supabase auth and exposes a customer's stage history.
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  listStageHistory,
-  type StageHistoryEntry,
-} from "./customerRepository";
+import { listStageHistory, type StageHistoryEntry } from "./customerRepository";
 
 export interface StageHistoryState {
   history: StageHistoryEntry[];

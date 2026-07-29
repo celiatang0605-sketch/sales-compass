@@ -59,8 +59,7 @@ type Row = {
 };
 
 function rowToCustomer(r: Row): Customer {
-  const amount =
-    r.amount === null || r.amount === undefined ? null : Number(r.amount);
+  const amount = r.amount === null || r.amount === undefined ? null : Number(r.amount);
   return {
     id: r.id,
     userId: r.user_id,
@@ -112,7 +111,6 @@ function rowToCustomer(r: Row): Customer {
 export interface NewCustomerInput extends UpdateCustomerInput {
   companyName: string;
 }
-
 
 export interface UpdateCustomerInput {
   companyName?: string;
@@ -221,9 +219,7 @@ export async function getCustomer(id: string): Promise<Customer | null> {
   return data ? rowToCustomer(data as Row) : null;
 }
 
-export async function createCustomer(
-  input: NewCustomerInput,
-): Promise<Customer> {
+export async function createCustomer(input: NewCustomerInput): Promise<Customer> {
   const uid = await requireUserId();
   const row: Record<string, unknown> = {
     user_id: uid,
@@ -255,20 +251,12 @@ export async function createCustomer(
   }
   if (input.expoLeadId) row.expo_lead_id = input.expoLeadId;
 
-
-  const { data, error } = await supabase
-    .from("customers")
-    .insert(row)
-    .select("*")
-    .single();
+  const { data, error } = await supabase.from("customers").insert(row).select("*").single();
   if (error) throw error;
   return rowToCustomer(data as Row);
 }
 
-export async function updateCustomer(
-  id: string,
-  patch: UpdateCustomerInput,
-): Promise<Customer> {
+export async function updateCustomer(id: string, patch: UpdateCustomerInput): Promise<Customer> {
   const uid = await requireUserId();
   const update: Record<string, unknown> = {};
 
@@ -286,20 +274,16 @@ export async function updateCustomer(
 
   if (patch.source !== undefined) update.source = patch.source;
   if (patch.decisionRole !== undefined) update.decision_role = patch.decisionRole;
-  if (patch.overseasMarkets !== undefined)
-    update.overseas_markets = patch.overseasMarkets;
-  if (patch.otherContacts !== undefined)
-    update.other_contacts = patch.otherContacts;
+  if (patch.overseasMarkets !== undefined) update.overseas_markets = patch.overseasMarkets;
+  if (patch.otherContacts !== undefined) update.other_contacts = patch.otherContacts;
   if (patch.productLines !== undefined) update.product_lines = patch.productLines;
   if (patch.stage !== undefined) update.stage = patch.stage;
-  if (patch.stageChangedAt !== undefined)
-    update.stage_changed_at = patch.stageChangedAt;
+  if (patch.stageChangedAt !== undefined) update.stage_changed_at = patch.stageChangedAt;
   if (patch.status !== undefined) update.status = patch.status;
   if (patch.winRate !== undefined) update.win_rate = patch.winRate;
   if (patch.amount !== undefined) update.amount = patch.amount;
   if (patch.currency !== undefined) update.currency = patch.currency || "CNY";
-  if (patch.lastContactAt !== undefined)
-    update.last_contact_at = patch.lastContactAt || null;
+  if (patch.lastContactAt !== undefined) update.last_contact_at = patch.lastContactAt || null;
 
   // next_action / next_action_date 成对：没有动作就不能留日期
   const na = patch.nextAction;
@@ -324,11 +308,7 @@ export async function updateCustomer(
 
 export async function deleteCustomer(id: string): Promise<void> {
   const uid = await requireUserId();
-  const { error } = await supabase
-    .from("customers")
-    .delete()
-    .eq("user_id", uid)
-    .eq("id", id);
+  const { error } = await supabase.from("customers").delete().eq("user_id", uid).eq("id", id);
   if (error) throw error;
 }
 
@@ -344,9 +324,7 @@ export interface StageHistoryInput {
   relatedBlockId?: string | null;
 }
 
-export async function insertStageHistory(
-  input: StageHistoryInput,
-): Promise<void> {
+export async function insertStageHistory(input: StageHistoryInput): Promise<void> {
   const uid = await requireUserId();
   const { error } = await supabase.from("stage_history").insert({
     user_id: uid,
@@ -393,9 +371,7 @@ function rowToStageHistory(r: StageHistoryRow): StageHistoryEntry {
 }
 
 /** 某客户的阶段历史，按 changed_at 倒序。 */
-export async function listStageHistory(
-  customerId: string,
-): Promise<StageHistoryEntry[]> {
+export async function listStageHistory(customerId: string): Promise<StageHistoryEntry[]> {
   const uid = await requireUserId();
   const { data, error } = await supabase
     .from("stage_history")
@@ -422,9 +398,7 @@ export interface ChangeStageInput {
 }
 
 /** 更新阶段 + stage_changed_at，并写一条 stage_history。 */
-export async function changeCustomerStage(
-  input: ChangeStageInput,
-): Promise<Customer> {
+export async function changeCustomerStage(input: ChangeStageInput): Promise<Customer> {
   const now = new Date().toISOString();
   const patch: UpdateCustomerInput = {
     stage: input.toStage,
@@ -504,7 +478,6 @@ export async function listTimeBlocksForCustomerOnDate(params: {
     }));
 }
 
-
 // ---------------------------------------------------------------------------
 // 展会线索 → 客户
 // ---------------------------------------------------------------------------
@@ -520,9 +493,7 @@ export interface ConvertLeadInput extends NewCustomerInput {
  * 2. 写一条建档 stage_history
  * 3. 回写 expo_leads.converted_customer_id 并把 status 置为 converted
  */
-export async function convertExpoLeadToCustomer(
-  input: ConvertLeadInput,
-): Promise<Customer> {
+export async function convertExpoLeadToCustomer(input: ConvertLeadInput): Promise<Customer> {
   const { markLeadConverted } = await import("./expoRepository");
   const customer = await createCustomer({ ...input, source: "expo" });
   await insertStageHistory({
@@ -551,9 +522,7 @@ type CustomerBlockRow = BlockRow & {
 };
 
 /** 该客户关联的全部时间块，按日期倒序、同日按开始时间倒序。 */
-export async function listTimeBlocksForCustomer(
-  customerId: string,
-): Promise<CustomerTimeBlock[]> {
+export async function listTimeBlocksForCustomer(customerId: string): Promise<CustomerTimeBlock[]> {
   const uid = await requireUserId();
   const { data, error } = await supabase
     .from("time_blocks")

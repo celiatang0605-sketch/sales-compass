@@ -87,16 +87,16 @@
 
   /* Work type colors — clear but soft. Customer-related = warmer/more vivid;
      internal & admin = low-saturation; review = stable indigo. */
-  --wt-meeting-customer: oklch(0.7 0.15 245);   /* clear blue */
-  --wt-visit-customer: oklch(0.7 0.14 195);     /* teal */
+  --wt-meeting-customer: oklch(0.7 0.15 245); /* clear blue */
+  --wt-visit-customer: oklch(0.7 0.14 195); /* teal */
   --wt-followup-customer: oklch(0.75 0.14 155); /* green */
-  --wt-proposal: oklch(0.78 0.13 75);           /* amber */
-  --wt-research: oklch(0.7 0.14 300);           /* violet */
-  --wt-internal-meeting: oklch(0.74 0.04 255);  /* muted slate */
-  --wt-learning: oklch(0.75 0.11 25);           /* warm rose */
-  --wt-admin: oklch(0.82 0.02 250);             /* gray */
-  --wt-review: oklch(0.58 0.12 265);            /* stable indigo */
-  --wt-buffer: oklch(0.9 0.015 95);             /* warm neutral */
+  --wt-proposal: oklch(0.78 0.13 75); /* amber */
+  --wt-research: oklch(0.7 0.14 300); /* violet */
+  --wt-internal-meeting: oklch(0.74 0.04 255); /* muted slate */
+  --wt-learning: oklch(0.75 0.11 25); /* warm rose */
+  --wt-admin: oklch(0.82 0.02 250); /* gray */
+  --wt-review: oklch(0.58 0.12 265); /* stable indigo */
+  --wt-buffer: oklch(0.9 0.015 95); /* warm neutral */
 }
 
 .dark {
@@ -125,11 +125,20 @@
   * {
     border-color: var(--color-border);
   }
-  html, body {
+  html,
+  body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     -webkit-font-smoothing: antialiased;
-    font-family: ui-sans-serif, system-ui, -apple-system, "PingFang SC",
-      "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    font-family:
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      "PingFang SC",
+      "Hiragino Sans GB",
+      "Microsoft YaHei",
+      "Helvetica Neue",
+      Arial,
+      sans-serif;
   }
 }

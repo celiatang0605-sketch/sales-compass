@@ -3,10 +3,7 @@ import { useState } from "react";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { AppShell } from "@/components/salesup/AppShell";
 import { todayKey } from "@/lib/salesup/date";
-import {
-  createCustomer,
-  insertStageHistory,
-} from "@/lib/salesup/customerRepository";
+import { createCustomer, insertStageHistory } from "@/lib/salesup/customerRepository";
 import {
   ROLE_LABEL,
   SOURCE_LABEL,
@@ -129,15 +126,13 @@ function NewCustomerPage() {
     setSaving(true);
     setError(null);
     try {
-      const amount =
-        form.amount.trim() === "" ? null : Number(form.amount.trim());
+      const amount = form.amount.trim() === "" ? null : Number(form.amount.trim());
       const created = await createCustomer({
         companyName: name,
         source: form.source,
         sourceDetail: form.sourceDetail,
         sourceDate: form.sourceDate,
-        claimExpiresAt:
-          form.source === "list_claimed" ? form.claimExpiresAt : "",
+        claimExpiresAt: form.source === "list_claimed" ? form.claimExpiresAt : "",
         industry: form.industry,
         companySize: form.companySize,
         overseasMarkets: form.overseasMarkets,
@@ -191,9 +186,7 @@ function NewCustomerPage() {
             返回看板
           </Link>
         </div>
-        <h1 className="text-xl md:text-2xl font-semibold tracking-tight">
-          新建客户
-        </h1>
+        <h1 className="text-xl md:text-2xl font-semibold tracking-tight">新建客户</h1>
         <p className="text-sm text-muted-foreground mt-1 mb-4">
           除公司名外全部选填，可以先建档再补充。
         </p>
@@ -209,11 +202,7 @@ function NewCustomerPage() {
             <Field label="来源（必选）" full>
               <div className="flex flex-wrap gap-1.5">
                 {SOURCE_ORDER.map((s) => (
-                  <Chip
-                    key={s}
-                    active={form.source === s}
-                    onClick={() => set("source", s)}
-                  >
+                  <Chip key={s} active={form.source === s} onClick={() => set("source", s)}>
                     {SOURCE_LABEL[s]}
                   </Chip>
                 ))}
@@ -343,9 +332,7 @@ function NewCustomerPage() {
             <Field label="决策角色">
               <select
                 value={form.decisionRole}
-                onChange={(e) =>
-                  set("decisionRole", e.target.value as DecisionRole)
-                }
+                onChange={(e) => set("decisionRole", e.target.value as DecisionRole)}
                 className={inputClass}
               >
                 {(Object.keys(ROLE_LABEL) as DecisionRole[]).map((r) => (

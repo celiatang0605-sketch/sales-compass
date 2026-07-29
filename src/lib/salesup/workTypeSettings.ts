@@ -58,9 +58,18 @@ export const DEFAULT_HEX: Record<BuiltinWorkTypeId, string> = {
 };
 
 export const PRESET_SWATCHES: string[] = [
-  "#7ab3e8", "#6bb3b8", "#8ac9a1", "#d9b26b",
-  "#b294d6", "#d89b8a", "#6b73b8", "#b0b5c0",
-  "#e0dac8", "#c8cbd3", "#d89b8a", "#7bc4a8",
+  "#7ab3e8",
+  "#6bb3b8",
+  "#8ac9a1",
+  "#d9b26b",
+  "#b294d6",
+  "#d89b8a",
+  "#6b73b8",
+  "#b0b5c0",
+  "#e0dac8",
+  "#c8cbd3",
+  "#d89b8a",
+  "#7bc4a8",
 ];
 
 // Built-in stat categories with default labels (Chinese).
@@ -156,7 +165,12 @@ export function useWorkTypeSettings() {
       write({ ...state, hiddenBuiltins: state.hiddenBuiltins.filter((x) => x !== id) });
     },
     // Custom work types
-    addCustomType(input: { label: string; color: string; category: string; description?: string }): CustomWorkType {
+    addCustomType(input: {
+      label: string;
+      color: string;
+      category: string;
+      description?: string;
+    }): CustomWorkType {
       const t: CustomWorkType = {
         id: `custom:${slug()}`,
         label: input.label.trim() || "未命名类型",
@@ -187,7 +201,9 @@ export function useWorkTypeSettings() {
       write({
         ...state,
         customCategories: state.customCategories.filter((c) => c.id !== id),
-        customTypes: state.customTypes.map((t) => (t.category === id ? { ...t, category: "other" } : t)),
+        customTypes: state.customTypes.map((t) =>
+          t.category === id ? { ...t, category: "other" } : t,
+        ),
       });
     },
   };
@@ -270,7 +286,11 @@ export function getEffectiveCategories(
     label: BUILTIN_CATEGORY_LABELS[id],
     isCustom: false,
   }));
-  const customs = settings.customCategories.map((c) => ({ id: c.id, label: c.label, isCustom: true }));
+  const customs = settings.customCategories.map((c) => ({
+    id: c.id,
+    label: c.label,
+    isCustom: true,
+  }));
   return [...builtins, ...customs];
 }
 

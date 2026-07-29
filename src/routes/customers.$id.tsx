@@ -164,8 +164,7 @@ function toForm(c: Customer): FormState {
 function CustomerDetailPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
-  const { customer, loading, error, userId, setCustomer, refresh } =
-    useCustomer(id);
+  const { customer, loading, error, userId, setCustomer, refresh } = useCustomer(id);
 
   const [form, setForm] = useState<FormState | null>(null);
   const [saving, setSaving] = useState(false);
@@ -176,7 +175,6 @@ function CustomerDetailPage() {
   const [stagePickerOpen, setStagePickerOpen] = useState(false);
   const [stageTarget, setStageTarget] = useState<CustomerStage | null>(null);
   const [historyKey, setHistoryKey] = useState(0);
-
 
   useEffect(() => {
     setForm(customer ? toForm(customer) : null);
@@ -192,13 +190,10 @@ function CustomerDetailPage() {
     if (f.overrideWinRate) {
       if (!f.winRateOverrideReason.trim()) return "覆盖赢率必须说明理由";
       const n = Number(f.winRate);
-      if (!Number.isFinite(n) || n < 0 || n > 100)
-        return "赢率需要是 0-100 之间的数字。";
+      if (!Number.isFinite(n) || n < 0 || n > 100) return "赢率需要是 0-100 之间的数字。";
     }
-    if (f.status === "lost" && !f.lossReason.trim())
-      return "切到「已丢」必须填写丢单原因。";
-    if (f.status === "on_hold" && !f.onHoldUntil)
-      return "切到「暂缓培育」必须填写唤醒日期。";
+    if (f.status === "lost" && !f.lossReason.trim()) return "切到「已丢」必须填写丢单原因。";
+    if (f.status === "on_hold" && !f.onHoldUntil) return "切到「暂缓培育」必须填写唤醒日期。";
     return null;
   };
 
@@ -212,15 +207,13 @@ function CustomerDetailPage() {
     setSaving(true);
     setSaveError(null);
     try {
-      const amountNum =
-        form.amount.trim() === "" ? null : Number(form.amount.trim());
+      const amountNum = form.amount.trim() === "" ? null : Number(form.amount.trim());
       const patch: UpdateCustomerInput = {
         companyName: form.companyName,
         source: form.source,
         sourceDetail: form.sourceDetail,
         sourceDate: form.sourceDate,
-        claimExpiresAt:
-          form.source === "list_claimed" ? form.claimExpiresAt : "",
+        claimExpiresAt: form.source === "list_claimed" ? form.claimExpiresAt : "",
         industry: form.industry,
         companySize: form.companySize,
         overseasMarkets: form.overseasMarkets,
@@ -245,11 +238,8 @@ function CustomerDetailPage() {
         productLines: form.productLines,
         status: form.status,
         winRate: form.overrideWinRate ? Number(form.winRate) : null,
-        winRateOverrideReason: form.overrideWinRate
-          ? form.winRateOverrideReason
-          : "",
-        amount:
-          amountNum !== null && Number.isFinite(amountNum) ? amountNum : null,
+        winRateOverrideReason: form.overrideWinRate ? form.winRateOverrideReason : "",
+        amount: amountNum !== null && Number.isFinite(amountNum) ? amountNum : null,
         expectedCloseDate: form.expectedCloseDate,
         nextAction: form.nextAction,
         nextActionDate: form.nextActionDate,
@@ -379,9 +369,7 @@ function CustomerDetailPage() {
 
               {stagePickerOpen && (
                 <div className="mt-2 rounded-[var(--radius)] border border-border bg-background p-2">
-                  <div className="text-[11px] text-muted-foreground mb-1.5">
-                    选择目标阶段
-                  </div>
+                  <div className="text-[11px] text-muted-foreground mb-1.5">选择目标阶段</div>
                   <div className="flex flex-wrap gap-1.5">
                     {STAGE_ORDER.map((s, i) => {
                       const cur = s === customer.stage;
@@ -419,7 +407,6 @@ function CustomerDetailPage() {
             {/* 相关记录 */}
             <RelatedBlocksSection customerId={customer.id} />
 
-
             {stageTarget && (
               <StageChangeDialog
                 customer={customer}
@@ -432,17 +419,12 @@ function CustomerDetailPage() {
               />
             )}
 
-
             <div className="mt-3 space-y-3">
               <Section title="来源" defaultOpen>
                 <Field label="来源" full>
                   <div className="flex flex-wrap gap-1.5">
                     {SOURCE_ORDER.map((s) => (
-                      <Chip
-                        key={s}
-                        active={form.source === s}
-                        onClick={() => set("source", s)}
-                      >
+                      <Chip key={s} active={form.source === s} onClick={() => set("source", s)}>
                         {SOURCE_LABEL[s]}
                       </Chip>
                     ))}
@@ -584,9 +566,7 @@ function CustomerDetailPage() {
                 <Field label="决策角色">
                   <select
                     value={form.decisionRole}
-                    onChange={(e) =>
-                      set("decisionRole", e.target.value as DecisionRole)
-                    }
+                    onChange={(e) => set("decisionRole", e.target.value as DecisionRole)}
                     className={inputClass}
                   >
                     {(Object.keys(ROLE_LABEL) as DecisionRole[]).map((r) => (
@@ -630,9 +610,7 @@ function CustomerDetailPage() {
               <Section title="其他关键人" hint={`${form.otherContacts.length} 人`}>
                 <div className="sm:col-span-2 space-y-2">
                   {form.otherContacts.length === 0 && (
-                    <div className="text-xs text-muted-foreground">
-                      还没有登记其他关键人。
-                    </div>
+                    <div className="text-xs text-muted-foreground">还没有登记其他关键人。</div>
                   )}
                   {form.otherContacts.map((oc, i) => (
                     <div
@@ -675,8 +653,7 @@ function CustomerDetailPage() {
                                 j === i
                                   ? {
                                       ...x,
-                                      decisionRole: e.target
-                                        .value as DecisionRole,
+                                      decisionRole: e.target.value as DecisionRole,
                                     }
                                   : x,
                               ),
@@ -684,13 +661,11 @@ function CustomerDetailPage() {
                           }
                           className={inputClass}
                         >
-                          {(Object.keys(ROLE_LABEL) as DecisionRole[]).map(
-                            (r) => (
-                              <option key={r} value={r}>
-                                {ROLE_LABEL[r]}
-                              </option>
-                            ),
-                          )}
+                          {(Object.keys(ROLE_LABEL) as DecisionRole[]).map((r) => (
+                            <option key={r} value={r}>
+                              {ROLE_LABEL[r]}
+                            </option>
+                          ))}
                         </select>
                         <input
                           value={oc.contact ?? ""}
@@ -738,10 +713,7 @@ function CustomerDetailPage() {
                   <button
                     type="button"
                     onClick={() =>
-                      set("otherContacts", [
-                        ...form.otherContacts,
-                        { decisionRole: "unknown" },
-                      ])
+                      set("otherContacts", [...form.otherContacts, { decisionRole: "unknown" }])
                     }
                     className="inline-flex items-center gap-1 h-8 px-3 rounded-[var(--radius)] border border-border text-xs hover:bg-muted"
                   >
@@ -760,9 +732,7 @@ function CustomerDetailPage() {
                   />
                 </Field>
                 <Field label="当前阶段" full>
-                  <div className="text-xs text-muted-foreground">
-                    {STAGE_LABEL[form.stage]}
-                  </div>
+                  <div className="text-xs text-muted-foreground">{STAGE_LABEL[form.stage]}</div>
                 </Field>
                 <Field label="预估金额（元）">
                   <input
@@ -815,9 +785,7 @@ function CustomerDetailPage() {
                   />
                 </Field>
                 {reminderMsg && (
-                  <div className="sm:col-span-2 text-xs text-muted-foreground">
-                    {reminderMsg}
-                  </div>
+                  <div className="sm:col-span-2 text-xs text-muted-foreground">{reminderMsg}</div>
                 )}
               </Section>
 
@@ -827,17 +795,11 @@ function CustomerDetailPage() {
                   <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 tabular-nums">
                     {form.overrideWinRate ? (
                       <>
-                        <span className="text-sm font-medium">
-                          你的判断 {form.winRate || "—"}%
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          阶段默认 {stageRate}%
-                        </span>
+                        <span className="text-sm font-medium">你的判断 {form.winRate || "—"}%</span>
+                        <span className="text-xs text-muted-foreground">阶段默认 {stageRate}%</span>
                       </>
                     ) : (
-                      <span className="text-sm text-muted-foreground">
-                        阶段默认 {stageRate}%
-                      </span>
+                      <span className="text-sm text-muted-foreground">阶段默认 {stageRate}%</span>
                     )}
                   </div>
                   {form.overrideWinRate && form.winRateOverrideReason.trim() && (
@@ -867,9 +829,7 @@ function CustomerDetailPage() {
                         <textarea
                           rows={2}
                           value={form.winRateOverrideReason}
-                          onChange={(e) =>
-                            set("winRateOverrideReason", e.target.value)
-                          }
+                          onChange={(e) => set("winRateOverrideReason", e.target.value)}
                           className={textareaClass}
                         />
                       </Field>
@@ -882,14 +842,8 @@ function CustomerDetailPage() {
               <Section title="状态" defaultOpen>
                 <div className="sm:col-span-2 space-y-2">
                   <div className="flex flex-wrap gap-1.5">
-                    {(
-                      Object.keys(STATUS_LABEL) as CustomerStatus[]
-                    ).map((s) => (
-                      <Chip
-                        key={s}
-                        active={form.status === s}
-                        onClick={() => set("status", s)}
-                      >
+                    {(Object.keys(STATUS_LABEL) as CustomerStatus[]).map((s) => (
+                      <Chip key={s} active={form.status === s} onClick={() => set("status", s)}>
                         {STATUS_LABEL[s]}
                       </Chip>
                     ))}
@@ -972,18 +926,14 @@ function CustomerDetailPage() {
                 </button>
                 {savedAt && !saveError && (
                   <span
-                    className={cn(
-                      "inline-flex items-center gap-1 text-xs text-muted-foreground",
-                    )}
+                    className={cn("inline-flex items-center gap-1 text-xs text-muted-foreground")}
                   >
                     <Check className="w-3.5 h-3.5" />
                     已保存 {savedAt}
                   </span>
                 )}
                 {saveError && (
-                  <span className="text-xs text-destructive break-words">
-                    {saveError}
-                  </span>
+                  <span className="text-xs text-destructive break-words">{saveError}</span>
                 )}
               </div>
             </div>
@@ -1026,20 +976,14 @@ function StageHistorySection({
             正在加载…
           </div>
         )}
-        {!loading && error && (
-          <div className="text-xs text-destructive break-words">{error}</div>
-        )}
+        {!loading && error && <div className="text-xs text-destructive break-words">{error}</div>}
         {!loading && !error && history.length === 0 && (
-          <div className="text-xs text-muted-foreground">
-            还没有阶段变更记录。
-          </div>
+          <div className="text-xs text-muted-foreground">还没有阶段变更记录。</div>
         )}
         {!loading && !error && history.length > 0 && (
           <ol className="space-y-3">
             {history.map((h) => {
-              const fromIdx = h.fromStage
-                ? STAGE_ORDER.indexOf(h.fromStage)
-                : -1;
+              const fromIdx = h.fromStage ? STAGE_ORDER.indexOf(h.fromStage) : -1;
               const toIdx = STAGE_ORDER.indexOf(h.toStage);
               const backward = fromIdx >= 0 && toIdx < fromIdx;
               const day = (h.changedAt || "").slice(0, 10);
@@ -1056,9 +1000,7 @@ function StageHistorySection({
                   </div>
                   <div className="flex-1 min-w-0 pb-1">
                     <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-                      <span className="text-muted-foreground tabular-nums">
-                        {day || "—"}
-                      </span>
+                      <span className="text-muted-foreground tabular-nums">{day || "—"}</span>
                       <span className="inline-flex items-center gap-1">
                         <span className="text-muted-foreground">
                           {h.fromStage ? STAGE_LABEL[h.fromStage] : "建档"}
@@ -1068,9 +1010,7 @@ function StageHistorySection({
                         ) : (
                           <ArrowRight className="w-3 h-3 text-muted-foreground" />
                         )}
-                        <span className="font-medium">
-                          {STAGE_LABEL[h.toStage]}
-                        </span>
+                        <span className="font-medium">{STAGE_LABEL[h.toStage]}</span>
                       </span>
                       {backward && (
                         <span className="px-1.5 py-0.5 rounded-md border border-dashed border-border text-muted-foreground">
@@ -1103,7 +1043,6 @@ function StageHistorySection({
   );
 }
 
-
 /** 相关记录：time_blocks.customer_id 命中该客户，按日期倒序。 */
 function RelatedBlocksSection({ customerId }: { customerId: string }) {
   const { blocks, loading, error } = useCustomerTimeBlocks(customerId);
@@ -1125,9 +1064,7 @@ function RelatedBlocksSection({ customerId }: { customerId: string }) {
             正在加载…
           </div>
         )}
-        {!loading && error && (
-          <div className="text-xs text-destructive break-words">{error}</div>
-        )}
+        {!loading && error && <div className="text-xs text-destructive break-words">{error}</div>}
         {!loading && !error && blocks.length === 0 && (
           <div className="text-xs text-muted-foreground">
             还没有关联到该客户的时间记录。在时间轴的详情面板里选择这个客户即可关联。
@@ -1150,9 +1087,7 @@ function RelatedBlocksSection({ customerId }: { customerId: string }) {
                     查看时间轴
                   </Link>
                 </div>
-                <div className="mt-0.5 text-sm truncate">
-                  {b.title || "(无标题)"}
-                </div>
+                <div className="mt-0.5 text-sm truncate">{b.title || "(无标题)"}</div>
                 {b.summary && (
                   <p className="mt-0.5 text-xs leading-snug text-muted-foreground line-clamp-2 whitespace-pre-wrap break-words">
                     {b.summary}

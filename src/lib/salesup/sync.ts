@@ -81,13 +81,7 @@ export function scopedKey(bare: string): string {
   return _userId ? `${KEY_PREFIX}${bare}:u:${_userId}` : `${KEY_PREFIX}${bare}`;
 }
 
-const ALL_KEYS = [
-  "time_blocks",
-  "reminders",
-  "daily_reviews",
-  "weekly_reviews",
-  "monthly_reviews",
-];
+const ALL_KEYS = ["time_blocks", "reminders", "daily_reviews", "weekly_reviews", "monthly_reviews"];
 
 function setUser(uid: string | null, email: string | null) {
   if (_userId === uid && _userEmail === email) return;
@@ -119,7 +113,10 @@ export function initSync() {
   supabase.auth.onAuthStateChange((event, session) => {
     const u = session?.user ?? null;
     setUser(u?.id ?? null, u?.email ?? null);
-    if (u && (event === "SIGNED_IN" || event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED")) {
+    if (
+      u &&
+      (event === "SIGNED_IN" || event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED")
+    ) {
       pullAll(u.id);
     }
   });
@@ -263,7 +260,10 @@ export function pushTimeBlocksBulk(blocks: TimeBlock[]) {
   beginWrite();
   supabase
     .from("time_blocks")
-    .upsert(blocks.map((b) => tbRow(b, _userId!)), { onConflict: "id" })
+    .upsert(
+      blocks.map((b) => tbRow(b, _userId!)),
+      { onConflict: "id" },
+    )
     .then(({ error }) => {
       if (error) console.error("[salesup] bulk upsert time_blocks", error);
       endWrite(error, "批量时间块");
@@ -341,16 +341,18 @@ export async function migrateLocalToCloud(): Promise<MigrationResult> {
   const reminders = legacyReminders.map((r) => ({ ...r, id: ensureUuid(r.id), user_id: uid }));
 
   if (blocks.length > 0) {
-    const { error } = await supabase
-      .from("time_blocks")
-      .upsert(blocks.map((b) => tbRow(b, uid)), { onConflict: "id" });
+    const { error } = await supabase.from("time_blocks").upsert(
+      blocks.map((b) => tbRow(b, uid)),
+      { onConflict: "id" },
+    );
     if (error) result.errors.push(`time_blocks: ${error.message}`);
     else result.blocks = blocks.length;
   }
   if (reminders.length > 0) {
-    const { error } = await supabase
-      .from("reminders")
-      .upsert(reminders.map((r) => rmRow(r, uid)), { onConflict: "id" });
+    const { error } = await supabase.from("reminders").upsert(
+      reminders.map((r) => rmRow(r, uid)),
+      { onConflict: "id" },
+    );
     if (error) result.errors.push(`reminders: ${error.message}`);
     else result.reminders = reminders.length;
   }
@@ -388,6 +390,7 @@ function safeParse<T>(raw: string, fallback: T): T {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function ensureUuid(id: string): string {
   if (id && UUID_RE.test(id)) return id;
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
+    return crypto.randomUUID();
   return `${Date.now().toString(16)}-0000-4000-8000-${Math.random().toString(16).slice(2, 14).padEnd(12, "0")}`;
 }

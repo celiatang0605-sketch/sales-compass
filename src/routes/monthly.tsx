@@ -63,13 +63,21 @@ function MonthlyReviewPage() {
             <p className="text-xs text-muted-foreground mt-0.5">{monthKey}</p>
           </div>
           <div className="inline-flex rounded-lg border border-border bg-card overflow-hidden">
-            <button onClick={() => setAnchor(shiftMonth(anchor, -1))} className="px-2.5 py-1.5 hover:bg-secondary" aria-label="上月">
+            <button
+              onClick={() => setAnchor(shiftMonth(anchor, -1))}
+              className="px-2.5 py-1.5 hover:bg-secondary"
+              aria-label="上月"
+            >
               <ChevronLeft className="w-4 h-4" />
             </button>
             <div className="px-3 py-1.5 text-sm font-medium border-l border-r border-border min-w-[120px] text-center">
               {monthKey}
             </div>
-            <button onClick={() => setAnchor(shiftMonth(anchor, 1))} className="px-2.5 py-1.5 hover:bg-secondary" aria-label="下月">
+            <button
+              onClick={() => setAnchor(shiftMonth(anchor, 1))}
+              className="px-2.5 py-1.5 hover:bg-secondary"
+              aria-label="下月"
+            >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -121,7 +129,12 @@ function MonthlyReviewPage() {
           )}
           <div className="flex items-center gap-3 mt-3 text-[11px] text-muted-foreground">
             <span className="inline-flex items-center gap-1">
-              <span className="w-2.5 h-2.5 rounded-sm" style={{ background: `var(${WORK_TYPE_MAP.meeting_customer?.colorVar ?? "--wt-meeting-customer"})` }} />
+              <span
+                className="w-2.5 h-2.5 rounded-sm"
+                style={{
+                  background: `var(${WORK_TYPE_MAP.meeting_customer?.colorVar ?? "--wt-meeting-customer"})`,
+                }}
+              />
               客户推进时长
             </span>
             <span className="inline-flex items-center gap-1">

@@ -34,7 +34,9 @@ export async function signUpWithPassword(email: string, password: string) {
   return supabase.auth.signUp({
     email,
     password,
-    options: { emailRedirectTo: typeof window !== "undefined" ? window.location.origin : undefined },
+    options: {
+      emailRedirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
+    },
   });
 }
 

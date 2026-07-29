@@ -248,15 +248,10 @@ function ExpoIndexPage() {
           <EmptyState
             title={leads.length === 0 ? "还没有线索" : "没有匹配的线索"}
             hint={leads.length === 0 ? "去展会现场记录第一条吧。" : undefined}
-            action={
-              leads.length === 0 ? { to: "/expo/new", label: "开始快速记录" } : undefined
-            }
+            action={leads.length === 0 ? { to: "/expo/new", label: "开始快速记录" } : undefined}
           />
         )}
-        {userId &&
-          !loading &&
-          !error &&
-          list.map((l) => <LeadCard key={l.id} lead={l} />)}
+        {userId && !loading && !error && list.map((l) => <LeadCard key={l.id} lead={l} />)}
       </section>
 
       {/* Mobile sticky primary action */}

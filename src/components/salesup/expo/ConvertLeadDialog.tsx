@@ -232,28 +232,14 @@ export function ConvertLeadDialog({ lead, onClose, onConverted }: Props) {
               value={form.contactTitle}
               onChange={(v) => patch({ contactTitle: v })}
             />
-            <TextField
-              label="电话"
-              value={form.phone}
-              onChange={(v) => patch({ phone: v })}
-            />
-            <TextField
-              label="微信"
-              value={form.wechat}
-              onChange={(v) => patch({ wechat: v })}
-            />
-            <TextField
-              label="邮箱"
-              value={form.email}
-              onChange={(v) => patch({ email: v })}
-            />
+            <TextField label="电话" value={form.phone} onChange={(v) => patch({ phone: v })} />
+            <TextField label="微信" value={form.wechat} onChange={(v) => patch({ wechat: v })} />
+            <TextField label="邮箱" value={form.email} onChange={(v) => patch({ email: v })} />
             <div>
               <FieldLabel>决策角色</FieldLabel>
               <select
                 value={form.decisionRole}
-                onChange={(e) =>
-                  patch({ decisionRole: e.target.value as DecisionRole })
-                }
+                onChange={(e) => patch({ decisionRole: e.target.value as DecisionRole })}
                 className="w-full h-8 px-2 rounded-[var(--radius)] border border-border bg-background text-sm outline-none focus:ring-2 focus:ring-ring/20"
               >
                 {ROLE_KEYS.map((r) => (
@@ -308,9 +294,7 @@ export function ConvertLeadDialog({ lead, onClose, onConverted }: Props) {
             </div>
           </div>
 
-          {error && (
-            <div className="text-xs text-destructive break-words">{error}</div>
-          )}
+          {error && <div className="text-xs text-destructive break-words">{error}</div>}
         </div>
 
         <footer className="flex items-center gap-2 px-4 py-3 border-t border-border">
@@ -339,9 +323,7 @@ export function ConvertLeadDialog({ lead, onClose, onConverted }: Props) {
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="text-[11px] text-muted-foreground mb-1">{children}</div>
-  );
+  return <div className="text-[11px] text-muted-foreground mb-1">{children}</div>;
 }
 
 function TextField({

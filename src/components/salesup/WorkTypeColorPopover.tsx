@@ -55,13 +55,19 @@ export function WorkTypeColorPopover({ workTypeId, anchorRect, onClose }: Props)
       role="dialog"
     >
       <div className="flex items-center justify-between mb-2">
-        <div className="text-xs font-medium">
-          颜色 · {wt?.label ?? workTypeId}
-        </div>
+        <div className="text-xs font-medium">颜色 · {wt?.label ?? workTypeId}</div>
         <button
           onClick={() => {
             resetColor(workTypeId);
-            setValue(startingHexOf(workTypeId, { colors: {}, labels: {}, customTypes: [], hiddenBuiltins: [], customCategories: [] }));
+            setValue(
+              startingHexOf(workTypeId, {
+                colors: {},
+                labels: {},
+                customTypes: [],
+                hiddenBuiltins: [],
+                customCategories: [],
+              }),
+            );
           }}
           className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
           aria-label="恢复默认颜色"

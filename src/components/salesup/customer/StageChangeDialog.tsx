@@ -23,12 +23,7 @@ interface Props {
   onChanged?: (updated: Customer) => void;
 }
 
-export function StageChangeDialog({
-  customer,
-  targetStage,
-  onClose,
-  onChanged,
-}: Props) {
+export function StageChangeDialog({ customer, targetStage, onClose, onChanged }: Props) {
   const [mounted, setMounted] = useState(false);
   const [reason, setReason] = useState("");
   const [blockId, setBlockId] = useState<string | null>(null);
@@ -165,9 +160,7 @@ export function StageChangeDialog({
           <div>
             <label className="block text-sm font-medium mb-1.5">
               {isBackward ? "因为什么回退？" : "因为什么推进？"}
-              <span className="ml-1 text-[11px] font-normal text-muted-foreground">
-                选填
-              </span>
+              <span className="ml-1 text-[11px] font-normal text-muted-foreground">选填</span>
             </label>
             <textarea
               value={reason}
@@ -187,9 +180,7 @@ export function StageChangeDialog({
           <div>
             <div className="flex items-baseline justify-between gap-2 mb-1.5">
               <span className="text-sm font-medium">关联今天的记录</span>
-              <span className="text-[11px] text-muted-foreground tabular-nums">
-                {date}
-              </span>
+              <span className="text-[11px] text-muted-foreground tabular-nums">{date}</span>
             </div>
             {blocksLoading && (
               <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground py-2">
@@ -224,16 +215,12 @@ export function StageChangeDialog({
                           active ? "border-primary bg-primary" : "border-border",
                         )}
                       >
-                        {active && (
-                          <Check className="w-2.5 h-2.5 text-primary-foreground" />
-                        )}
+                        {active && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
                       </span>
                       <span className="shrink-0 tabular-nums text-muted-foreground">
                         {slotToTimeString(b.startSlot)}–{slotToTimeString(b.endSlot)}
                       </span>
-                      <span className="truncate">
-                        {b.title || b.customer || "未命名记录"}
-                      </span>
+                      <span className="truncate">{b.title || b.customer || "未命名记录"}</span>
                     </button>
                   );
                 })}

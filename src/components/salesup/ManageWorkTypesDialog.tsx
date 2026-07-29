@@ -219,7 +219,11 @@ export function ManageWorkTypesDialog({ onClose }: Props) {
                     categoryOptions={allCategories}
                     onUpdate={(patch) => updateCustomType(t.id, patch)}
                     onRemove={() => {
-                      if (confirm(`删除自定义类型「${t.label}」?已有此类型的时间块会被标为「其它」显示。`)) {
+                      if (
+                        confirm(
+                          `删除自定义类型「${t.label}」?已有此类型的时间块会被标为「其它」显示。`,
+                        )
+                      ) {
                         removeCustomType(t.id);
                       }
                     }}

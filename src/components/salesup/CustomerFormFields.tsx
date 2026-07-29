@@ -5,13 +5,7 @@ import { ChevronDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SOURCE_LABEL, type CustomerSource } from "@/lib/salesup/customerTypes";
 
-export const PRODUCT_LINE_OPTIONS = [
-  "WiseMonitor",
-  "WiseBI",
-  "WiseDiscover",
-  "WisersOne",
-  "GEO",
-];
+export const PRODUCT_LINE_OPTIONS = ["WiseMonitor", "WiseBI", "WiseDiscover", "WisersOne", "GEO"];
 
 export const SOURCE_DETAIL_PLACEHOLDER: Record<CustomerSource, string> = {
   expo: "展会名称，如 2026 广交会",
@@ -48,23 +42,14 @@ export function Section({
       >
         <span className="text-sm font-medium">
           {title}
-          {hint && (
-            <span className="ml-2 text-xs font-normal text-muted-foreground">
-              {hint}
-            </span>
-          )}
+          {hint && <span className="ml-2 text-xs font-normal text-muted-foreground">{hint}</span>}
         </span>
         <ChevronDown
-          className={cn(
-            "w-4 h-4 text-muted-foreground transition-transform",
-            open && "rotate-180",
-          )}
+          className={cn("w-4 h-4 text-muted-foreground transition-transform", open && "rotate-180")}
         />
       </button>
       {open && (
-        <div className="px-3 pb-3 pt-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {children}
-        </div>
+        <div className="px-3 pb-3 pt-1 grid grid-cols-1 sm:grid-cols-2 gap-3">{children}</div>
       )}
     </section>
   );
@@ -144,11 +129,7 @@ export function TagInput({
             <Chip
               key={o}
               active={value.includes(o)}
-              onClick={() =>
-                value.includes(o)
-                  ? onChange(value.filter((v) => v !== o))
-                  : add(o)
-              }
+              onClick={() => (value.includes(o) ? onChange(value.filter((v) => v !== o)) : add(o))}
             >
               {o}
             </Chip>

@@ -211,17 +211,14 @@ function ExpoDetailPage() {
     setForm(null);
   };
 
-  const patch = (p: Partial<FormState>) =>
-    setForm((f) => (f ? { ...f, ...p } : f));
+  const patch = (p: Partial<FormState>) => setForm((f) => (f ? { ...f, ...p } : f));
 
   const toggleSignal = (s: string) => {
     setForm((f) => {
       if (!f) return f;
       return {
         ...f,
-        signals: f.signals.includes(s)
-          ? f.signals.filter((x) => x !== s)
-          : [...f.signals, s],
+        signals: f.signals.includes(s) ? f.signals.filter((x) => x !== s) : [...f.signals, s],
       };
     });
   };
@@ -348,7 +345,6 @@ function ExpoDetailPage() {
           />
         )}
 
-
         {/* Header card with quick priority/status */}
         <div className="rounded-xl border border-border bg-card p-4 md:p-5 mb-3">
           <div className="flex items-start gap-3 flex-wrap">
@@ -403,9 +399,7 @@ function ExpoDetailPage() {
                     <button
                       key={p}
                       disabled={quickBusy}
-                      onClick={() =>
-                        p !== lead.priority && void quickUpdate({ priority: p })
-                      }
+                      onClick={() => p !== lead.priority && void quickUpdate({ priority: p })}
                       className={cn(
                         "px-2.5 min-h-8 rounded-full border text-xs transition disabled:opacity-60",
                         p === lead.priority
@@ -425,9 +419,7 @@ function ExpoDetailPage() {
                 <select
                   disabled={quickBusy}
                   value={lead.status}
-                  onChange={(e) =>
-                    void quickUpdate({ status: e.target.value as ExpoStatus })
-                  }
+                  onChange={(e) => void quickUpdate({ status: e.target.value as ExpoStatus })}
                   className="w-full h-9 px-2 rounded-md border border-border bg-background text-sm outline-none focus:ring-2 focus:ring-primary/20"
                 >
                   {STATUSES.map((s) => (
@@ -453,12 +445,30 @@ function ExpoDetailPage() {
         <Section title="基础信息">
           {editing && form ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <EditInput label="行业" value={form.industry} onChange={(v) => patch({ industry: v })} />
-              <EditInput label="展会名称" value={form.eventName} onChange={(v) => patch({ eventName: v })} />
-              <EditInput label="展会日期" type="date" value={form.eventDate} onChange={(v) => patch({ eventDate: v })} />
+              <EditInput
+                label="行业"
+                value={form.industry}
+                onChange={(v) => patch({ industry: v })}
+              />
+              <EditInput
+                label="展会名称"
+                value={form.eventName}
+                onChange={(v) => patch({ eventName: v })}
+              />
+              <EditInput
+                label="展会日期"
+                type="date"
+                value={form.eventDate}
+                onChange={(v) => patch({ eventDate: v })}
+              />
               <EditInput label="展馆" value={form.hall} onChange={(v) => patch({ hall: v })} />
               <EditInput label="展位" value={form.booth} onChange={(v) => patch({ booth: v })} />
-              <EditTextarea label="公司背景" value={form.companyBackground} onChange={(v) => patch({ companyBackground: v })} className="md:col-span-2" />
+              <EditTextarea
+                label="公司背景"
+                value={form.companyBackground}
+                onChange={(v) => patch({ companyBackground: v })}
+                className="md:col-span-2"
+              />
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-y-2 gap-x-6">
@@ -529,11 +539,30 @@ function ExpoDetailPage() {
         <Section title="联系人">
           {editing && form ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <EditInput label="姓名" value={form.contactName} onChange={(v) => patch({ contactName: v })} />
-              <EditInput label="职位" value={form.contactTitle} onChange={(v) => patch({ contactTitle: v })} />
-              <EditInput label="手机" value={form.phone} onChange={(v) => patch({ phone: v })} inputMode="tel" />
+              <EditInput
+                label="姓名"
+                value={form.contactName}
+                onChange={(v) => patch({ contactName: v })}
+              />
+              <EditInput
+                label="职位"
+                value={form.contactTitle}
+                onChange={(v) => patch({ contactTitle: v })}
+              />
+              <EditInput
+                label="手机"
+                value={form.phone}
+                onChange={(v) => patch({ phone: v })}
+                inputMode="tel"
+              />
               <EditInput label="微信" value={form.wechat} onChange={(v) => patch({ wechat: v })} />
-              <EditInput label="邮箱" value={form.email} onChange={(v) => patch({ email: v })} type="email" className="md:col-span-2" />
+              <EditInput
+                label="邮箱"
+                value={form.email}
+                onChange={(v) => patch({ email: v })}
+                type="email"
+                className="md:col-span-2"
+              />
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-y-2 gap-x-6">
@@ -549,10 +578,26 @@ function ExpoDetailPage() {
         <Section title="现场沟通">
           {editing && form ? (
             <div className="space-y-3">
-              <EditTextarea label="沟通摘要" value={form.summary} onChange={(v) => patch({ summary: v })} />
-              <EditTextarea label="关键信息" value={form.keyInfo} onChange={(v) => patch({ keyInfo: v })} />
-              <EditTextarea label="核心问题" value={form.coreProblem} onChange={(v) => patch({ coreProblem: v })} />
-              <EditTextarea label="当前需求" value={form.currentNeed} onChange={(v) => patch({ currentNeed: v })} />
+              <EditTextarea
+                label="沟通摘要"
+                value={form.summary}
+                onChange={(v) => patch({ summary: v })}
+              />
+              <EditTextarea
+                label="关键信息"
+                value={form.keyInfo}
+                onChange={(v) => patch({ keyInfo: v })}
+              />
+              <EditTextarea
+                label="核心问题"
+                value={form.coreProblem}
+                onChange={(v) => patch({ coreProblem: v })}
+              />
+              <EditTextarea
+                label="当前需求"
+                value={form.currentNeed}
+                onChange={(v) => patch({ currentNeed: v })}
+              />
             </div>
           ) : (
             <div className="space-y-2">
@@ -567,10 +612,26 @@ function ExpoDetailPage() {
         <Section title="销售判断">
           {editing && form ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <EditInput label="决策角色" value={form.decisionRole} onChange={(v) => patch({ decisionRole: v })} />
-              <EditInput label="预算信号" value={form.budgetSignal} onChange={(v) => patch({ budgetSignal: v })} />
-              <EditInput label="时间节点" value={form.timeline} onChange={(v) => patch({ timeline: v })} />
-              <EditInput label="现有供应商" value={form.currentVendor} onChange={(v) => patch({ currentVendor: v })} />
+              <EditInput
+                label="决策角色"
+                value={form.decisionRole}
+                onChange={(v) => patch({ decisionRole: v })}
+              />
+              <EditInput
+                label="预算信号"
+                value={form.budgetSignal}
+                onChange={(v) => patch({ budgetSignal: v })}
+              />
+              <EditInput
+                label="时间节点"
+                value={form.timeline}
+                onChange={(v) => patch({ timeline: v })}
+              />
+              <EditInput
+                label="现有供应商"
+                value={form.currentVendor}
+                onChange={(v) => patch({ currentVendor: v })}
+              />
               <div className="md:col-span-2">
                 <FieldLabel>优先级</FieldLabel>
                 <div className="flex gap-1.5 flex-wrap">
@@ -594,7 +655,12 @@ function ExpoDetailPage() {
                   })}
                 </div>
               </div>
-              <EditTextarea label="评分原因" value={form.priorityReason} onChange={(v) => patch({ priorityReason: v })} className="md:col-span-2" />
+              <EditTextarea
+                label="评分原因"
+                value={form.priorityReason}
+                onChange={(v) => patch({ priorityReason: v })}
+                className="md:col-span-2"
+              />
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-y-2 gap-x-6">
@@ -625,7 +691,11 @@ function ExpoDetailPage() {
                   ))}
                 </select>
               </div>
-              <EditInput label="下一步动作" value={form.nextAction} onChange={(v) => patch({ nextAction: v })} />
+              <EditInput
+                label="下一步动作"
+                value={form.nextAction}
+                onChange={(v) => patch({ nextAction: v })}
+              />
               <EditInput
                 label="下一步日期"
                 type="date"

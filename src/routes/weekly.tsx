@@ -4,13 +4,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { AppShell } from "@/components/salesup/AppShell";
 import { useTimeBlocks, useWeeklyReview, saveWeeklyReview } from "@/lib/salesup/storage";
 import { computeStats, topProblemTags } from "@/lib/salesup/stats";
-import {
-  todayKey,
-  weekKeyOf,
-  weekRangeOf,
-  addDays,
-  formatDuration,
-} from "@/lib/salesup/date";
+import { todayKey, weekKeyOf, weekRangeOf, addDays, formatDuration } from "@/lib/salesup/date";
 import { Card, StatBox, TypeBars, ListOrEmpty, Empty } from "./daily";
 import { useWorkTypeSettings } from "@/lib/salesup/workTypeSettings";
 
@@ -40,13 +34,21 @@ function WeeklyReviewPage() {
             </p>
           </div>
           <div className="inline-flex rounded-lg border border-border bg-card overflow-hidden">
-            <button onClick={() => setAnchor(addDays(anchor, -7))} className="px-2.5 py-1.5 hover:bg-secondary" aria-label="上一周">
+            <button
+              onClick={() => setAnchor(addDays(anchor, -7))}
+              className="px-2.5 py-1.5 hover:bg-secondary"
+              aria-label="上一周"
+            >
               <ChevronLeft className="w-4 h-4" />
             </button>
             <div className="px-3 py-1.5 text-sm font-medium border-l border-r border-border min-w-[150px] text-center">
               {weekKey}
             </div>
-            <button onClick={() => setAnchor(addDays(anchor, 7))} className="px-2.5 py-1.5 hover:bg-secondary" aria-label="下一周">
+            <button
+              onClick={() => setAnchor(addDays(anchor, 7))}
+              className="px-2.5 py-1.5 hover:bg-secondary"
+              aria-label="下一周"
+            >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>

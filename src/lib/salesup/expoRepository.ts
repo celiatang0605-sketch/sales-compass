@@ -3,12 +3,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { toDateKey, todayKey } from "./date";
-import {
-  deriveHeadline,
-  type ExpoLead,
-  type ExpoPriority,
-  type ExpoStatus,
-} from "./expoMock";
+import { deriveHeadline, type ExpoLead, type ExpoPriority, type ExpoStatus } from "./expoMock";
 
 type Row = {
   id: string;
@@ -173,11 +168,7 @@ export async function listLeads(): Promise<ExpoLead[]> {
 }
 
 export async function getLead(id: string): Promise<ExpoLead | null> {
-  const { data, error } = await supabase
-    .from("expo_leads")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
+  const { data, error } = await supabase.from("expo_leads").select("*").eq("id", id).maybeSingle();
   if (error) throw error;
   return data ? rowToLead(data as Row) : null;
 }
@@ -198,19 +189,12 @@ export async function createLead(input: NewLeadInput): Promise<ExpoLead> {
     next_action: input.nextAction.trim() || null,
     next_action_date: input.nextActionDate || null,
   };
-  const { data, error } = await supabase
-    .from("expo_leads")
-    .insert(row)
-    .select("*")
-    .single();
+  const { data, error } = await supabase.from("expo_leads").insert(row).select("*").single();
   if (error) throw error;
   return rowToLead(data as Row);
 }
 
-export async function updateLead(
-  id: string,
-  patch: UpdateLeadInput,
-): Promise<ExpoLead> {
+export async function updateLead(id: string, patch: UpdateLeadInput): Promise<ExpoLead> {
   const update: Record<string, unknown> = {};
 
   for (const [k, col] of Object.entries(TEXT_MAP)) {
@@ -288,10 +272,7 @@ export async function listUserCompanies(): Promise<string[]> {
  * 标记线索已转化：写入 converted_customer_id，并把状态改为 converted。
  * 由 customerRepository.convertExpoLeadToCustomer 在创建客户成功后调用。
  */
-export async function markLeadConverted(
-  leadId: string,
-  customerId: string,
-): Promise<ExpoLead> {
+export async function markLeadConverted(leadId: string, customerId: string): Promise<ExpoLead> {
   const { data, error } = await supabase
     .from("expo_leads")
     .update({ converted_customer_id: customerId, status: "converted" })

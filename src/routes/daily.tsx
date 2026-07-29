@@ -119,7 +119,15 @@ export function StatBox({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function Card({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
+export function Card({
+  title,
+  children,
+  action,
+}: {
+  title: string;
+  children: React.ReactNode;
+  action?: React.ReactNode;
+}) {
   return (
     <div className="rounded-xl border border-border bg-card p-4">
       <div className="flex items-center justify-between mb-3">

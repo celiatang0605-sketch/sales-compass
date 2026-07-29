@@ -19,15 +19,15 @@ Owner 已开始建联客户并产生第一个商机。现有系统能记录**时
 
 ## 2. 已确定的架构决策（不要在实现时推翻）
 
-| # | 决策 | 说明 |
-|---|---|---|
-| D1 | **一层模型** | 一行 `customers` = 一个客户 = 一个商机。商机字段内联在同一张表，但在 SQL 里集中成一块，便于将来整体迁出。 |
-| D2 | **expo_leads 与 customers 分离** | 展会线索是「未结构化输入的加工车间」，不是普通来源。线索在 `/expo` 里被判定为真机会后，点「转为客户」生成 customers 行，并回写 `expo_leads.converted_customer_id`。**未转化的线索不出现在看板上。** |
-| D3 | **其他来源直接入库** | 市场分配 / 名单认领 / 老客转化 / 老客推荐 拿到手就是结构化数据，不经过 expo 车间，直接建 customers 行，初始阶段 `to_contact`。 |
-| D4 | **阶段推进靠拖卡片** | 看板上拖动卡片改 stage，拖完弹轻量确认框（推进原因 + 可勾选关联今天的 time_block），写入 `stage_history`。 |
-| D5 | **stage 与 status 正交** | `stage` 管走到第几步，`status` 管生死（active / won / lost / on_hold）。丢单时 stage 停在死亡位置，用于后续「我的单子都死在哪一级」分析。 |
-| D6 | **赢率默认带出、可覆盖、覆盖需理由** | 数据库层有 CHECK 约束强制。见 §4。 |
-| D7 | **主联系人 + 结构化「其他关键人」** | 不建联系人子表，用 `other_contacts` jsonb 数组。 |
+| #   | 决策                                 | 说明                                                                                                                                                                                                |
+| --- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | **一层模型**                         | 一行 `customers` = 一个客户 = 一个商机。商机字段内联在同一张表，但在 SQL 里集中成一块，便于将来整体迁出。                                                                                           |
+| D2  | **expo_leads 与 customers 分离**     | 展会线索是「未结构化输入的加工车间」，不是普通来源。线索在 `/expo` 里被判定为真机会后，点「转为客户」生成 customers 行，并回写 `expo_leads.converted_customer_id`。**未转化的线索不出现在看板上。** |
+| D3  | **其他来源直接入库**                 | 市场分配 / 名单认领 / 老客转化 / 老客推荐 拿到手就是结构化数据，不经过 expo 车间，直接建 customers 行，初始阶段 `to_contact`。                                                                      |
+| D4  | **阶段推进靠拖卡片**                 | 看板上拖动卡片改 stage，拖完弹轻量确认框（推进原因 + 可勾选关联今天的 time_block），写入 `stage_history`。                                                                                          |
+| D5  | **stage 与 status 正交**             | `stage` 管走到第几步，`status` 管生死（active / won / lost / on_hold）。丢单时 stage 停在死亡位置，用于后续「我的单子都死在哪一级」分析。                                                           |
+| D6  | **赢率默认带出、可覆盖、覆盖需理由** | 数据库层有 CHECK 约束强制。见 §4。                                                                                                                                                                  |
+| D7  | **主联系人 + 结构化「其他关键人」**  | 不建联系人子表，用 `other_contacts` jsonb 数组。                                                                                                                                                    |
 
 ---
 
@@ -35,16 +35,16 @@ Owner 已开始建联客户并产生第一个商机。现有系统能记录**时
 
 漏斗照搬公司口径，顶上加一级 `to_contact`（因为 D3 的三个来源入库时还没接触上任何人）。
 
-| stage | 中文 | 默认赢率 | 分组 |
-|---|---|---|---|
-| `to_contact` | 待建联 | 0% | Above The Funnel |
-| `opportunity_confirmed` | 机会确认 | 10% | Above The Funnel |
-| `need_confirmed` | 需求确认 | 20% | In The Funnel |
-| `solution_confirmed` | 方案确认 | 40% | In The Funnel |
-| `quote_confirmed` | 报价确认 | 50% | In The Funnel |
-| `negotiation` | 商务谈判 | 60% | In The Funnel |
-| `signing` | 签约过程 | 80% | Best Few |
-| `signed` | 已签合同 | 100% | Best Few |
+| stage                   | 中文     | 默认赢率 | 分组             |
+| ----------------------- | -------- | -------- | ---------------- |
+| `to_contact`            | 待建联   | 0%       | Above The Funnel |
+| `opportunity_confirmed` | 机会确认 | 10%      | Above The Funnel |
+| `need_confirmed`        | 需求确认 | 20%      | In The Funnel    |
+| `solution_confirmed`    | 方案确认 | 40%      | In The Funnel    |
+| `quote_confirmed`       | 报价确认 | 50%      | In The Funnel    |
+| `negotiation`           | 商务谈判 | 60%      | In The Funnel    |
+| `signing`               | 签约过程 | 80%      | Best Few         |
+| `signed`                | 已签合同 | 100%     | Best Few         |
 
 默认赢率映射写在 `src/lib/salesup/customerTypes.ts` 的常量里，**不落库**。
 
@@ -102,12 +102,12 @@ Owner 已开始建联客户并产生第一个商机。现有系统能记录**时
 
 ## 6. 与既有模块的关系
 
-| 模块 | 关系 |
-|---|---|
-| `expo_leads` | 单向：线索 → 客户。转化时复制 company / contact / 痛点 / 决策角色等字段，回写 `converted_customer_id` 防重复转化。 |
+| 模块          | 关系                                                                                                                                                                                |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `expo_leads`  | 单向：线索 → 客户。转化时复制 company / contact / 痛点 / 决策角色等字段，回写 `converted_customer_id` 防重复转化。                                                                  |
 | `time_blocks` | `customer_id` 开始真正写入（此前恒为 null）。时间块详情面板的客户字段从自由文本升级为可选择已有客户（保留自由文本兜底）。**`opportunity_id` 继续留 null**，等拆两层时迁移脚本回填。 |
-| `reminders` | 客户的 `next_action` / `next_action_date` 可一键生成提醒，复用 BlockDetailPanel 已有的模式。 |
-| `stats.ts` | **不动。** 时间统计仍然只从 time_blocks 聚合。客户看板的统计（停滞天数、来源转化率）单独计算，不要塞进 `computeStats`。 |
+| `reminders`   | 客户的 `next_action` / `next_action_date` 可一键生成提醒，复用 BlockDetailPanel 已有的模式。                                                                                        |
+| `stats.ts`    | **不动。** 时间统计仍然只从 time_blocks 聚合。客户看板的统计（停滞天数、来源转化率）单独计算，不要塞进 `computeStats`。                                                             |
 
 ---
 

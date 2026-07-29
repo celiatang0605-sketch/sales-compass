@@ -414,8 +414,7 @@ function BlockContent({
   const showCustomerLine =
     hasCustomer && hasTitle && block.title !== block.customer && height >= SLOT_HEIGHT * 2;
   // For compact blocks with both, inline the customer after the title.
-  const showInlineCustomer =
-    hasCustomer && hasTitle && block.title !== block.customer && compact;
+  const showInlineCustomer = hasCustomer && hasTitle && block.title !== block.customer && compact;
   const showSummary = height >= SLOT_HEIGHT * 4 && !!block.summary;
 
   return (
@@ -434,9 +433,7 @@ function BlockContent({
       >
         {primary}
         {showInlineCustomer && (
-          <span
-            className="ml-1 inline-flex items-center gap-0.5 align-middle px-1 py-px rounded-sm text-[9px] font-medium bg-card/85 text-foreground ring-1 ring-foreground/15 backdrop-blur-sm"
-          >
+          <span className="ml-1 inline-flex items-center gap-0.5 align-middle px-1 py-px rounded-sm text-[9px] font-medium bg-card/85 text-foreground ring-1 ring-foreground/15 backdrop-blur-sm">
             <span className="w-1 h-1 rounded-full bg-foreground/60" />
             <span className="truncate max-w-[80px]">{block.customer}</span>
           </span>

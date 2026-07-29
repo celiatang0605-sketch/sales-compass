@@ -64,10 +64,7 @@ export function StatsCards({ stats, title = "今日数据" }: Props) {
             key={it.key}
             className="rounded-lg border border-border bg-card p-3 relative overflow-hidden"
           >
-            <span
-              className="absolute left-0 top-0 bottom-0 w-1"
-              style={{ background: it.bg }}
-            />
+            <span className="absolute left-0 top-0 bottom-0 w-1" style={{ background: it.bg }} />
             <div className="text-[11px] text-muted-foreground">{it.label}</div>
             <div className="text-lg font-semibold mt-0.5">{it.value}</div>
           </div>
