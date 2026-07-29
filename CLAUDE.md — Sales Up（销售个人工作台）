@@ -2,7 +2,7 @@
 
 ## 项目背景
 
-Owner 在公关舆情 / 市场咨询公司做销售。本应用是销售新人的个人时间管理与工作复盘工具，用于记录：时间分配（时间块）、客户会议、客户拜访、待办、问题标签、注意事项，并支持日 / 周 / 月复盘。后续规划模块：客户看板、商机跟进、KPI 看板（侧边栏已有占位，见 `AppShell.tsx` 的 `FUTURE_ITEMS`）。
+Owner 在公关舆情 / 市场咨询公司做销售。本应用是销售新人的个人时间管理与工作复盘工具，用于记录：时间分配（时间块）、客户会议、客户拜访、待办、问题标签、注意事项，并支持日 / 周 / 月复盘。后续规划模块：商机跟进、KPI 看板（侧边栏已有占位，见 `AppShell.tsx` 的 `FUTURE_ITEMS`）。
 
 项目由 Lovable 导出，长期在本仓库内迭代。**不要 force push / rebase 已推送的提交**（会破坏 Lovable 侧历史，见 AGENTS.md）。
 
@@ -21,6 +21,9 @@ Owner 在公关舆情 / 市场咨询公司做销售。本应用是销售新人�
 src/
   routes/            文件式路由（页面）
     index.tsx        / 时间轴主页：周视图（涂色录入）+ 月视图，右侧 BlockDetailPanel
+    customers.index.tsx /customers 客户 Kanban 看板（8 个阶段、筛选、统计、拖拽推进）
+    customers.new.tsx   /customers/new 新建客户
+    customers.$id.tsx   /customers/$id 客户详情、阶段历史与相关时间块
     daily.tsx        /daily 日复盘（统计 + 3 个提问字段）；同时导出 Card/StatBox/TypeBars 等共享 UI（⚠ 待迁出）
     weekly.tsx       /weekly 周复盘（统计 + 4 个提问字段）
     monthly.tsx      /monthly 月复盘（统计 + 趋势图 + 3 个提问字段）
@@ -29,6 +32,12 @@ src/
     __root.tsx       根布局、404、错误边界
   components/salesup/
     AppShell.tsx         侧边栏/顶栏导航、登录守卫、同步状态徽标、本地数据迁移入口
+    CustomerFormFields.tsx 客户新建/编辑表单的共享字段组件
+    customer/
+      StageAdvanceControl.tsx 看板卡片的阶段推进/回退入口
+      StageChangeDialog.tsx   阶段变更确认、原因与当天时间块关联
+    expo/
+      ConvertLeadDialog.tsx   展会线索转客户确认表单
     WeekTimeline.tsx     周时间轴（7 列 × 15 分钟槽位，拖拽涂色创建）
     Timeline.tsx         单日时间轴 + WorkTypeLegend（类型筛选图例）
     MonthCalendar.tsx    月历热力概览（⚠ 内部自算每日聚合，与 stats.ts 重复）
@@ -36,6 +45,13 @@ src/
     StatsCards.tsx       统计卡片行
     DateSwitcher.tsx     日期切换器
   lib/salesup/
+    customerTypes.ts     客户/商机类型、阶段/状态/来源常量与停滞指标
+    customerRepository.ts customers、stage_history 与关联时间块的 Supabase 数据层
+    useCustomers.ts      客户列表读取 hook
+    useCustomer.ts       单客户读取 hook
+    useCustomerDayBlocks.ts 指定客户当天可关联时间块 hook
+    useCustomerTimeBlocks.ts 客户全部相关时间块 hook
+    useStageHistory.ts   客户阶段历史 hook
     types.ts             全部数据类型（TimeBlock / DailyReview / WeeklyReview / MonthlyReview / Reminder）
     storage.ts           数据层：localStorage 为 UI 数据源，hooks（useTimeBlocks 等）+ 变更函数
     sync.ts              云同步：auth 状态监听、整表 pull、fire-and-forget push、迁移工具、同步状态 store
@@ -46,6 +62,11 @@ src/
     auth.ts              useAuth + 登录/注册/登出封装
   integrations/supabase/client.ts
   styles.css             设计系统全部 token（oklch）
+db/
+  expo_leads.sql         展会线索表、索引与 RLS 定义
+  customers.sql          customers、stage_history、线索回链、索引与 RLS 定义
+docs/
+  customer-board-spec.md 客户看板 / 商机跟进 Phase 4 设计说明
 ```
 
 ## 数据架构
@@ -62,7 +83,9 @@ UI hooks（storage.ts） ←→ localStorage（按用户命名空间 salesup:v1:
 - 登录后 `sync.ts` 才把 time_blocks 与 reminders 镜像到云端；**三张复盘表目前只存 localStorage，从不上云**（storage.ts 注释 "local only for now"）。
 - 未登录写入会 toast 提示"数据暂存本地"，登录后可一键迁移（`migrateLocalToCloud`）。
 
-### Supabase 表（从 sync.ts 行映射反推；仓库内无 migration / RLS 定义，真实 DDL 只在 Supabase 控制台 ⚠）
+### Supabase 表
+
+`customers`、`stage_history` 的 DDL、索引与 RLS 定义已纳入 `db/customers.sql`；`expo_leads` 的定义在 `db/expo_leads.sql`。这些 SQL 文件仍需在外部 Supabase 项目的 SQL Editor 中手动执行。`time_blocks` 与 `reminders` 在仓库内仍无 migration / RLS 定义，下面两张表的描述继续从 `sync.ts` 行映射反推，线上实际结构以 Supabase 控制台为准。
 
 **time_blocks** — 一切数据的中心
 | 字段 | 说明 |
@@ -82,7 +105,13 @@ UI hooks（storage.ts） ←→ localStorage（按用户命名空间 salesup:v1:
 
 **reminders** — id, user_id, title, type(todo/problem/note), frequency(once/daily/weekly/monthly), related_date, customer(自由文本), related_block_id(可空，指向 time_blocks), priority, status, note, created_at, updated_at
 
+**customers / stage_history** — 客户与当前商机采用一层模型，`customers` 一行同时承载客户和一个商机；`stage_history` 保存每次阶段推进/回退及关联时间块。完整字段、约束、索引和 RLS 见 `db/customers.sql`。
+
 **本地 only（未建表）**：daily_reviews（date + 3 个文本字段）、weekly_reviews（week_key 如 2026-W26 + 4 个文本字段）、monthly_reviews（month_key 如 2026-07 + 3 个文本字段）、workTypeSettings（颜色/名称覆盖）。
+
+## 客户看板模块
+
+客户看板已经实现 `/customers`、`/customers/new` 和 `/customers/$id`：以 8 个阶段展示进行中的客户/商机，支持阶段推进留痕、客户详情维护、展会线索转客户，以及把时间块关联到结构化客户。该模块直接通过 `customerRepository.ts` 和配套 hooks 读写 Supabase，不经过 `storage.ts` 的 localStorage 镜像。产品与交互约定见 `docs/customer-board-spec.md`，数据库定义见 `db/customers.sql`（执行前需先执行 `db/expo_leads.sql`）。
 
 ### 工作类型 → 统计分类
 
@@ -99,11 +128,11 @@ meeting_customer / visit_customer / followup_customer / proposal / research → 
 
 1. **一切以 event（时间块）为中心建模。** notes / next_action / problem_tags / summary 都挂在 time_block 上。复盘表只存"人写的提炼文字"（判断与总结），**所有统计数字一律从 time_blocks 实时聚合**（唯一入口 `stats.ts` 的 `computeStats`），任何页面不得自行复制聚合逻辑，更不得把统计结果落库。
 2. **复盘是引导式工作流，不是表单。** 复盘页的职责是把当天/当周的 events 事实摆到用户面前，引导用户做判断和提炼；用户只写结论，不做搬运（不要求用户把时间轴里已有的信息重新抄一遍）。
-3. **任何新功能优先复用时间轴的录入习惯，不新增独立录入负担。** 新模块（客户看板、商机、KPI）应尽量从已有 time_blocks 数据推导或在时间块详情面板内顺手补一个字段，而不是开一个新的录入界面。
+3. **任何新功能优先复用时间轴的录入习惯，不新增独立录入负担。** 后续模块（商机跟进、KPI）应尽量从已有 time_blocks 数据推导或在时间块详情面板内顺手补一个字段，而不是开一个新的录入界面。
 
 ## 常用约定
 
 - 新页面：在 `src/routes/` 建文件即成路由；页面统一包 `<AppShell>`。
-- 读数据用 storage.ts 的 hooks，写数据用其变更函数；不要在组件里直接调 supabase（auth 除外）。
+- 时间轴/复盘/提醒数据继续用 storage.ts 的 hooks 与变更函数；客户看板数据统一走 customerRepository.ts 及其 hooks。组件不要直接调 supabase（auth 除外）。
 - 时间计算一律用 date.ts 的槽位工具，分钟数 = `(end_slot - start_slot) * SLOT_MINUTES`。
 - 共享复盘 UI（Card/StatBox/TypeBars/ListOrEmpty/Empty）目前从 `routes/daily.tsx` 导出——重构时应迁到 `components/salesup/review/`。
