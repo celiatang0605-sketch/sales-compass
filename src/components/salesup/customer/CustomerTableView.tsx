@@ -84,6 +84,15 @@ interface BulkResult {
 }
 
 const CUSTOM_FIELDS_STORAGE_KEY = "salesup:customers:table-custom-fields";
+const PRESET_STORAGE_KEY = "salesup:customers:table-preset";
+const PRESET_VALUES: PresetKey[] = [
+  "followup",
+  "opportunity",
+  "profile",
+  "contacts",
+  "source",
+  "custom",
+];
 
 const COLUMN_LABEL: Record<ColumnKey, string> = {
   companyName: "公司名",
@@ -421,13 +430,18 @@ export function CustomerTableView({
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
+      const savedPreset = window.localStorage.getItem(PRESET_STORAGE_KEY);
+      if (savedPreset && PRESET_VALUES.includes(savedPreset as PresetKey)) {
+        setPreset(savedPreset as PresetKey);
+      }
+
       const saved = JSON.parse(window.localStorage.getItem(CUSTOM_FIELDS_STORAGE_KEY) ?? "null");
       if (!Array.isArray(saved)) return;
       const fields = saved.filter(
         (field): field is ColumnKey =>
           typeof field === "string" && CUSTOMIZABLE_FIELDS.includes(field as CustomizableColumnKey),
       );
-      setCustomFields(fields);
+      setCustomFields(Array.from(new Set(fields)));
     } catch {
       // Ignore malformed local preferences and use the default fields.
     }
@@ -481,6 +495,13 @@ export function CustomerTableView({
     }
     setSortField(field);
     setSortDirection(field === "staleDays" ? "desc" : "asc");
+  };
+
+  const changePreset = (nextPreset: PresetKey) => {
+    setPreset(nextPreset);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(PRESET_STORAGE_KEY, nextPreset);
+    }
   };
 
   const toggleCustomField = (field: ColumnKey) => {
@@ -617,7 +638,7 @@ export function CustomerTableView({
           </label>
           <select
             value={preset}
-            onChange={(event) => setPreset(event.target.value as PresetKey)}
+            onChange={(event) => changePreset(event.target.value as PresetKey)}
             className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground outline-none focus:border-primary/60"
             aria-label="列预设"
           >
