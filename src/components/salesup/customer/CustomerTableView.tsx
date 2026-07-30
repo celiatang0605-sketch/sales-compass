@@ -566,9 +566,11 @@ export function CustomerTableView({
   const exportCsv = () => {
     if (typeof window === "undefined" || typeof document === "undefined") return;
     const content = [
-      visibleFields.map((field) => escapeCsvCell(COLUMN_LABEL[field])).join(","),
-      ...rows.map((customer) =>
-        visibleFields.map((field) => escapeCsvCell(csvValue(field, customer, today))).join(","),
+      ["序号", ...visibleFields.map((field) => COLUMN_LABEL[field])].map(escapeCsvCell).join(","),
+      ...rows.map((customer, index) =>
+        [String(index + 1), ...visibleFields.map((field) => csvValue(field, customer, today))]
+          .map(escapeCsvCell)
+          .join(","),
       ),
     ].join("\r\n");
     const blob = new Blob(["\uFEFF", content], { type: "text/csv;charset=utf-8" });
@@ -704,13 +706,16 @@ export function CustomerTableView({
                   aria-label="全选当前筛选结果"
                 />
               </TableHead>
+              <TableHead className="sticky left-10 z-20 w-12 min-w-12 bg-card px-2 text-center">
+                序号
+              </TableHead>
               {visibleFields.map((field) => {
                 const sticky = field === "companyName";
                 return (
                   <TableHead
                     key={field}
                     className={cn(
-                      sticky && "sticky left-10 z-20 bg-card",
+                      sticky && "sticky left-[5.5rem] z-10 bg-card",
                       field === "companyName" && "min-w-44",
                     )}
                   >
@@ -728,7 +733,7 @@ export function CustomerTableView({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((customer) => (
+            {rows.map((customer, index) => (
               <TableRow
                 key={customer.id}
                 role="link"
@@ -753,12 +758,15 @@ export function CustomerTableView({
                     aria-label={`选择 ${customer.companyName}`}
                   />
                 </TableCell>
+                <TableCell className="sticky left-10 z-20 w-12 min-w-12 bg-card px-2 text-center text-muted-foreground">
+                  {index + 1}
+                </TableCell>
                 {visibleFields.map((field) => (
                   <TableCell
                     key={field}
                     className={cn(
                       "max-w-64 whitespace-nowrap",
-                      field === "companyName" && "sticky left-10 z-10 bg-card",
+                      field === "companyName" && "sticky left-[5.5rem] z-10 bg-card",
                     )}
                   >
                     <span className="block truncate">
