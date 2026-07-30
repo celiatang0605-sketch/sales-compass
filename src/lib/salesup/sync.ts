@@ -224,19 +224,25 @@ function notSignedInToast() {
   });
 }
 
-export function pushTimeBlock(b: TimeBlock) {
+export async function pushTimeBlock(b: TimeBlock): Promise<boolean> {
   if (!_userId) {
     notSignedInToast();
-    return;
+    return true;
   }
   beginWrite();
-  supabase
-    .from("time_blocks")
-    .upsert(tbRow(b, _userId), { onConflict: "id" })
-    .then(({ error }) => {
-      if (error) console.error("[salesup] upsert time_block", error);
-      endWrite(error, "时间块");
-    });
+  try {
+    const { error } = await supabase
+      .from("time_blocks")
+      .upsert(tbRow(b, _userId), { onConflict: "id" });
+    if (error) console.error("[salesup] upsert time_block", error);
+    endWrite(error, "时间块");
+    return !error;
+  } catch (error) {
+    const syncError = error instanceof Error ? error : new Error("网络连接失败");
+    console.error("[salesup] upsert time_block", syncError);
+    endWrite(syncError, "时间块");
+    return false;
+  }
 }
 
 export function pushDeleteTimeBlock(id: string) {

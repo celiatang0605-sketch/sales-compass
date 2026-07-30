@@ -12,6 +12,7 @@ import {
   useTimeBlocksForDates,
   copyBlocksFromWeek,
   upsertTimeBlock,
+  upsertTimeBlockWithRollback,
   deleteTimeBlock,
 } from "@/lib/salesup/storage";
 import { computeStats } from "@/lib/salesup/stats";
@@ -137,6 +138,18 @@ function TimelinePage() {
   const onInlineSaveTitle = (b: TimeBlock, title: string) => {
     upsertTimeBlock({ ...b, title });
   };
+
+  const onMoveBlock = useCallback(
+    async (block: TimeBlock, date: string, startSlot: number, endSlot: number) => {
+      if (block.date === date && block.start_slot === startSlot && block.end_slot === endSlot)
+        return;
+      const moved = { ...block, date, start_slot: startSlot, end_slot: endSlot };
+      if (draft?.id === block.id) setDraft(blockToDraft(moved));
+      const persisted = await upsertTimeBlockWithRollback(moved);
+      if (!persisted && draft?.id === block.id) setDraft(blockToDraft(block));
+    },
+    [draft?.id],
+  );
 
   // ---- Keyboard shortcuts ----
   useEffect(() => {
@@ -316,6 +329,7 @@ function TimelinePage() {
                 selectedBlockId={draft?.id ?? null}
                 onCreateRange={onCreateRange}
                 onSelectBlock={onSelectBlock}
+                onMoveBlock={onMoveBlock}
                 onInlineSaveTitle={onInlineSaveTitle}
               />
             </>

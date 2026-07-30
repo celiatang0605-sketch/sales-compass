@@ -3,6 +3,8 @@ import {
   TOTAL_SLOTS,
   SLOTS_PER_HOUR,
   DAY_START_HOUR,
+  SLOT_MINUTES,
+  formatDuration,
   slotToTimeString,
   fromDateKey,
   todayKey,
@@ -28,12 +30,44 @@ interface Props {
   selectedBlockId?: string | null;
   onSelectBlock: (block: TimeBlock) => void;
   onCreateRange: (date: string, startSlot: number, endSlot: number) => void;
+  onMoveBlock?: (block: TimeBlock, date: string, startSlot: number, endSlot: number) => void;
   onInlineSaveTitle?: (block: TimeBlock, title: string) => void;
 }
 
 const WEEKDAY_LABELS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
 const SLOT_HEIGHT = 14; // px per 15-min slot
 const HOUR_HEIGHT = SLOT_HEIGHT * SLOTS_PER_HOUR; // 56px
+const MOVE_THRESHOLD = 4;
+const AUTO_SCROLL_EDGE = 48;
+const AUTO_SCROLL_MAX_SPEED = 16;
+const RESIZE_EDGE_PX = 6;
+const MIN_MOVE_CENTER_PX = 4;
+
+type BlockInteractionMode = "move" | "resize-start" | "resize-end";
+
+type MovingBlock = {
+  block: TimeBlock;
+  pointerId: number;
+  startX: number;
+  startY: number;
+  startScrollTop: number;
+  hasDragged: boolean;
+  mode: BlockInteractionMode;
+  previewDate: string;
+  previewStart: number;
+  previewEnd: number;
+};
+
+function getBlockInteractionMode(element: HTMLDivElement, clientY: number): BlockInteractionMode {
+  const bounds = element.getBoundingClientRect();
+  // A one-slot block is only 12px tall after its visual inset. Shrink its edge zones
+  // just enough to leave a 4px center strip for moving the complete block.
+  const edgeSize = Math.min(RESIZE_EDGE_PX, Math.max(3, (bounds.height - MIN_MOVE_CENTER_PX) / 2));
+  const offsetY = clientY - bounds.top;
+  if (offsetY <= edgeSize) return "resize-start";
+  if (offsetY >= bounds.height - edgeSize) return "resize-end";
+  return "move";
+}
 
 export function WeekTimeline({
   weekDays,
@@ -44,9 +78,11 @@ export function WeekTimeline({
   selectedBlockId,
   onSelectBlock,
   onCreateRange,
+  onMoveBlock,
   onInlineSaveTitle,
 }: Props) {
   const { settings } = useWorkTypeSettings();
+  const scrollRef = useRef<HTMLDivElement | null>(null);
 
   // Map blocks per day; also build occupancy for drag collision.
   const blocksByDay: Record<string, TimeBlock[]> = {};
@@ -68,6 +104,20 @@ export function WeekTimeline({
   const [dragStart, setDragStart] = useState<number | null>(null);
   const [dragEnd, setDragEnd] = useState<number | null>(null);
   const draggingRef = useRef(false);
+
+  // ---- drag state for moving existing blocks ----
+  const [movingBlock, setMovingBlock] = useState<MovingBlock | null>(null);
+  const movingBlockRef = useRef<MovingBlock | null>(null);
+  const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
+  const autoScrollFrameRef = useRef<number | null>(null);
+  const autoScrollVelocityRef = useRef(0);
+  const restoreUserSelectRef = useRef<string | null>(null);
+  const finishMovingBlockRef = useRef<(commitMove: boolean) => void>(() => undefined);
+  const blockPointerListenersRef = useRef<{
+    move: (event: PointerEvent) => void;
+    up: (event: PointerEvent) => void;
+    cancel: (event: PointerEvent) => void;
+  } | null>(null);
 
   // ---- inline edit state ----
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -109,6 +159,202 @@ export function WeekTimeline({
       onSelectBlock(block);
     }, 230);
   };
+
+  const stopAutoScroll = () => {
+    autoScrollVelocityRef.current = 0;
+    if (autoScrollFrameRef.current != null) {
+      window.cancelAnimationFrame(autoScrollFrameRef.current);
+      autoScrollFrameRef.current = null;
+    }
+  };
+
+  const restoreSelection = () => {
+    if (restoreUserSelectRef.current != null) {
+      document.body.style.userSelect = restoreUserSelectRef.current;
+      restoreUserSelectRef.current = null;
+    }
+  };
+
+  const detachBlockPointerListeners = () => {
+    const listeners = blockPointerListenersRef.current;
+    if (!listeners) return;
+    window.removeEventListener("pointermove", listeners.move);
+    window.removeEventListener("pointerup", listeners.up);
+    window.removeEventListener("pointercancel", listeners.cancel);
+    blockPointerListenersRef.current = null;
+  };
+
+  const updateMovingPreview = (clientX: number, clientY: number) => {
+    const moving = movingBlockRef.current;
+    if (!moving?.hasDragged) return;
+    const scrollDelta = (scrollRef.current?.scrollTop ?? 0) - moving.startScrollTop;
+    const slotDelta = Math.round((clientY - moving.startY + scrollDelta) / SLOT_HEIGHT);
+    const element = document.elementFromPoint(clientX, clientY);
+    const day = element?.closest<HTMLElement>("[data-timeline-day]")?.dataset.timelineDay;
+    const duration = moving.block.end_slot - moving.block.start_slot;
+    const preview =
+      moving.mode === "move"
+        ? {
+            previewDate: day && weekDays.includes(day) ? day : moving.previewDate,
+            previewStart: Math.max(
+              0,
+              Math.min(TOTAL_SLOTS - duration, moving.block.start_slot + slotDelta),
+            ),
+            previewEnd: 0,
+          }
+        : moving.mode === "resize-start"
+          ? {
+              previewDate: moving.block.date,
+              previewStart: Math.max(
+                0,
+                Math.min(moving.block.end_slot - 1, moving.block.start_slot + slotDelta),
+              ),
+              previewEnd: moving.block.end_slot,
+            }
+          : {
+              previewDate: moving.block.date,
+              previewStart: moving.block.start_slot,
+              previewEnd: Math.max(
+                moving.block.start_slot + 1,
+                Math.min(TOTAL_SLOTS, moving.block.end_slot + slotDelta),
+              ),
+            };
+    if (moving.mode === "move") preview.previewEnd = preview.previewStart + duration;
+    if (
+      preview.previewDate === moving.previewDate &&
+      preview.previewStart === moving.previewStart &&
+      preview.previewEnd === moving.previewEnd
+    ) {
+      return;
+    }
+    const next = { ...moving, ...preview };
+    movingBlockRef.current = next;
+    setMovingBlock(next);
+  };
+
+  const updateAutoScroll = (clientX: number, clientY: number) => {
+    const container = scrollRef.current;
+    if (!container || !movingBlockRef.current?.hasDragged) return;
+    const bounds = container.getBoundingClientRect();
+    const above = Math.max(0, AUTO_SCROLL_EDGE - (clientY - bounds.top));
+    const below = Math.max(0, AUTO_SCROLL_EDGE - (bounds.bottom - clientY));
+    autoScrollVelocityRef.current = above
+      ? -Math.ceil((above / AUTO_SCROLL_EDGE) * AUTO_SCROLL_MAX_SPEED)
+      : below
+        ? Math.ceil((below / AUTO_SCROLL_EDGE) * AUTO_SCROLL_MAX_SPEED)
+        : 0;
+
+    if (autoScrollVelocityRef.current === 0 || autoScrollFrameRef.current != null) return;
+    const tick = () => {
+      const activeContainer = scrollRef.current;
+      const pointer = lastPointerRef.current;
+      if (!activeContainer || !pointer || autoScrollVelocityRef.current === 0) {
+        autoScrollFrameRef.current = null;
+        return;
+      }
+      const previousTop = activeContainer.scrollTop;
+      activeContainer.scrollTop += autoScrollVelocityRef.current;
+      if (activeContainer.scrollTop === previousTop) {
+        autoScrollVelocityRef.current = 0;
+        autoScrollFrameRef.current = null;
+        return;
+      }
+      updateMovingPreview(pointer.x, pointer.y);
+      autoScrollFrameRef.current = window.requestAnimationFrame(tick);
+    };
+    autoScrollFrameRef.current = window.requestAnimationFrame(tick);
+  };
+
+  const finishMovingBlock = (commitMove: boolean) => {
+    const moving = movingBlockRef.current;
+    if (!moving) return;
+    detachBlockPointerListeners();
+    stopAutoScroll();
+    movingBlockRef.current = null;
+    lastPointerRef.current = null;
+    restoreSelection();
+    setMovingBlock(null);
+    if (!moving.hasDragged) {
+      if (commitMove) handleBlockClick(moving.block);
+      return;
+    }
+    if (commitMove) {
+      onMoveBlock?.(moving.block, moving.previewDate, moving.previewStart, moving.previewEnd);
+    }
+  };
+  finishMovingBlockRef.current = finishMovingBlock;
+
+  const moveMovingBlock = (pointerId: number, clientX: number, clientY: number) => {
+    const moving = movingBlockRef.current;
+    if (!moving || moving.pointerId !== pointerId) return;
+    lastPointerRef.current = { x: clientX, y: clientY };
+    if (!moving.hasDragged) {
+      if (Math.hypot(clientX - moving.startX, clientY - moving.startY) < MOVE_THRESHOLD) return;
+      const active = { ...moving, hasDragged: true };
+      movingBlockRef.current = active;
+      setMovingBlock(active);
+      restoreUserSelectRef.current = document.body.style.userSelect;
+      document.body.style.userSelect = "none";
+    }
+    updateMovingPreview(clientX, clientY);
+    updateAutoScroll(clientX, clientY);
+  };
+
+  const handleBlockPointerDown = (event: React.PointerEvent<HTMLDivElement>, block: TimeBlock) => {
+    if (event.button !== 0 || editingId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const moving: MovingBlock = {
+      block,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startScrollTop: scrollRef.current?.scrollTop ?? 0,
+      hasDragged: false,
+      mode: getBlockInteractionMode(event.currentTarget, event.clientY),
+      previewDate: block.date,
+      previewStart: block.start_slot,
+      previewEnd: block.end_slot,
+    };
+    movingBlockRef.current = moving;
+    lastPointerRef.current = { x: event.clientX, y: event.clientY };
+    setMovingBlock(moving);
+    detachBlockPointerListeners();
+    const listeners = {
+      move: (nativeEvent: PointerEvent) =>
+        moveMovingBlock(nativeEvent.pointerId, nativeEvent.clientX, nativeEvent.clientY),
+      up: (nativeEvent: PointerEvent) => {
+        if (movingBlockRef.current?.pointerId === nativeEvent.pointerId) finishMovingBlock(true);
+      },
+      cancel: (nativeEvent: PointerEvent) => {
+        if (movingBlockRef.current?.pointerId === nativeEvent.pointerId) finishMovingBlock(false);
+      },
+    };
+    blockPointerListenersRef.current = listeners;
+    window.addEventListener("pointermove", listeners.move);
+    window.addEventListener("pointerup", listeners.up);
+    window.addEventListener("pointercancel", listeners.cancel);
+  };
+
+  const handleMovePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    moveMovingBlock(event.pointerId, event.clientX, event.clientY);
+  };
+
+  const handleMovePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (movingBlockRef.current?.pointerId === event.pointerId) finishMovingBlock(true);
+  };
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || !movingBlockRef.current) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      finishMovingBlockRef.current(false);
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, []);
 
   const handlePointerDown = (day: string, slot: number) => {
     if (editingId) return;
@@ -167,7 +413,13 @@ export function WeekTimeline({
       className="bg-card rounded-xl border border-border overflow-hidden select-none"
       style={{ cursor: createCursor }}
     >
-      <div className="overflow-x-auto">
+      <div
+        ref={scrollRef}
+        className="overflow-auto max-h-[calc(100vh-14rem)] touch-none"
+        onPointerMove={handleMovePointerMove}
+        onPointerUp={handleMovePointerUp}
+        onPointerCancel={() => finishMovingBlock(false)}
+      >
         <div
           className="grid min-w-[760px]"
           style={{ gridTemplateColumns: "48px repeat(7, minmax(96px, 1fr))" }}
@@ -225,7 +477,18 @@ export function WeekTimeline({
               filter={filter}
               settings={settings}
               selectedBlockId={selectedBlockId ?? null}
+              movingBlockId={movingBlock?.hasDragged ? movingBlock.block.id : null}
+              movingBlockMode={movingBlock?.hasDragged ? movingBlock.mode : null}
               dragRange={dragRange?.day === day ? { lo: dragRange.lo, hi: dragRange.hi } : null}
+              movingPreview={
+                movingBlock?.hasDragged && movingBlock.previewDate === day
+                  ? {
+                      block: movingBlock.block,
+                      startSlot: movingBlock.previewStart,
+                      endSlot: movingBlock.previewEnd,
+                    }
+                  : null
+              }
               editingId={editingId}
               editingTitle={editingTitle}
               editInputRef={editInputRef}
@@ -234,6 +497,7 @@ export function WeekTimeline({
               onCancelInline={() => setEditingId(null)}
               onPointerDown={handlePointerDown}
               onPointerEnter={handlePointerEnter}
+              onBlockPointerDown={handleBlockPointerDown}
             />
           ))}
         </div>
@@ -257,7 +521,10 @@ interface DayColumnProps {
   filter: WorkTypeId | "all";
   settings: ReturnType<typeof useWorkTypeSettings>["settings"];
   selectedBlockId: string | null;
+  movingBlockId: string | null;
+  movingBlockMode: BlockInteractionMode | null;
   dragRange: { lo: number; hi: number } | null;
+  movingPreview: { block: TimeBlock; startSlot: number; endSlot: number } | null;
   editingId: string | null;
   editingTitle: string;
   editInputRef: React.RefObject<HTMLInputElement | null>;
@@ -266,6 +533,7 @@ interface DayColumnProps {
   onCancelInline: () => void;
   onPointerDown: (day: string, slot: number) => void;
   onPointerEnter: (day: string, slot: number) => void;
+  onBlockPointerDown: (event: React.PointerEvent<HTMLDivElement>, block: TimeBlock) => void;
 }
 
 function DayColumn({
@@ -276,7 +544,10 @@ function DayColumn({
   filter,
   settings,
   selectedBlockId,
+  movingBlockId,
+  movingBlockMode,
   dragRange,
+  movingPreview,
   editingId,
   editingTitle,
   editInputRef,
@@ -285,9 +556,14 @@ function DayColumn({
   onCancelInline,
   onPointerDown,
   onPointerEnter,
+  onBlockPointerDown,
 }: DayColumnProps) {
   return (
-    <div className="relative border-l border-border" style={{ height: totalHeight }}>
+    <div
+      className="relative border-l border-border"
+      style={{ height: totalHeight }}
+      data-timeline-day={day}
+    >
       {/* Hour grid lines */}
       {Array.from({ length: hours }).map((_, hourIdx) => (
         <div
@@ -341,6 +617,8 @@ function DayColumn({
         const dimmed = filter !== "all" && block.work_type !== filter;
         const isEditing = editingId === block.id;
         const isSelected = selectedBlockId === block.id;
+        const isMoving = movingBlockId === block.id;
+        const isResizing = isMoving && movingBlockMode !== "move";
         const top = block.start_slot * SLOT_HEIGHT;
         const height = Math.max(SLOT_HEIGHT, (block.end_slot - block.start_slot) * SLOT_HEIGHT);
         const bg = colorOf(block.work_type, settings);
@@ -352,21 +630,27 @@ function DayColumn({
           <div
             key={block.id}
             className={cn(
-              "absolute left-0.5 right-0.5 rounded-md shadow-sm overflow-hidden transition-opacity",
+              "absolute z-10 left-0.5 right-0.5 rounded-md shadow-sm overflow-hidden transition-opacity",
               dimmed && "opacity-30",
+              isMoving && "opacity-35 cursor-grabbing",
               isSelected && "ring-2 ring-foreground ring-offset-1 ring-offset-card z-10",
             )}
             style={{
               top: top + 1,
               height: height - 2,
               background: bg,
-              cursor: "pointer",
+              cursor: isResizing ? "ns-resize" : isMoving ? "grabbing" : "grab",
+            }}
+            onPointerMove={(event) => {
+              if (isMoving || isEditing) return;
+              event.currentTarget.style.cursor =
+                getBlockInteractionMode(event.currentTarget, event.clientY) === "move"
+                  ? "grab"
+                  : "ns-resize";
             }}
             onPointerDown={(e) => {
               if (isEditing) return;
-              e.preventDefault();
-              e.stopPropagation();
-              onPointerDown(day, block.start_slot);
+              onBlockPointerDown(e, block);
             }}
           >
             {!isEditing && (
@@ -386,6 +670,31 @@ function DayColumn({
           </div>
         );
       })}
+
+      {movingPreview &&
+        (() => {
+          const previewHeight = Math.max(
+            SLOT_HEIGHT,
+            (movingPreview.endSlot - movingPreview.startSlot) * SLOT_HEIGHT,
+          );
+          const bg = colorOf(movingPreview.block.work_type, settings);
+          const fg = textOn(movingPreview.block.work_type, settings);
+          return (
+            <div
+              className="absolute left-0.5 right-0.5 rounded-md shadow-md pointer-events-none z-20 px-1.5 py-1 text-[10px] font-medium overflow-hidden"
+              style={{
+                top: movingPreview.startSlot * SLOT_HEIGHT + 1,
+                height: previewHeight - 2,
+                background: bg,
+                color: fg,
+              }}
+            >
+              {slotToTimeString(movingPreview.startSlot)} –{" "}
+              {slotToTimeString(movingPreview.endSlot)} ·{" "}
+              {formatDuration((movingPreview.endSlot - movingPreview.startSlot) * SLOT_MINUTES)}
+            </div>
+          );
+        })()}
     </div>
   );
 }

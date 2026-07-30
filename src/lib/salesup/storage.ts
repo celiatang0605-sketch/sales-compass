@@ -108,6 +108,40 @@ export function upsertTimeBlock(
   return saved;
 }
 
+/**
+ * Used by direct-manipulation interactions: reflect the change immediately,
+ * then restore the preceding local value if the cloud write fails.
+ */
+export async function upsertTimeBlockWithRollback(
+  block: Partial<TimeBlock> & Pick<TimeBlock, "date" | "start_slot" | "end_slot" | "work_type">,
+): Promise<boolean> {
+  const list = read<TimeBlock[]>(TB_KEY, []);
+  const previous = block.id ? list.find((item) => item.id === block.id) : undefined;
+  const now = nowIso();
+  const saved = previous
+    ? ({ ...previous, ...block, updated_at: now } as TimeBlock)
+    : newBlock(block, now);
+  const next = previous
+    ? list.map((item) => (item.id === saved.id ? saved : item))
+    : [...list, saved];
+
+  write(TB_KEY, next);
+  const persisted = await pushTimeBlock(saved);
+  if (persisted) return true;
+
+  // Do not overwrite a newer local edit that completed while this request was in flight.
+  const current = read<TimeBlock[]>(TB_KEY, []);
+  const currentBlock = current.find((item) => item.id === saved.id);
+  if (!currentBlock || currentBlock.updated_at !== saved.updated_at) return false;
+  write(
+    TB_KEY,
+    previous
+      ? current.map((item) => (item.id === saved.id ? previous : item))
+      : current.filter((item) => item.id !== saved.id),
+  );
+  return false;
+}
+
 function newBlock(block: Partial<TimeBlock>, now: string): TimeBlock {
   return {
     id: uid(),
