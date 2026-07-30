@@ -16,6 +16,8 @@ import {
   AlertCircle,
   Sparkles,
   Users,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth, signOut } from "@/lib/salesup/auth";
@@ -42,6 +44,8 @@ const FUTURE_ITEMS = [
   { label: "KPI 看板", note: "后续扩展" },
 ];
 
+const SIDEBAR_COLLAPSED_KEY = "salesup:ui:sidebar-collapsed";
+
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
@@ -49,6 +53,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [hasLegacy, setHasLegacy] = useState(false);
   const [migrating, setMigrating] = useState(false);
   const [sync, setSync] = useState<SyncState | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setSidebarCollapsed(window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true");
+  }, []);
 
   useEffect(() => {
     initSync();
@@ -85,6 +95,14 @@ export function AppShell({ children }: { children: ReactNode }) {
     navigate({ to: "/auth" });
   };
 
+  const toggleSidebar = () => {
+    const nextCollapsed = !sidebarCollapsed;
+    setSidebarCollapsed(nextCollapsed);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(nextCollapsed));
+    }
+  };
+
   if (loading || !session) {
     return (
       <div className="min-h-screen grid place-items-center bg-background text-muted-foreground text-sm">
@@ -96,19 +114,42 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex md:flex-col fixed inset-y-0 left-0 w-60 border-r border-border bg-card">
-        <div className="px-5 py-5 border-b border-border">
-          <div className="flex items-center gap-2">
+      <aside
+        className={cn(
+          "hidden md:flex md:flex-col fixed inset-y-0 left-0 border-r border-border bg-card transition-[width] duration-200 ease-out",
+          sidebarCollapsed ? "w-16" : "w-60",
+        )}
+      >
+        <div className={cn("py-5 border-b border-border", sidebarCollapsed ? "px-2" : "px-5")}>
+          <div
+            className={cn(
+              "flex items-center",
+              sidebarCollapsed ? "flex-col gap-2" : "justify-between gap-3",
+            )}
+          >
             <div className="w-8 h-8 rounded-lg bg-primary text-primary-foreground grid place-items-center font-bold">
               S
             </div>
-            <div>
+            <div className={cn(sidebarCollapsed && "hidden")}>
               <div className="text-base font-semibold leading-tight">Sales Up</div>
               <div className="text-xs text-muted-foreground">销售个人工作台</div>
             </div>
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              className="p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
+              aria-label={sidebarCollapsed ? "展开侧边栏" : "收起侧边栏"}
+              title={sidebarCollapsed ? "展开侧边栏" : "收起侧边栏"}
+            >
+              {sidebarCollapsed ? (
+                <PanelLeftOpen className="w-4 h-4" />
+              ) : (
+                <PanelLeftClose className="w-4 h-4" />
+              )}
+            </button>
           </div>
         </div>
-        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+        <nav className={cn("flex-1 space-y-1 overflow-y-auto", sidebarCollapsed ? "p-2" : "p-3")}>
           {NAV_ITEMS.map((item) => {
             const active = pathname === item.to;
             const Icon = item.icon;
@@ -116,42 +157,70 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link
                 key={item.to}
                 to={item.to}
+                title={item.label}
                 className={cn(
-                  "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
+                  "flex items-center py-2 rounded-md text-sm transition-colors",
+                  sidebarCollapsed ? "justify-center px-2" : "gap-2 px-3",
                   active
                     ? "bg-primary text-primary-foreground"
                     : "text-foreground hover:bg-secondary",
                 )}
               >
                 <Icon className="w-4 h-4" />
-                <span>{item.label}</span>
+                <span className={cn(sidebarCollapsed && "hidden")}>{item.label}</span>
               </Link>
             );
           })}
-          <div className="pt-4 mt-4 border-t border-border space-y-1">
-            <div className="px-3 text-[11px] uppercase tracking-wider text-muted-foreground mb-1">
+          <div
+            className={cn(
+              "pt-4 mt-4 border-t border-border space-y-1",
+              sidebarCollapsed && "pt-3 mt-3",
+            )}
+          >
+            <div
+              className={cn(
+                "px-3 text-[11px] uppercase tracking-wider text-muted-foreground mb-1",
+                sidebarCollapsed && "hidden",
+              )}
+            >
               后续扩展
             </div>
             {FUTURE_ITEMS.map((f) => (
               <div
                 key={f.label}
-                className="flex items-center justify-between px-3 py-2 rounded-md text-sm text-muted-foreground cursor-not-allowed"
+                title={f.label}
+                className={cn(
+                  "flex items-center py-2 rounded-md text-sm text-muted-foreground cursor-not-allowed",
+                  sidebarCollapsed ? "justify-center px-2" : "justify-between px-3",
+                )}
               >
                 <span className="flex items-center gap-2">
                   <Lock className="w-3.5 h-3.5" />
-                  {f.label}
+                  <span className={cn(sidebarCollapsed && "hidden")}>{f.label}</span>
                 </span>
-                <span className="text-[10px] text-muted-foreground/70">{f.note}</span>
+                <span
+                  className={cn(
+                    "text-[10px] text-muted-foreground/70",
+                    sidebarCollapsed && "hidden",
+                  )}
+                >
+                  {f.note}
+                </span>
               </div>
             ))}
           </div>
         </nav>
-        <div className="p-3 border-t border-border space-y-2">
+        <div className={cn("border-t border-border space-y-2", sidebarCollapsed ? "p-2" : "p-3")}>
           {hasLegacy && (
             <button
               onClick={onMigrate}
               disabled={migrating}
-              className="w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs bg-primary/10 text-primary hover:bg-primary/15 disabled:opacity-50"
+              title="导入本地数据"
+              aria-label="导入本地数据"
+              className={cn(
+                "w-full inline-flex items-center justify-center py-1.5 rounded-md text-xs bg-primary/10 text-primary hover:bg-primary/15 disabled:opacity-50",
+                sidebarCollapsed ? "gap-0 px-1.5 text-[0px]" : "gap-1.5 px-2.5",
+              )}
             >
               {migrating ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -161,14 +230,22 @@ export function AppShell({ children }: { children: ReactNode }) {
               导入本地数据
             </button>
           )}
-          <SyncStatusBadge sync={sync} />
-          <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-            <span className="truncate flex-1" title={user?.email ?? ""}>
+          <SyncStatusBadge sync={sync} compact={sidebarCollapsed} />
+          <div
+            className={cn(
+              "flex items-center gap-2 text-[11px] text-muted-foreground",
+              sidebarCollapsed ? "justify-center" : "justify-between",
+            )}
+          >
+            <span
+              className={cn("truncate flex-1", sidebarCollapsed && "hidden")}
+              title={user?.email ?? ""}
+            >
               {user?.email}
             </span>
             <button
               onClick={onSignOut}
-              className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground"
+              className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground"
               aria-label="退出登录"
               title="退出登录"
             >
@@ -229,19 +306,24 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
       </header>
 
-      <main className="md:pl-60">
+      <main
+        className={cn(
+          "transition-[padding] duration-200 ease-out",
+          sidebarCollapsed ? "md:pl-16" : "md:pl-60",
+        )}
+      >
         <div className="px-4 md:px-8 py-4 md:py-6 max-w-[1400px] mx-auto">{children}</div>
       </main>
     </div>
   );
 }
 
-function SyncStatusBadge({ sync }: { sync: SyncState | null }) {
+function SyncStatusBadge({ sync, compact = false }: { sync: SyncState | null; compact?: boolean }) {
   const s = sync;
   const source = s?.source === "supabase" ? "Supabase" : "本地";
   let icon = <Cloud className="w-3 h-3" />;
   let label = "已同步";
-  let cls = "text-emerald-600 dark:text-emerald-400";
+  let cls = "text-primary";
   if (!s || s.source !== "supabase") {
     icon = <CloudOff className="w-3 h-3" />;
     label = "未登录";
@@ -257,7 +339,18 @@ function SyncStatusBadge({ sync }: { sync: SyncState | null }) {
   } else if (s.status === "saved") {
     icon = <CheckCircle2 className="w-3 h-3" />;
     label = "已保存到 Supabase";
-    cls = "text-emerald-600 dark:text-emerald-400";
+    cls = "text-primary";
+  }
+  if (compact) {
+    return (
+      <div
+        className="rounded-md border border-border bg-background/50 p-1.5 grid place-items-center"
+        title={`${label}（来源：${source}）`}
+        aria-label={`${label}，来源：${source}`}
+      >
+        <span className={cls}>{icon}</span>
+      </div>
+    );
   }
   return (
     <div className="rounded-md border border-border bg-background/50 px-2 py-1.5 space-y-0.5">
