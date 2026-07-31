@@ -1,15 +1,13 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Plus,
   Search,
   ArrowUpRight,
-  AlertCircle,
   Sparkles,
   Users,
   ClipboardList,
   Flame,
-  Clock,
   Loader2,
   RefreshCw,
   Database,
@@ -18,10 +16,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/salesup/AppShell";
 import {
   PRIORITY_LABEL,
-  PRIORITY_STYLE,
-  STATUS_LABEL,
   isActiveFollowup,
-  isOverdue,
   type Lead,
   type LeadPriority,
 } from "@/lib/salesup/expoMock";
@@ -33,6 +28,14 @@ import {
   hasLegacyLocalLeads,
   importLegacyLocalLeads,
 } from "@/lib/salesup/expoStore";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/expo/")({
@@ -247,7 +250,7 @@ function ExpoIndexPage() {
       </div>
 
       {/* List */}
-      <section id="all-leads" className="space-y-2.5 pb-24 md:pb-6">
+      <section id="all-leads" className="pb-24 md:pb-6">
         {!userId && !loading && (
           <EmptyState
             title="请先登录"
@@ -281,7 +284,9 @@ function ExpoIndexPage() {
             action={leads.length === 0 ? { to: "/expo/new", label: "开始快速记录" } : undefined}
           />
         )}
-        {userId && !loading && !error && list.map((l) => <LeadCard key={l.id} lead={l} />)}
+        {userId && !loading && !error && list.length > 0 && (
+          <LeadTable leads={list} today={today} />
+        )}
       </section>
 
       {/* Mobile sticky primary action */}
@@ -353,64 +358,103 @@ function StatCard({
   );
 }
 
-function LeadCard({ lead }: { lead: Lead }) {
-  const overdue = lead.nextActionDate && isOverdue(lead.nextActionDate);
+const TABLE_PRIORITY_STYLE: Record<LeadPriority, string> = {
+  A: "border-primary/20 bg-primary/10 text-primary",
+  B: "border-chart-2/30 bg-chart-2/15 text-foreground",
+  C: "border-chart-3/30 bg-chart-3/15 text-foreground",
+  D: "border-border bg-muted text-muted-foreground",
+  unrated: "border-border bg-background text-muted-foreground border-dashed",
+};
+
+function leadContact(lead: Lead): string {
+  return [lead.phone, lead.wechat, lead.email].filter(Boolean).join(" · ") || "—";
+}
+
+function leadNote(lead: Lead): string {
+  return lead.currentNeed?.trim() || lead.rawNote.trim() || lead.headline || "—";
+}
+
+function relativeFollowupDate(lastContactedAt: string | undefined, today: string): string {
+  if (!lastContactedAt) return "未跟进";
+
+  const asUtc = (date: string) => {
+    const [year, month, day] = date.split("-").map(Number);
+    return Date.UTC(year, month - 1, day);
+  };
+  const diff = Math.round((asUtc(today) - asUtc(lastContactedAt)) / 86_400_000);
+
+  if (!Number.isFinite(diff)) return lastContactedAt;
+  if (diff === 0) return "今天";
+  if (diff === 1) return "昨天";
+  if (diff > 1) return `${diff} 天前`;
+  return `${Math.abs(diff)} 天后`;
+}
+
+function LeadTable({ leads, today }: { leads: Lead[]; today: string }) {
+  const navigate = useNavigate();
+
   return (
-    <Link
-      to="/expo/$id"
-      params={{ id: lead.id }}
-      className="block rounded-xl border border-border bg-card p-3 md:p-4 hover:border-primary/40 hover:shadow-sm transition"
-    >
-      <div className="flex items-start gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-medium text-sm md:text-base truncate">
-              {lead.company || "(未命名线索)"}
-            </span>
-            <span
-              className={cn(
-                "px-1.5 h-5 inline-flex items-center rounded border text-[10px] font-medium",
-                PRIORITY_STYLE[lead.priority],
-              )}
+    <div className="rounded-xl border border-border bg-card">
+      <Table className="min-w-[760px] text-xs">
+        <TableHeader>
+          <TableRow className="h-9 hover:bg-transparent">
+            <TableHead className="sticky left-0 z-20 min-w-44 bg-card px-3">公司名</TableHead>
+            <TableHead className="min-w-24 px-3">分级</TableHead>
+            <TableHead className="min-w-44 px-3">联系人 / 联系方式</TableHead>
+            <TableHead className="min-w-64 px-3">需求或备注</TableHead>
+            <TableHead className="min-w-24 px-3">来源</TableHead>
+            <TableHead className="min-w-20 px-3">最近跟进</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {leads.map((lead) => (
+            <TableRow
+              key={lead.id}
+              role="link"
+              tabIndex={0}
+              onClick={() => void navigate({ to: "/expo/$id", params: { id: lead.id } })}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  void navigate({ to: "/expo/$id", params: { id: lead.id } });
+                }
+              }}
+              className="h-10 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
-              {PRIORITY_LABEL[lead.priority]}
-            </span>
-            <span className="px-1.5 h-5 inline-flex items-center rounded bg-secondary text-secondary-foreground text-[10px]">
-              {SOURCE_LABEL[lead.source]}
-            </span>
-            <span className="px-1.5 h-5 inline-flex items-center rounded bg-secondary text-secondary-foreground text-[10px]">
-              {STATUS_LABEL[lead.status]}
-            </span>
-          </div>
-          {lead.contactName && (
-            <div className="text-xs text-muted-foreground mt-0.5">
-              {lead.contactName}
-              {lead.contactTitle ? ` · ${lead.contactTitle}` : ""}
-            </div>
-          )}
-          <p className="text-sm text-foreground/90 mt-2 line-clamp-2">{lead.headline}</p>
-          <div className="mt-2.5 flex items-center gap-2 flex-wrap text-xs">
-            {lead.nextActionDate && (
-              <span className="inline-flex items-center gap-1 text-muted-foreground">
-                <Clock className="w-3 h-3" />
-                下一步 {lead.nextActionDate}
-              </span>
-            )}
-            {lead.nextAction && (
-              <>
-                <span className="text-muted-foreground/60">·</span>
-                <span className="truncate text-foreground/80">{lead.nextAction}</span>
-              </>
-            )}
-            {overdue && (
-              <span className="inline-flex items-center gap-1 px-1.5 h-5 rounded bg-rose-500/10 text-rose-700 text-[10px] border border-rose-500/15">
-                <AlertCircle className="w-3 h-3" />
-                已逾期
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-    </Link>
+              <TableCell className="sticky left-0 z-10 max-w-56 bg-card px-3 py-1.5 font-medium">
+                <span className="block truncate">{lead.company || "(未命名线索)"}</span>
+              </TableCell>
+              <TableCell className="px-3 py-1.5">
+                <span
+                  className={cn(
+                    "inline-flex h-5 items-center rounded border px-1.5 text-[10px] font-medium",
+                    TABLE_PRIORITY_STYLE[lead.priority],
+                  )}
+                >
+                  {PRIORITY_LABEL[lead.priority]}
+                </span>
+              </TableCell>
+              <TableCell className="max-w-52 px-3 py-1.5 leading-4">
+                <span className="block truncate">{lead.contactName.trim() || "—"}</span>
+                <span className="block truncate text-[10px] text-muted-foreground">
+                  {leadContact(lead)}
+                </span>
+              </TableCell>
+              <TableCell className="max-w-80 px-3 py-1.5">
+                <span className="block truncate" title={leadNote(lead)}>
+                  {leadNote(lead)}
+                </span>
+              </TableCell>
+              <TableCell className="px-3 py-1.5 text-muted-foreground">
+                {SOURCE_LABEL[lead.source]}
+              </TableCell>
+              <TableCell className="px-3 py-1.5 text-muted-foreground">
+                {relativeFollowupDate(lead.lastContactedAt, today)}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   );
 }
