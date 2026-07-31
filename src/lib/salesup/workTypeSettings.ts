@@ -45,16 +45,16 @@ export interface WorkTypeSettings {
 
 // Approximate hex defaults matching the oklch palette in styles.css.
 export const DEFAULT_HEX: Record<BuiltinWorkTypeId, string> = {
-  meeting_customer: "#7ab3e8",
-  visit_customer: "#6bb3b8",
-  followup_customer: "#8ac9a1",
-  proposal: "#d9b26b",
-  research: "#b294d6",
-  internal_meeting: "#b0b5c0",
-  learning: "#d89b8a",
-  admin: "#c8cbd3",
-  review: "#6b73b8",
-  buffer: "#e0dac8",
+  meeting_customer: "#43987b",
+  visit_customer: "#69b29c",
+  followup_customer: "#99cbb4",
+  proposal: "#d79e5f",
+  research: "#e0c392",
+  internal_meeting: "#b4ad9f",
+  learning: "#8aa6d0",
+  admin: "#d1cdc4",
+  review: "#6c86b6",
+  buffer: "#e4e1d9",
 };
 
 export const PRESET_SWATCHES: string[] = [
