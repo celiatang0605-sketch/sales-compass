@@ -35,12 +35,14 @@ import { todayKey } from "@/lib/salesup/date";
 import {
   isStale,
   staleDays,
+  effectiveWinRate,
   ROLE_LABEL,
   SOURCE_LABEL,
   SOURCE_ORDER,
-  STAGE_DEFAULT_WIN_RATE,
+  STAGE_COLOR_TOKEN,
   STAGE_LABEL,
   STAGE_ORDER,
+  STAGE_STALE_DAYS,
   type Customer,
   type CustomerSource,
   type CustomerStage,
@@ -126,15 +128,31 @@ function CustomersBoardPage() {
 
   const stats = useMemo(() => {
     let followupToday = 0;
+    let overdueFollowups = 0;
     let stalled = 0;
+    let inProgressTotal = 0;
+    let totalAmount = 0;
+    let weightedAmount = 0;
     for (const c of filtered) {
       if (c.nextAction && c.nextActionDate && c.nextActionDate <= today) followupToday += 1;
+      if (c.nextAction && c.nextActionDate && c.nextActionDate < today) overdueFollowups += 1;
       if (isStale(c)) stalled += 1;
+      if (c.stage !== "signed") {
+        inProgressTotal += 1;
+        if (c.amount !== null) {
+          totalAmount += c.amount;
+          weightedAmount += c.amount * (effectiveWinRate(c) / 100);
+        }
+      }
     }
     return {
       total: filtered.length,
       followupToday,
+      overdueFollowups,
       stalled,
+      inProgressTotal,
+      totalAmount,
+      weightedAmount,
     };
   }, [filtered, today]);
 
@@ -150,6 +168,17 @@ function CustomersBoardPage() {
       })),
     [boardCustomers],
   );
+
+  const stageSummaries = useMemo(() => {
+    const maxCount = Math.max(1, ...columns.map((column) => column.items.length));
+    return columns.map((column) => ({
+      stage: column.stage,
+      count: column.items.length,
+      amount: column.items.reduce((total, customer) => total + (customer.amount ?? 0), 0),
+      hasAmount: column.items.some((customer) => customer.amount !== null),
+      fill: (column.items.length / maxCount) * 100,
+    }));
+  }, [columns]);
 
   const toggle = <T,>(list: T[], v: T, set: (n: T[]) => void) => {
     set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
@@ -239,12 +268,39 @@ function CustomersBoardPage() {
         </div>
       </div>
 
-      {/* 顶部统计条 */}
-      <div className="grid grid-cols-3 gap-2 md:gap-3 mb-4">
-        <StatCell icon={Briefcase} label="进行中商机" value={stats.total} />
-        <StatCell icon={CalendarClock} label="今日待跟进" value={stats.followupToday} />
-        <StatCell icon={Timer} label="停滞" value={stats.stalled} />
-      </div>
+      {showBoard && view === "board" && (
+        <>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <AlertPill icon={CalendarClock} label="逾期跟进" value={stats.overdueFollowups} />
+            <AlertPill icon={Timer} label="停滞" value={stats.stalled} />
+            <div className="ml-auto text-xs text-muted-foreground">
+              进行中{" "}
+              <span className="font-semibold text-foreground tabular-nums">
+                {stats.inProgressTotal}
+              </span>{" "}
+              家<span className="mx-1.5">·</span>
+              合计{" "}
+              <span className="font-semibold text-foreground tabular-nums">
+                {formatAmount(stats.totalAmount, "CNY")}
+              </span>
+              <span className="mx-1.5">·</span>
+              加权{" "}
+              <span className="font-semibold text-foreground tabular-nums">
+                {formatAmount(stats.weightedAmount, "CNY")}
+              </span>
+            </div>
+          </div>
+          <StageSummaryRow summaries={stageSummaries} />
+        </>
+      )}
+
+      {view === "table" && (
+        <div className="grid grid-cols-3 gap-2 md:gap-3 mb-4">
+          <StatCell icon={Briefcase} label="进行中商机" value={stats.total} />
+          <StatCell icon={CalendarClock} label="今日待跟进" value={stats.followupToday} />
+          <StatCell icon={Timer} label="停滞" value={stats.stalled} />
+        </div>
+      )}
 
       {/* 筛选 */}
       <div className="space-y-2 mb-4">
@@ -353,7 +409,7 @@ function CustomersBoardPage() {
                   )}
                   {col.items.map((c) => (
                     <DraggableCard key={c.id} id={c.id}>
-                      <CustomerCard
+                      <KanbanCustomerCard
                         customer={c}
                         today={today}
                         onPickStage={(cust, s) => setStageTarget({ customer: cust, stage: s })}
@@ -367,7 +423,11 @@ function CustomersBoardPage() {
           <DragOverlay>
             {draggingCustomer ? (
               <div className="w-[240px] md:w-[264px] opacity-90 rotate-1">
-                <CustomerCard customer={draggingCustomer} today={today} onPickStage={() => {}} />
+                <KanbanCustomerCard
+                  customer={draggingCustomer}
+                  today={today}
+                  onPickStage={() => {}}
+                />
               </div>
             ) : null}
           </DragOverlay>
@@ -402,21 +462,25 @@ function StageColumn({
   children: React.ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage });
+  const colorToken = STAGE_COLOR_TOKEN[stage];
   return (
     <section
       className={cn(
-        "w-[240px] md:w-[264px] shrink-0 rounded-[var(--radius)] border bg-card/60 transition",
-        isOver ? "border-primary bg-primary/5" : "border-border",
+        "w-[240px] md:w-[264px] shrink-0 rounded-xl border bg-secondary p-2.5 transition",
+        isOver ? "border-primary ring-1 ring-primary/20" : "border-border",
       )}
     >
-      <header className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border">
-        <span className="text-xs font-medium">{STAGE_LABEL[stage]}</span>
-        <span className="text-[11px] text-muted-foreground tabular-nums">{count}</span>
+      <header className="flex items-center gap-2 px-1 py-0.5 pb-2.5">
+        <span
+          className="h-2 w-2 shrink-0 rounded-full"
+          style={{ backgroundColor: `var(${colorToken})` }}
+        />
+        <span className="flex-1 text-sm font-medium">{STAGE_LABEL[stage]}</span>
+        <span className="min-w-5 rounded-full bg-background px-1.5 py-0.5 text-center text-[11px] text-muted-foreground tabular-nums">
+          {count}
+        </span>
       </header>
-      <div
-        ref={setNodeRef}
-        className={cn("p-2 space-y-2 min-h-[80px]", dragging && "min-h-[120px]")}
-      >
+      <div ref={setNodeRef} className={cn("space-y-2 min-h-[80px]", dragging && "min-h-[120px]")}>
         {children}
       </div>
     </section>
@@ -437,7 +501,7 @@ function DraggableCard({ id, children }: { id: string; children: React.ReactNode
   );
 }
 
-function CustomerCard({
+function KanbanCustomerCard({
   customer,
   today,
   onPickStage,
@@ -446,84 +510,169 @@ function CustomerCard({
   today: string;
   onPickStage: (customer: Customer, stage: CustomerStage) => void;
 }) {
-  const stale = isStale(customer);
+  const showsStale = customer.stage !== "signed";
+  const stale = showsStale && isStale(customer);
   const days = staleDays(customer);
-  const stageRate = STAGE_DEFAULT_WIN_RATE[customer.stage];
+  const winRate = effectiveWinRate(customer);
   const overdue =
     !!customer.nextAction && !!customer.nextActionDate && customer.nextActionDate < today;
+  const colorToken = STAGE_COLOR_TOKEN[customer.stage];
 
   return (
     <div
       className={cn(
-        "rounded-[var(--radius)] border bg-card px-3 py-2.5 text-left shadow-sm transition hover:border-primary/40",
+        "rounded-xl border bg-card px-3 py-2.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md",
         stale
-          ? "border-border border-l-2 border-l-muted-foreground/50 bg-muted/40"
+          ? "border-warning-border bg-linear-to-r from-warning-bg via-warning-bg/35 to-card"
           : "border-border",
       )}
     >
-      <Link to="/customers/$id" params={{ id: customer.id }} className="block">
-        <div className="text-sm font-medium leading-snug truncate">{customer.companyName}</div>
-
-        {(customer.contactName || customer.contactTitle) && (
-          <div className="mt-0.5 text-xs text-muted-foreground truncate">
-            {customer.contactName ?? "未填联系人"}
-            {customer.contactTitle ? ` · ${customer.contactTitle}` : ""}
-            {customer.decisionRole !== "unknown" ? ` · ${ROLE_LABEL[customer.decisionRole]}` : ""}
+      <Link to="/customers/$id" params={{ id: customer.id }} className="block min-w-0">
+        <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 text-sm font-semibold tracking-tight">
+            <span
+              className="h-1.5 w-1.5 shrink-0 rounded-full"
+              style={{ backgroundColor: `var(${colorToken})` }}
+            />
+            <span className="truncate">{customer.companyName}</span>
           </div>
-        )}
+          {showsStale &&
+            (stale ? (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-warning-bg px-1.5 py-0.5 text-[11px] font-semibold text-warning tabular-nums">
+                <AlertTriangle className="h-3 w-3" />
+                停滞 {days} 天
+              </span>
+            ) : (
+              <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+                停滞 {days} 天
+              </span>
+            ))}
+        </div>
 
-        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
-          {customer.amount !== null && (
-            <span className="px-1.5 py-0.5 rounded-md bg-secondary text-secondary-foreground tabular-nums">
+        <div className="mt-0.5 truncate text-xs text-muted-foreground">
+          {customer.contactName ?? "未填联系人"}
+          {customer.contactTitle ? ` · ${customer.contactTitle}` : ""}
+          {customer.decisionRole !== "unknown" ? ` · ${ROLE_LABEL[customer.decisionRole]}` : ""}
+        </div>
+
+        <div className="mt-2 flex items-center justify-between gap-3">
+          {customer.amount === null ? (
+            <span className="text-xs text-muted-foreground">金额待定</span>
+          ) : (
+            <span className="text-[21px] font-semibold leading-none tracking-tight text-primary tabular-nums">
               {formatAmount(customer.amount, customer.currency)}
             </span>
           )}
-          <span className="px-1.5 py-0.5 rounded-md border border-border text-muted-foreground tabular-nums">
-            {customer.winRate !== null
-              ? `赢率 ${customer.winRate}%（阶段 ${stageRate}%）`
-              : `赢率 ${stageRate}%`}
-          </span>
-          <span
-            className={cn(
-              "px-1.5 py-0.5 rounded-md tabular-nums",
-              stale
-                ? "bg-muted text-foreground/80 inline-flex items-center gap-1"
-                : "text-muted-foreground",
-            )}
-          >
-            {stale && <AlertTriangle className="w-3 h-3" />}
-            停滞 {days} 天
-          </span>
-        </div>
-
-        {customer.nextAction && (
-          <div className="mt-2 pt-2 border-t border-border/70 text-[11px] leading-snug">
-            <span className="text-muted-foreground">下一步：</span>
-            <span className="text-foreground">{customer.nextAction}</span>
-            {customer.nextActionDate && (
-              <span
-                className={cn(
-                  "ml-1 tabular-nums",
-                  overdue ? "text-destructive font-medium" : "text-muted-foreground",
-                )}
-              >
-                {customer.nextActionDate}
-                {overdue ? "（逾期）" : ""}
-              </span>
-            )}
+          <div className="w-24 shrink-0">
+            <div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
+              <span>赢率</span>
+              <span className="font-semibold text-foreground tabular-nums">{winRate}%</span>
+            </div>
+            <div className="h-[3px] overflow-hidden rounded-full bg-border/70">
+              <div className="h-full rounded-full bg-primary" style={{ width: `${winRate}%` }} />
+            </div>
           </div>
-        )}
+        </div>
       </Link>
 
-      <div className="mt-2 pt-2 border-t border-border/70 flex items-center justify-between gap-2">
-        <span className="text-[11px] text-muted-foreground truncate">
-          {STAGE_LABEL[customer.stage]}
-        </span>
+      <div className="mt-2 flex items-center gap-2 border-t border-border pt-2">
+        <Link
+          to="/customers/$id"
+          params={{ id: customer.id }}
+          className="min-w-0 flex-1 truncate text-xs text-muted-foreground"
+        >
+          下一步：{customer.nextAction ?? "待补充"}
+          {customer.nextActionDate && (
+            <span className={cn("ml-1 tabular-nums", overdue && "font-semibold text-overdue")}>
+              {customer.nextActionDate}
+              {overdue ? "（逾期）" : ""}
+            </span>
+          )}
+        </Link>
         <StageAdvanceControl
           currentStage={customer.stage}
-          onPick={(s) => onPickStage(customer, s)}
+          onPick={(stage) => onPickStage(customer, stage)}
         />
       </div>
+    </div>
+  );
+}
+
+function AlertPill({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof CalendarClock;
+  label: string;
+  value: number;
+}) {
+  const active = value > 0;
+  return (
+    <div
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs",
+        active
+          ? "border-warning-border bg-warning-bg font-medium text-warning"
+          : "border-border bg-background text-muted-foreground",
+      )}
+    >
+      <Icon className="h-3.5 w-3.5" />
+      <span>{label}</span>
+      <span className="font-semibold tabular-nums">{value}</span>
+    </div>
+  );
+}
+
+function StageSummaryRow({
+  summaries,
+}: {
+  summaries: Array<{
+    stage: CustomerStage;
+    count: number;
+    amount: number;
+    hasAmount: boolean;
+    fill: number;
+  }>;
+}) {
+  return (
+    <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
+      {summaries.map(({ stage, count, amount, hasAmount, fill }) => {
+        const colorToken = STAGE_COLOR_TOKEN[stage];
+        const threshold = STAGE_STALE_DAYS[stage];
+        const isSigned = stage === "signed";
+        return (
+          <div
+            key={stage}
+            className={cn(
+              "rounded-xl border bg-card px-3 py-2.5 transition hover:shadow-sm",
+              count === 0 && "opacity-60",
+              isSigned ? "border-won/30 bg-won/5" : "border-border",
+            )}
+          >
+            <div className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
+              <span
+                className="h-1.5 w-1.5 shrink-0 rounded-full"
+                style={{ backgroundColor: `var(${colorToken})` }}
+              />
+              <span className="truncate">{STAGE_LABEL[stage]}</span>
+            </div>
+            <div className="mt-1 text-2xl font-semibold leading-none tabular-nums">{count}</div>
+            <div className="mt-1 truncate text-[11px] text-muted-foreground tabular-nums">
+              {hasAmount ? formatAmount(amount, "CNY") : "金额待定"}
+            </div>
+            <div className="mt-0.5 text-[11px] text-muted-foreground/70">
+              {threshold === null ? "不判停滞" : `阈值 ${threshold} 天`}
+            </div>
+            <div className="mt-2 h-[3px] overflow-hidden rounded-full bg-border/70">
+              <div
+                className="h-full rounded-full"
+                style={{ width: `${fill}%`, backgroundColor: `var(${colorToken})` }}
+              />
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -32,6 +32,17 @@ export const STAGE_LABEL: Record<CustomerStage, string> = {
   signed: "已签合同",
 };
 
+/** 阶段对应的设计 token；看板展示从这里读取，不在组件中分散定义颜色。 */
+export const STAGE_COLOR_TOKEN: Record<CustomerStage, string> = {
+  opportunity_confirmed: "--color-stage-opportunity",
+  need_confirmed: "--color-stage-demand",
+  solution_confirmed: "--color-stage-solution",
+  quote_confirmed: "--color-stage-quote",
+  negotiation: "--color-stage-negotiation",
+  signing: "--color-stage-signing",
+  signed: "--color-won",
+};
+
 export const STAGE_DEFAULT_WIN_RATE: Record<CustomerStage, number> = {
   opportunity_confirmed: 10,
   need_confirmed: 20,
