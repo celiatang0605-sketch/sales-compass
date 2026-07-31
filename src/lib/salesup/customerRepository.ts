@@ -485,6 +485,8 @@ export async function listTimeBlocksForCustomerOnDate(params: {
 export interface ConvertLeadInput extends NewCustomerInput {
   /** leads.id，转化后写回 converted_customer_id。 */
   leadId: string;
+  /** 首条阶段历史中记录的准入确认结果。 */
+  conversionReason: string;
 }
 
 /**
@@ -494,13 +496,16 @@ export interface ConvertLeadInput extends NewCustomerInput {
  * 3. 回写 leads.converted_customer_id 并把 status 置为 converted
  */
 export async function convertLeadToCustomer(input: ConvertLeadInput): Promise<Customer> {
+  if (!input.conversionReason.trim()) {
+    throw new Error("转化时必须记录准入确认结果。");
+  }
   const { markLeadConverted } = await import("./expoRepository");
   const customer = await createCustomer(input);
   await insertStageHistory({
     customerId: customer.id,
     fromStage: null,
     toStage: customer.stage,
-    reason: "由线索转化建档",
+    reason: input.conversionReason,
     relatedBlockId: null,
   });
   await markLeadConverted(input.leadId, customer.id);

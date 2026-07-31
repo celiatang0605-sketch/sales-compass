@@ -4,15 +4,11 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowRight, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import { convertLeadToCustomer } from "@/lib/salesup/customerRepository";
 import {
   ROLE_LABEL,
   SOURCE_LABEL,
-  STAGE_LABEL,
-  STAGE_ORDER,
   type Customer,
-  type CustomerStage,
   type DecisionRole,
 } from "@/lib/salesup/customerTypes";
 import type { Lead } from "@/lib/salesup/expoMock";
@@ -24,6 +20,30 @@ interface Props {
 }
 
 const ROLE_KEYS = Object.keys(ROLE_LABEL) as DecisionRole[];
+
+const ADMISSION_ITEMS = [
+  {
+    key: "contactChannel",
+    label: "已建立可持续联系渠道",
+    hint: "已加微信或有对方直线电话",
+    summaryLabel: "联系渠道",
+  },
+  {
+    key: "needDiscovered",
+    label: "已挖掘出明确的需求或痛点",
+    hint: "确认了可推进的问题或机会",
+    summaryLabel: "需求挖掘",
+  },
+  {
+    key: "willingToProceed",
+    label: "对方有推进意愿",
+    hint: "愿意继续沟通下一步",
+    summaryLabel: "推进意愿",
+  },
+] as const;
+
+type AdmissionKey = (typeof ADMISSION_ITEMS)[number]["key"];
+type AdmissionChecks = Record<AdmissionKey, boolean>;
 
 /** 线索里的自由文本决策角色映射到枚举，识别不了就 unknown。 */
 function guessDecisionRole(raw?: string): DecisionRole {
@@ -54,13 +74,19 @@ interface FormState {
   nextActionDate: string;
   sourceDetail: string;
   sourceDate: string;
-  stage: CustomerStage;
 }
 
 export function ConvertLeadDialog({ lead, onClose, onConverted }: Props) {
   const [mounted, setMounted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [admission, setAdmission] = useState<AdmissionChecks>({
+    contactChannel: false,
+    needDiscovered: false,
+    willingToProceed: false,
+  });
+  const [exceptionOpen, setExceptionOpen] = useState(false);
+  const [exceptionReason, setExceptionReason] = useState("");
   const [form, setForm] = useState<FormState>({
     companyName: lead.company ?? "",
     industry: lead.industry ?? "",
@@ -79,7 +105,6 @@ export function ConvertLeadDialog({ lead, onClose, onConverted }: Props) {
     nextActionDate: lead.nextActionDate ?? "",
     sourceDetail: lead.sourceDetail ?? lead.eventName ?? "",
     sourceDate: lead.sourceDate ?? lead.eventDate ?? "",
-    stage: "opportunity_confirmed",
   });
 
   useEffect(() => {
@@ -93,10 +118,33 @@ export function ConvertLeadDialog({ lead, onClose, onConverted }: Props) {
 
   const patch = (p: Partial<FormState>) => setForm((f) => ({ ...f, ...p }));
 
+  const allAdmissionConfirmed = ADMISSION_ITEMS.every((item) => admission[item.key]);
+  const exceptionReasonTrimmed = exceptionReason.trim();
+  const canConvert = allAdmissionConfirmed || (exceptionOpen && exceptionReasonTrimmed.length > 0);
+
+  const toggleAdmission = (key: AdmissionKey) => {
+    setAdmission((current) => ({ ...current, [key]: !current[key] }));
+  };
+
+  const conversionReason = () => {
+    const result = ADMISSION_ITEMS.map(
+      (item) => `${item.summaryLabel}${admission[item.key] ? "✓" : "✗"}`,
+    ).join(" ");
+    if (allAdmissionConfirmed) return `准入确认:${result}`;
+    const unmet = ADMISSION_ITEMS.filter((item) => !admission[item.key])
+      .map((item) => item.summaryLabel)
+      .join("、");
+    return `准入例外:${result}；未满足:${unmet}；理由:${exceptionReasonTrimmed}`;
+  };
+
   const handleConfirm = async () => {
     if (saving) return;
     if (!form.companyName.trim()) {
       setError("公司名不能为空。");
+      return;
+    }
+    if (!canConvert) {
+      setError("请完成三项准入确认，或填写例外转化理由。");
       return;
     }
     setSaving(true);
@@ -104,15 +152,20 @@ export function ConvertLeadDialog({ lead, onClose, onConverted }: Props) {
     try {
       const customer = await convertLeadToCustomer({
         leadId: lead.id,
+        conversionReason: conversionReason(),
         source: lead.source,
         companyName: form.companyName,
         industry: form.industry,
+        companySize: lead.companySize,
+        hqCity: lead.hqCity,
+        website: lead.website,
         companyBackground: form.companyBackground,
         painPoints: form.painPoints,
         needs: form.needs,
         keyInfo: form.keyInfo,
         contactName: form.contactName,
         contactTitle: form.contactTitle,
+        contactDepartment: lead.contactDepartment,
         phone: form.phone,
         wechat: form.wechat,
         email: form.email,
@@ -122,7 +175,7 @@ export function ConvertLeadDialog({ lead, onClose, onConverted }: Props) {
         nextActionDate: form.nextActionDate,
         sourceDetail: form.sourceDetail,
         sourceDate: form.sourceDate,
-        stage: form.stage,
+        stage: "opportunity_confirmed",
         status: "active",
       });
       toast.success(`已转为客户「${customer.companyName}」`);
@@ -275,25 +328,54 @@ export function ConvertLeadDialog({ lead, onClose, onConverted }: Props) {
             />
           </div>
 
-          <div>
-            <FieldLabel>初始阶段</FieldLabel>
-            <div className="flex flex-wrap gap-1.5">
-              {STAGE_ORDER.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => patch({ stage: s })}
-                  className={cn(
-                    "px-2.5 h-7 rounded-full text-xs border transition",
-                    s === form.stage
-                      ? "bg-secondary text-secondary-foreground border-border"
-                      : "bg-background text-muted-foreground border-border hover:text-foreground hover:border-primary/40",
-                  )}
+          <div className="rounded-[var(--radius)] border border-border bg-secondary/40 px-3 py-2.5">
+            <div className="text-xs font-medium text-foreground/90">准入确认</div>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              三项全部确认后，线索才会进入客户看板的机会确认阶段。
+            </p>
+            <div className="mt-2.5 space-y-2">
+              {ADMISSION_ITEMS.map((item) => (
+                <label
+                  key={item.key}
+                  className="flex items-start gap-2 rounded-[var(--radius)] border border-border bg-background px-2.5 py-2 text-xs cursor-pointer"
                 >
-                  {STAGE_LABEL[s]}
-                </button>
+                  <input
+                    type="checkbox"
+                    checked={admission[item.key]}
+                    onChange={() => toggleAdmission(item.key)}
+                    className="mt-0.5 h-3.5 w-3.5 shrink-0"
+                  />
+                  <span>
+                    <span className="text-foreground/90">{item.label}</span>
+                    <span className="ml-1 text-muted-foreground">（{item.hint}）</span>
+                  </span>
+                </label>
               ))}
             </div>
+
+            {!allAdmissionConfirmed && (
+              <div className="mt-2.5">
+                <button
+                  type="button"
+                  onClick={() => setExceptionOpen((open) => !open)}
+                  className="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+                >
+                  {exceptionOpen ? "收起例外转化" : "仍要转为客户"}
+                </button>
+                {exceptionOpen && (
+                  <div className="mt-2">
+                    <FieldLabel>例外转化理由（必填）</FieldLabel>
+                    <textarea
+                      value={exceptionReason}
+                      onChange={(e) => setExceptionReason(e.target.value)}
+                      rows={3}
+                      placeholder="说明为何在准入条件未完全满足时仍需建立客户档案"
+                      className="w-full px-2 py-1.5 rounded-[var(--radius)] border border-border bg-background text-sm outline-none focus:ring-2 focus:ring-ring/20"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {error && <div className="text-xs text-destructive break-words">{error}</div>}
@@ -311,7 +393,7 @@ export function ConvertLeadDialog({ lead, onClose, onConverted }: Props) {
           <button
             type="button"
             onClick={() => void handleConfirm()}
-            disabled={saving}
+            disabled={saving || !canConvert}
             className="inline-flex items-center gap-1.5 h-9 px-4 rounded-[var(--radius)] bg-primary text-primary-foreground text-sm disabled:opacity-60"
           >
             {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
