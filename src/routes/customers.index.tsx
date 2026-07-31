@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -18,9 +18,6 @@ import {
   Loader2,
   RefreshCw,
   AlertTriangle,
-  CalendarClock,
-  Timer,
-  Briefcase,
   Users,
   Columns3,
   LayoutDashboard,
@@ -30,6 +27,7 @@ import { AppShell } from "@/components/salesup/AppShell";
 import { StageAdvanceControl } from "@/components/salesup/customer/StageAdvanceControl";
 import { StageChangeDialog } from "@/components/salesup/customer/StageChangeDialog";
 import { CustomerTableView } from "@/components/salesup/customer/CustomerTableView";
+import { CustomerViewSummary } from "@/components/salesup/customer/CustomerViewSummary";
 import { useCustomers } from "@/lib/salesup/useCustomers";
 import { todayKey } from "@/lib/salesup/date";
 import {
@@ -42,7 +40,6 @@ import {
   STAGE_COLOR_TOKEN,
   STAGE_LABEL,
   STAGE_ORDER,
-  STAGE_STALE_DAYS,
   type Customer,
   type CustomerSource,
   type CustomerStage,
@@ -126,33 +123,6 @@ function CustomersBoardPage() {
 
   const today = todayKey();
 
-  const stats = useMemo(() => {
-    let followupToday = 0;
-    let overdueFollowups = 0;
-    let stalled = 0;
-    let inProgressTotal = 0;
-    let totalAmount = 0;
-    for (const c of filtered) {
-      if (c.nextAction && c.nextActionDate && c.nextActionDate <= today) followupToday += 1;
-      if (c.nextAction && c.nextActionDate && c.nextActionDate < today) overdueFollowups += 1;
-      if (isStale(c)) stalled += 1;
-      if (c.stage !== "signed") {
-        inProgressTotal += 1;
-        if (c.amount !== null) {
-          totalAmount += c.amount;
-        }
-      }
-    }
-    return {
-      total: filtered.length,
-      followupToday,
-      overdueFollowups,
-      stalled,
-      inProgressTotal,
-      totalAmount,
-    };
-  }, [filtered, today]);
-
   const boardCustomers = filtered;
 
   const columns = useMemo(
@@ -166,16 +136,10 @@ function CustomersBoardPage() {
     [boardCustomers],
   );
 
-  const stageSummaries = useMemo(() => {
-    const maxCount = Math.max(1, ...columns.map((column) => column.items.length));
-    return columns.map((column) => ({
-      stage: column.stage,
-      count: column.items.length,
-      amount: column.items.reduce((total, customer) => total + (customer.amount ?? 0), 0),
-      hasAmount: column.items.some((customer) => customer.amount !== null),
-      fill: (column.items.length / maxCount) * 100,
-    }));
-  }, [columns]);
+  const [tableVisibleCustomers, setTableVisibleCustomers] = useState<Customer[]>(filtered);
+  const handleTableVisibleCustomersChange = useCallback((nextCustomers: Customer[]) => {
+    setTableVisibleCustomers(nextCustomers);
+  }, []);
 
   const toggle = <T,>(list: T[], v: T, set: (n: T[]) => void) => {
     set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
@@ -265,33 +229,11 @@ function CustomersBoardPage() {
         </div>
       </div>
 
-      {showBoard && view === "board" && (
-        <>
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            <AlertPill icon={CalendarClock} label="逾期跟进" value={stats.overdueFollowups} />
-            <AlertPill icon={Timer} label="停滞" value={stats.stalled} />
-            <div className="ml-auto text-xs text-muted-foreground">
-              进行中{" "}
-              <span className="font-semibold text-foreground tabular-nums">
-                {stats.inProgressTotal}
-              </span>{" "}
-              家<span className="mx-1.5">·</span>
-              合计{" "}
-              <span className="font-semibold text-foreground tabular-nums">
-                {formatAmount(stats.totalAmount, "CNY")}
-              </span>
-            </div>
-          </div>
-          <StageSummaryRow summaries={stageSummaries} />
-        </>
-      )}
-
-      {view === "table" && (
-        <div className="grid grid-cols-3 gap-2 md:gap-3 mb-4">
-          <StatCell icon={Briefcase} label="进行中商机" value={stats.total} />
-          <StatCell icon={CalendarClock} label="今日待跟进" value={stats.followupToday} />
-          <StatCell icon={Timer} label="停滞" value={stats.stalled} />
-        </div>
+      {showBoard && (
+        <CustomerViewSummary
+          customers={view === "table" ? tableVisibleCustomers : boardCustomers}
+          today={today}
+        />
       )}
 
       {/* 筛选 */}
@@ -427,7 +369,12 @@ function CustomersBoardPage() {
       )}
 
       {showBoard && view === "table" && (
-        <CustomerTableView customers={allFiltered} today={today} onRefresh={refresh} />
+        <CustomerTableView
+          customers={allFiltered}
+          today={today}
+          onRefresh={refresh}
+          onVisibleCustomersChange={handleTableVisibleCustomersChange}
+        />
       )}
 
       {stageTarget && (
@@ -586,105 +533,6 @@ function KanbanCustomerCard({
           onPick={(stage) => onPickStage(customer, stage)}
         />
       </div>
-    </div>
-  );
-}
-
-function AlertPill({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: typeof CalendarClock;
-  label: string;
-  value: number;
-}) {
-  const active = value > 0;
-  return (
-    <div
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs",
-        active
-          ? "border-warning-border bg-warning-bg font-medium text-warning"
-          : "border-border bg-background text-muted-foreground",
-      )}
-    >
-      <Icon className="h-3.5 w-3.5" />
-      <span>{label}</span>
-      <span className="font-semibold tabular-nums">{value}</span>
-    </div>
-  );
-}
-
-function StageSummaryRow({
-  summaries,
-}: {
-  summaries: Array<{
-    stage: CustomerStage;
-    count: number;
-    amount: number;
-    hasAmount: boolean;
-    fill: number;
-  }>;
-}) {
-  return (
-    <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
-      {summaries.map(({ stage, count, amount, hasAmount, fill }) => {
-        const colorToken = STAGE_COLOR_TOKEN[stage];
-        const threshold = STAGE_STALE_DAYS[stage];
-        const isSigned = stage === "signed";
-        return (
-          <div
-            key={stage}
-            className={cn(
-              "rounded-xl border bg-card px-3 py-2.5 transition hover:shadow-sm",
-              count === 0 && "opacity-60",
-              isSigned ? "border-won/30 bg-won/5" : "border-border",
-            )}
-          >
-            <div className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
-              <span
-                className="h-1.5 w-1.5 shrink-0 rounded-full"
-                style={{ backgroundColor: `var(${colorToken})` }}
-              />
-              <span className="truncate">{STAGE_LABEL[stage]}</span>
-            </div>
-            <div className="mt-1 text-2xl font-semibold leading-none tabular-nums">{count}</div>
-            <div className="mt-1 truncate text-[11px] text-muted-foreground tabular-nums">
-              {hasAmount ? formatAmount(amount, "CNY") : "金额待定"}
-            </div>
-            <div className="mt-0.5 text-[11px] text-muted-foreground/70">
-              {threshold === null ? "不判停滞" : `阈值 ${threshold} 天`}
-            </div>
-            <div className="mt-2 h-[3px] overflow-hidden rounded-full bg-border/70">
-              <div
-                className="h-full rounded-full"
-                style={{ width: `${fill}%`, backgroundColor: `var(${colorToken})` }}
-              />
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function StatCell({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: typeof Briefcase;
-  label: string;
-  value: number;
-}) {
-  return (
-    <div className="rounded-[var(--radius)] border border-border bg-card px-3 py-2.5">
-      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-        <Icon className="w-3.5 h-3.5" />
-        {label}
-      </div>
-      <div className="mt-1 text-lg font-semibold tabular-nums">{value}</div>
     </div>
   );
 }

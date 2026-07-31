@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   AlertTriangle,
@@ -35,8 +35,9 @@ import {
   isStale,
   ROLE_LABEL,
   SOURCE_LABEL,
+  STAGE_COLOR_TOKEN,
   STAGE_LABEL,
-  STAGE_DEFAULT_WIN_RATE,
+  STAGE_STALE_DAYS,
   STATUS_LABEL,
   staleDays,
   type Customer,
@@ -242,16 +243,20 @@ function SortIcon({ active, direction }: { active: boolean; direction: SortDirec
 }
 
 function StaleDays({ customer }: { customer: Customer }) {
+  if (STAGE_STALE_DAYS[customer.stage] === null) {
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
+
   const stale = isStale(customer);
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 tabular-nums",
-        stale ? "bg-muted text-foreground/80" : "text-muted-foreground",
+        "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs tabular-nums",
+        stale ? "bg-warning-bg font-medium text-warning" : "text-muted-foreground",
       )}
     >
       {stale && <AlertTriangle className="h-3 w-3" />}
-      停滞 {staleDays(customer)} 天
+      {stale ? `停滞 ${staleDays(customer)} 天` : `${staleDays(customer)} 天`}
     </span>
   );
 }
@@ -260,17 +265,29 @@ function CellContent({
   field,
   customer,
   today,
+  showNextActionDate,
 }: {
   field: ColumnKey;
   customer: Customer;
   today: string;
+  showNextActionDate: boolean;
 }) {
   const overdue =
     !!customer.nextAction && !!customer.nextActionDate && customer.nextActionDate < today;
 
   switch (field) {
-    case "stage":
-      return <span>{STAGE_LABEL[customer.stage]}</span>;
+    case "stage": {
+      const colorToken = STAGE_COLOR_TOKEN[customer.stage];
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs whitespace-nowrap">
+          <span
+            className="h-1.5 w-1.5 shrink-0 rounded-full"
+            style={{ backgroundColor: `var(${colorToken})` }}
+          />
+          {STAGE_LABEL[customer.stage]}
+        </span>
+      );
+    }
     case "staleDays":
       return <StaleDays customer={customer} />;
     case "nextActionDate":
@@ -287,17 +304,37 @@ function CellContent({
       );
     case "amount":
       return customer.amount === null ? (
-        "—"
+        <span className="text-xs text-muted-foreground">金额待定</span>
       ) : (
-        <span className="tabular-nums">{formatAmount(customer.amount, customer.currency)}</span>
+        <span className="font-semibold text-primary tabular-nums">
+          {formatAmount(customer.amount, customer.currency)}
+        </span>
       );
     case "productLines":
-      return displayText(customer.productLines.join("、"));
+      return customer.productLines.length > 0 ? (
+        <span className="flex flex-wrap gap-1">
+          {customer.productLines.map((productLine) => (
+            <span
+              key={productLine}
+              className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground"
+            >
+              {productLine}
+            </span>
+          ))}
+        </span>
+      ) : (
+        <span className="text-muted-foreground">—</span>
+      );
     case "winRate": {
-      const stageRate = STAGE_DEFAULT_WIN_RATE[customer.stage];
-      return customer.winRate === null
-        ? `阶段默认 ${stageRate}%`
-        : `${customer.winRate}%（阶段 ${stageRate}%）`;
+      const rate = effectiveWinRate(customer);
+      return (
+        <span className="flex min-w-24 items-center gap-2">
+          <span className="h-1 flex-1 overflow-hidden rounded-full bg-border/70">
+            <span className="block h-full rounded-full bg-primary" style={{ width: `${rate}%` }} />
+          </span>
+          <span className="w-8 text-right text-xs font-semibold tabular-nums">{rate}%</span>
+        </span>
+      );
     }
     case "status":
       return <span>{STATUS_LABEL[customer.status]}</span>;
@@ -306,11 +343,41 @@ function CellContent({
     case "decisionRole":
       return ROLE_LABEL[customer.decisionRole];
     case "source":
-      return SOURCE_LABEL[customer.source];
+      return (
+        <span className="inline-flex rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+          {SOURCE_LABEL[customer.source]}
+        </span>
+      );
     case "companyName":
-      return <span className="font-medium">{customer.companyName}</span>;
+      return (
+        <span className="block min-w-44">
+          <span className="block truncate text-[13.5px] font-semibold leading-5">
+            {customer.companyName}
+          </span>
+          <span className="block truncate text-[11.5px] leading-4 text-muted-foreground">
+            {customer.contactName ?? "未填联系人"}
+            {customer.contactTitle ? ` · ${customer.contactTitle}` : ""}
+            {customer.decisionRole !== "unknown" ? ` · ${ROLE_LABEL[customer.decisionRole]}` : ""}
+          </span>
+        </span>
+      );
     case "nextAction":
-      return displayText(customer.nextAction);
+      return (
+        <span className="block min-w-40 whitespace-nowrap text-xs text-muted-foreground">
+          <span className="truncate">{displayText(customer.nextAction)}</span>
+          {showNextActionDate && customer.nextActionDate && (
+            <span
+              className={cn(
+                "ml-1.5 font-semibold tabular-nums",
+                overdue ? "text-overdue" : "text-foreground",
+              )}
+            >
+              {customer.nextActionDate}
+              {overdue ? "（逾期）" : ""}
+            </span>
+          )}
+        </span>
+      );
     case "contactName":
       return displayText(customer.contactName);
     case "expectedCloseDate":
@@ -405,12 +472,15 @@ export function CustomerTableView({
   customers,
   today,
   onRefresh,
+  onVisibleCustomersChange,
 }: {
   customers: Customer[];
   today: string;
   onRefresh: () => Promise<void>;
+  onVisibleCustomersChange?: (customers: Customer[]) => void;
 }) {
   const navigate = useNavigate();
+  const tableRef = useRef<HTMLTableElement>(null);
   const [status, setStatus] = useState<StatusFilter>("active");
   const [preset, setPreset] = useState<PresetKey>("followup");
   const [query, setQuery] = useState("");
@@ -471,6 +541,31 @@ export function CustomerTableView({
       return sortDirection === "asc" ? comparison : -comparison;
     });
   }, [customers, query, sortDirection, sortField, status]);
+
+  useEffect(() => {
+    onVisibleCustomersChange?.(rows);
+  }, [onVisibleCustomersChange, rows]);
+
+  useEffect(() => {
+    const table = tableRef.current;
+    if (!table) return;
+
+    const updateStickyOffsets = () => {
+      const selection = table.querySelector<HTMLElement>('[data-sticky-column="selection"]');
+      const index = table.querySelector<HTMLElement>('[data-sticky-column="index"]');
+      if (!selection || !index) return;
+      const selectionWidth = selection.getBoundingClientRect().width;
+      const indexWidth = index.getBoundingClientRect().width;
+      table.style.setProperty("--sticky-selection-offset", `${selectionWidth}px`);
+      table.style.setProperty("--sticky-customer-offset", `${selectionWidth + indexWidth}px`);
+    };
+
+    updateStickyOffsets();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(updateStickyOffsets);
+    observer.observe(table);
+    return () => observer.disconnect();
+  }, [visibleFields]);
 
   const selectedRows = useMemo(
     () => rows.filter((customer) => selectedIds.has(customer.id)),
@@ -716,18 +811,24 @@ export function CustomerTableView({
         </div>
       )}
 
-      <div className="rounded-[var(--radius)] border border-border bg-card">
-        <Table className="min-w-[900px] text-xs">
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <Table ref={tableRef} className="min-w-[900px] text-xs">
           <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="sticky left-0 z-30 w-10 min-w-10 bg-card px-2">
+            <TableRow className="hover:bg-secondary/70">
+              <TableHead
+                data-sticky-column="selection"
+                className="sticky left-0 z-30 w-10 min-w-10 bg-secondary px-2"
+              >
                 <Checkbox
                   checked={allRowsSelected ? true : someRowsSelected ? "indeterminate" : false}
                   onCheckedChange={toggleAllRows}
                   aria-label="全选当前筛选结果"
                 />
               </TableHead>
-              <TableHead className="sticky left-10 z-20 w-12 min-w-12 bg-card px-2 text-center">
+              <TableHead
+                data-sticky-column="index"
+                className="sticky left-[var(--sticky-selection-offset)] z-20 w-12 min-w-12 bg-secondary px-2 text-center"
+              >
                 序号
               </TableHead>
               {visibleFields.map((field) => {
@@ -736,7 +837,7 @@ export function CustomerTableView({
                   <TableHead
                     key={field}
                     className={cn(
-                      sticky && "sticky left-[5.5rem] z-10 bg-card",
+                      sticky && "sticky left-[var(--sticky-customer-offset)] z-10 bg-secondary",
                       field === "companyName" && "min-w-44",
                     )}
                   >
@@ -766,10 +867,11 @@ export function CustomerTableView({
                     void navigate({ to: "/customers/$id", params: { id: customer.id } });
                   }
                 }}
-                className="cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="group cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 <TableCell
-                  className="sticky left-0 z-20 w-10 min-w-10 bg-card px-2"
+                  data-sticky-column="selection"
+                  className="sticky left-0 z-20 w-10 min-w-10 bg-card px-2 py-2 group-hover:bg-muted/50"
                   onClick={(event) => event.stopPropagation()}
                   onKeyDown={(event) => event.stopPropagation()}
                 >
@@ -779,20 +881,29 @@ export function CustomerTableView({
                     aria-label={`选择 ${customer.companyName}`}
                   />
                 </TableCell>
-                <TableCell className="sticky left-10 z-20 w-12 min-w-12 bg-card px-2 text-center text-muted-foreground">
+                <TableCell
+                  data-sticky-column="index"
+                  className="sticky left-[var(--sticky-selection-offset)] z-20 w-12 min-w-12 bg-card px-2 py-2 text-center text-muted-foreground group-hover:bg-muted/50"
+                >
                   {index + 1}
                 </TableCell>
                 {visibleFields.map((field) => (
                   <TableCell
                     key={field}
                     className={cn(
-                      "max-w-64 whitespace-nowrap",
-                      field === "companyName" && "sticky left-[5.5rem] z-10 bg-card",
+                      "max-w-64 py-2",
+                      field === "companyName" &&
+                        "sticky left-[var(--sticky-customer-offset)] z-10 bg-card group-hover:bg-muted/50",
                     )}
                   >
-                    <span className="block truncate">
-                      <CellContent field={field} customer={customer} today={today} />
-                    </span>
+                    <CellContent
+                      field={field}
+                      customer={customer}
+                      today={today}
+                      showNextActionDate={
+                        field === "nextAction" && !visibleFields.includes("nextActionDate")
+                      }
+                    />
                   </TableCell>
                 ))}
               </TableRow>
@@ -804,6 +915,17 @@ export function CustomerTableView({
             没有匹配的客户
           </div>
         )}
+        <div className="flex items-center border-t border-border bg-muted/30 px-3.5 py-2 text-xs text-muted-foreground">
+          共 <span className="mx-1 font-semibold text-foreground tabular-nums">{rows.length}</span>{" "}
+          家<span className="mx-1.5">·</span>
+          合计
+          <span className="ml-1 font-semibold text-primary tabular-nums">
+            {formatAmount(
+              rows.reduce((total, customer) => total + (customer.amount ?? 0), 0),
+              "CNY",
+            )}
+          </span>
+        </div>
       </div>
 
       {bulkAction && (
