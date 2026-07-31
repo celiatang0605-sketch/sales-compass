@@ -26,3 +26,11 @@
 - 类型检查：`npx tsc --noEmit`。不要使用 `bunx tsgo`；它未在 `package.json` 中声明，依赖联网下载，可能不可用。
 - Lint：`npm run lint`。
 - 仓库锁文件：`bun.lock`。
+
+## 项目目录边界
+
+- Sales Up 的唯一项目根目录为 `D:\Code\CodexProjects\sales up`。
+- 所有源码、产品规格、技术文档、测试结果、数据库文件、部署文件和生成文件均保存在该项目目录内。
+- 执行项目前先通过 `git rev-parse --show-toplevel` 验证项目根目录。
+- 任何文件写入操作均以当前 Git 项目根目录为边界。
+- Work-Wisers 属于工作知识库，仅用于会议、客户跟进、日常事项和复盘记录。
