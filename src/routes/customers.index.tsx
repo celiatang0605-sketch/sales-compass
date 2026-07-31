@@ -22,8 +22,6 @@ import {
   Timer,
   Briefcase,
   Users,
-  ChevronDown,
-  ChevronUp,
   Columns3,
   LayoutDashboard,
 } from "lucide-react";
@@ -32,7 +30,6 @@ import { AppShell } from "@/components/salesup/AppShell";
 import { StageAdvanceControl } from "@/components/salesup/customer/StageAdvanceControl";
 import { StageChangeDialog } from "@/components/salesup/customer/StageChangeDialog";
 import { CustomerTableView } from "@/components/salesup/customer/CustomerTableView";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useCustomers } from "@/lib/salesup/useCustomers";
 import { todayKey } from "@/lib/salesup/date";
 import {
@@ -85,14 +82,6 @@ function formatAmount(amount: number, currency: string): string {
 function stageChangedAtTimestamp(customer: Customer): number {
   const timestamp = new Date(customer.stageChangedAt).getTime();
   return Number.isNaN(timestamp) ? Number.MAX_SAFE_INTEGER : timestamp;
-}
-
-function acquiredDays(customer: Customer, today: string): number {
-  const acquiredAt = customer.sourceDate ?? customer.createdAt;
-  const start = new Date(`${acquiredAt.slice(0, 10)}T00:00:00`).getTime();
-  const end = new Date(`${today}T00:00:00`).getTime();
-  if (Number.isNaN(start) || Number.isNaN(end)) return 0;
-  return Math.max(0, Math.floor((end - start) / 86400000));
 }
 
 function CustomersBoardPage() {
@@ -149,7 +138,6 @@ function CustomersBoardPage() {
     };
   }, [filtered, today]);
 
-  const legacyIntakeCustomers: Customer[] = [];
   const boardCustomers = filtered;
 
   const columns = useMemo(
@@ -321,16 +309,6 @@ function CustomersBoardPage() {
         </div>
       )}
 
-      {showBoard && view === "board" && (
-        <LegacyIntakeBar
-          customers={legacyIntakeCustomers}
-          today={today}
-          onStartFollowup={(customer) =>
-            setStageTarget({ customer, stage: "opportunity_confirmed" })
-          }
-        />
-      )}
-
       {showBoard && view === "board" && boardCustomers.length === 0 && (
         <div className="rounded-xl border border-dashed border-border py-12 text-center">
           <Users className="w-5 h-5 mx-auto text-muted-foreground mb-2" />
@@ -346,7 +324,7 @@ function CustomersBoardPage() {
               ? "从「新建客户」开始建立你的看板。"
               : filtered.length === 0
                 ? "试着放宽来源或产品线筛选。"
-                : "在上方待建联列表中开始跟进客户。"}
+                : "在看板中开始推进客户。"}
           </div>
         </div>
       )}
@@ -409,73 +387,6 @@ function CustomersBoardPage() {
         />
       )}
     </AppShell>
-  );
-}
-
-function LegacyIntakeBar({
-  customers,
-  today,
-  onStartFollowup,
-}: {
-  customers: Customer[];
-  today: string;
-  onStartFollowup: (customer: Customer) => void;
-}) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <Collapsible
-      open={open}
-      onOpenChange={setOpen}
-      className="mb-4 rounded-[var(--radius)] border border-border bg-card"
-    >
-      <div className="flex items-center justify-between gap-3 px-3 py-2.5">
-        <span className="text-sm font-medium">待建联 · {customers.length} 个</span>
-        <CollapsibleTrigger asChild>
-          <button
-            type="button"
-            className="inline-flex h-7 items-center gap-1 rounded-md border border-border px-2 text-xs text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
-          >
-            {open ? "收起" : "展开"}
-            {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-          </button>
-        </CollapsibleTrigger>
-      </div>
-      <CollapsibleContent className="border-t border-border">
-        {customers.length === 0 ? (
-          <div className="px-3 py-3 text-xs text-muted-foreground">暂无待建联客户</div>
-        ) : (
-          <div className="max-h-[336px] divide-y divide-border overflow-y-auto">
-            {customers.map((customer) => (
-              <div key={customer.id} className="flex items-center gap-2 px-3 py-2">
-                <div className="flex min-w-0 flex-1 items-center gap-1.5 text-xs">
-                  <Link
-                    to="/customers/$id"
-                    params={{ id: customer.id }}
-                    className="min-w-0 truncate font-medium hover:text-primary"
-                  >
-                    {customer.companyName}
-                  </Link>
-                  <span className="shrink-0 rounded-md border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground">
-                    {SOURCE_LABEL[customer.source]}
-                  </span>
-                  <span className="shrink-0 tabular-nums text-muted-foreground">
-                    拿到 {acquiredDays(customer, today)} 天
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onStartFollowup(customer)}
-                  className="shrink-0 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
-                >
-                  开始跟进
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </CollapsibleContent>
-    </Collapsible>
   );
 }
 

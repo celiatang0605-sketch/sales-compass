@@ -384,7 +384,7 @@ function NewCustomerPage() {
             </Field>
             <Field label="阶段" full>
               <div className="text-xs text-muted-foreground">
-                待建联（直接新建的客户固定从此阶段开始）
+                机会确认（直接新建的客户固定从此阶段开始）
               </div>
             </Field>
             <Field label="预估金额（元）">
