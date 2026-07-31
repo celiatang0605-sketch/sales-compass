@@ -23,9 +23,9 @@ import {
   PRIORITY_LABEL,
   PRIORITY_STYLE,
   STATUS_LABEL,
-  type ExpoLead,
-  type ExpoPriority,
-  type ExpoStatus,
+  type Lead,
+  type LeadPriority,
+  type LeadStatus,
 } from "@/lib/salesup/expoMock";
 import { getLead, updateLead, type UpdateLeadInput } from "@/lib/salesup/expoRepository";
 import { cn } from "@/lib/utils";
@@ -56,8 +56,8 @@ function LeadNotFound() {
   );
 }
 
-const PRIORITIES: ExpoPriority[] = ["A", "B", "C", "D", "unrated"];
-const STATUSES: ExpoStatus[] = [
+const PRIORITIES: LeadPriority[] = ["A", "B", "C", "D", "unrated"];
+const STATUSES: LeadStatus[] = [
   "to_organize",
   "to_follow_up",
   "contacted",
@@ -102,15 +102,15 @@ interface FormState {
   timeline: string;
   currentVendor: string;
   priorityReason: string;
-  priority: ExpoPriority;
-  status: ExpoStatus;
+  priority: LeadPriority;
+  status: LeadStatus;
   signals: string[];
   nextAction: string;
   nextActionDate: string;
   lastContactedAt: string;
 }
 
-function leadToForm(l: ExpoLead): FormState {
+function leadToForm(l: Lead): FormState {
   return {
     company: l.company ?? "",
     industry: l.industry ?? "",
@@ -160,7 +160,7 @@ function formEqual(a: FormState, b: FormState): boolean {
 
 function ExpoDetailPage() {
   const { id } = Route.useParams();
-  const [lead, setLead] = useState<ExpoLead | null>(null);
+  const [lead, setLead] = useState<Lead | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
@@ -245,7 +245,7 @@ function ExpoDetailPage() {
     if (!lead || quickBusy) return;
     const prev = lead;
     // optimistic
-    setLead({ ...lead, ...p } as ExpoLead);
+    setLead({ ...lead, ...p } as Lead);
     setQuickBusy(true);
     try {
       const updated = await updateLead(id, p);
@@ -419,7 +419,7 @@ function ExpoDetailPage() {
                 <select
                   disabled={quickBusy}
                   value={lead.status}
-                  onChange={(e) => void quickUpdate({ status: e.target.value as ExpoStatus })}
+                  onChange={(e) => void quickUpdate({ status: e.target.value as LeadStatus })}
                   className="w-full h-9 px-2 rounded-md border border-border bg-background text-sm outline-none focus:ring-2 focus:ring-primary/20"
                 >
                   {STATUSES.map((s) => (
@@ -681,7 +681,7 @@ function ExpoDetailPage() {
                 <FieldLabel>当前状态</FieldLabel>
                 <select
                   value={form.status}
-                  onChange={(e) => patch({ status: e.target.value as ExpoStatus })}
+                  onChange={(e) => patch({ status: e.target.value as LeadStatus })}
                   className="w-full h-11 px-3 rounded-lg border border-border bg-background text-sm outline-none focus:ring-2 focus:ring-primary/20"
                 >
                   {STATUSES.map((s) => (

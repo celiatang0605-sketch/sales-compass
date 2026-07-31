@@ -22,11 +22,11 @@ import {
   STATUS_LABEL,
   isActiveFollowup,
   isOverdue,
-  type ExpoLead,
-  type ExpoPriority,
+  type Lead,
+  type LeadPriority,
 } from "@/lib/salesup/expoMock";
 import { todayKey } from "@/lib/salesup/date";
-import { useExpoLeads } from "@/lib/salesup/useExpoLeads";
+import { useLeads } from "@/lib/salesup/useLeads";
 import {
   countLegacyLocalLeads,
   hasLegacyLocalLeads,
@@ -47,13 +47,13 @@ export const Route = createFileRoute("/expo/")({
   component: ExpoIndexPage,
 });
 
-const PRIORITY_FILTERS: (ExpoPriority | "all")[] = ["all", "A", "B", "C", "D", "unrated"];
+const PRIORITY_FILTERS: (LeadPriority | "all")[] = ["all", "A", "B", "C", "D", "unrated"];
 
 function ExpoIndexPage() {
   const [q, setQ] = useState("");
-  const [priority, setPriority] = useState<ExpoPriority | "all">("all");
+  const [priority, setPriority] = useState<LeadPriority | "all">("all");
   const today = todayKey();
-  const { leads, loading, error, userId, refresh } = useExpoLeads();
+  const { leads, loading, error, userId, refresh } = useLeads();
 
   // Legacy migration banner.
   const [showLegacy, setShowLegacy] = useState(false);
@@ -323,7 +323,7 @@ function StatCard({
   );
 }
 
-function LeadCard({ lead }: { lead: ExpoLead }) {
+function LeadCard({ lead }: { lead: Lead }) {
   const overdue = lead.nextActionDate && isOverdue(lead.nextActionDate);
   return (
     <Link

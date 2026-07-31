@@ -2,9 +2,11 @@
 // Phase 3: MOCK_LEADS is kept for the company autocomplete pool ONLY.
 // It must NOT be rendered as real leads on the /expo pages.
 
-export type ExpoPriority = "A" | "B" | "C" | "D" | "unrated";
+import type { CustomerSource } from "./customerTypes";
 
-export type ExpoStatus =
+export type LeadPriority = "A" | "B" | "C" | "D" | "unrated";
+
+export type LeadStatus =
   | "to_organize"
   | "to_follow_up"
   | "contacted"
@@ -15,10 +17,16 @@ export type ExpoStatus =
   | "nurture"
   | "invalid";
 
-export interface ExpoLead {
+export interface Lead {
   id: string;
+  source: CustomerSource;
+  sourceDate?: string;
+  sourceDetail?: string;
   company: string;
   industry?: string;
+  companySize?: string;
+  hqCity?: string;
+  website?: string;
   companyBackground?: string;
   eventName?: string;
   eventDate?: string; // YYYY-MM-DD
@@ -26,11 +34,12 @@ export interface ExpoLead {
   booth?: string;
   contactName: string;
   contactTitle?: string;
+  contactDepartment?: string;
   phone?: string;
   wechat?: string;
   email?: string;
-  priority: ExpoPriority;
-  status: ExpoStatus;
+  priority: LeadPriority;
+  status: LeadStatus;
   headline: string; // derived from rawNote (UI only)
   nextAction: string;
   nextActionDate: string; // YYYY-MM-DD
@@ -57,7 +66,7 @@ export interface ExpoLead {
   convertedCustomerId?: string | null;
 }
 
-export const STATUS_LABEL: Record<ExpoStatus, string> = {
+export const STATUS_LABEL: Record<LeadStatus, string> = {
   to_organize: "待整理",
   to_follow_up: "待跟进",
   contacted: "已联系",
@@ -69,7 +78,7 @@ export const STATUS_LABEL: Record<ExpoStatus, string> = {
   invalid: "无效",
 };
 
-export const PRIORITY_LABEL: Record<ExpoPriority, string> = {
+export const PRIORITY_LABEL: Record<LeadPriority, string> = {
   A: "A 重点",
   B: "B 值得跟进",
   C: "C 普通线索",
@@ -77,7 +86,7 @@ export const PRIORITY_LABEL: Record<ExpoPriority, string> = {
   unrated: "待判断",
 };
 
-export const PRIORITY_STYLE: Record<ExpoPriority, string> = {
+export const PRIORITY_STYLE: Record<LeadPriority, string> = {
   A: "bg-primary/10 text-primary border-primary/20",
   B: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20",
   C: "bg-amber-500/10 text-amber-700 border-amber-500/20",
@@ -109,7 +118,7 @@ export function isOverdue(dateStr: string, today = todayIso()): boolean {
 // Rule: status === "to_follow_up", OR has a nextAction whose date is today or overdue.
 // Excludes: to_organize, nurture, invalid, converted, and future-dated actions.
 export function isActiveFollowup(
-  lead: { status: ExpoStatus; nextAction?: string; nextActionDate?: string },
+  lead: { status: LeadStatus; nextAction?: string; nextActionDate?: string },
   today = todayIso(),
 ): boolean {
   if (lead.status === "to_follow_up") return true;

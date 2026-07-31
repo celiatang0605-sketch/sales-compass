@@ -14,7 +14,7 @@ import {
 import { toast } from "sonner";
 import { AppShell } from "@/components/salesup/AppShell";
 import { addDays, todayKey } from "@/lib/salesup/date";
-import { PRIORITY_LABEL, type ExpoPriority } from "@/lib/salesup/expoMock";
+import { PRIORITY_LABEL, type LeadPriority } from "@/lib/salesup/expoMock";
 import {
   clearDraft,
   getDraft,
@@ -23,7 +23,7 @@ import {
   type ExpoDraft,
 } from "@/lib/salesup/expoStore";
 import { createLead, listLeads, listUserCompanies } from "@/lib/salesup/expoRepository";
-import { useExpoLeads } from "@/lib/salesup/useExpoLeads";
+import { useLeads } from "@/lib/salesup/useLeads";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/expo/new")({
@@ -31,7 +31,7 @@ export const Route = createFileRoute("/expo/new")({
   component: ExpoNewPage,
 });
 
-const PRIORITIES: ExpoPriority[] = ["A", "B", "C", "D", "unrated"];
+const PRIORITIES: LeadPriority[] = ["A", "B", "C", "D", "unrated"];
 
 const SIGNAL_OPTIONS = [
   "有明确需求",
@@ -62,7 +62,7 @@ function offsetDate(days: number): string {
 const emptyForm = () => ({
   company: "",
   raw: "",
-  priority: "unrated" as ExpoPriority,
+  priority: "unrated" as LeadPriority,
   signals: [] as string[],
   nextAction: "",
   nextDate: "",
@@ -70,7 +70,7 @@ const emptyForm = () => ({
 
 function ExpoNewPage() {
   const navigate = useNavigate();
-  const { userId, leads, refresh } = useExpoLeads();
+  const { userId, leads, refresh } = useLeads();
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState<null | "back" | "again" | "later">(null);

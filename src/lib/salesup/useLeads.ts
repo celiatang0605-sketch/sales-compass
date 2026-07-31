@@ -2,18 +2,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { listLeads } from "./expoRepository";
-import type { ExpoLead } from "./expoMock";
+import type { Lead } from "./expoMock";
 
-export interface ExpoLeadsState {
-  leads: ExpoLead[];
+export interface LeadsState {
+  leads: Lead[];
   loading: boolean;
   error: string | null;
   userId: string | null;
   refresh: () => Promise<void>;
 }
 
-export function useExpoLeads(): ExpoLeadsState {
-  const [leads, setLeads] = useState<ExpoLead[]>([]);
+export function useLeads(): LeadsState {
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);

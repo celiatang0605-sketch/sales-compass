@@ -18,7 +18,7 @@ type Row = {
   source_detail: string | null;
   source_date: string | null;
   claim_expires_at: string | null;
-  expo_lead_id: string | null;
+  lead_id: string | null;
   company_name: string;
   industry: string | null;
   company_size: string | null;
@@ -67,7 +67,7 @@ function rowToCustomer(r: Row): Customer {
     sourceDetail: r.source_detail,
     sourceDate: r.source_date,
     claimExpiresAt: r.claim_expires_at,
-    expoLeadId: r.expo_lead_id,
+    leadId: r.lead_id,
     companyName: r.company_name ?? "",
     industry: r.industry,
     companySize: r.company_size,
@@ -89,7 +89,7 @@ function rowToCustomer(r: Row): Customer {
     contactNote: r.contact_note,
     otherContacts: Array.isArray(r.other_contacts) ? r.other_contacts : [],
     productLines: r.product_lines ?? [],
-    stage: (r.stage as CustomerStage) ?? "to_contact",
+    stage: (r.stage as CustomerStage) ?? "opportunity_confirmed",
     stageChangedAt: r.stage_changed_at,
     status: (r.status as CustomerStatus) ?? "active",
     winRate: r.win_rate,
@@ -118,7 +118,7 @@ export interface UpdateCustomerInput {
   sourceDetail?: string;
   sourceDate?: string;
   claimExpiresAt?: string;
-  expoLeadId?: string;
+  leadId?: string;
   industry?: string;
   companySize?: string;
   overseasMarkets?: string[];
@@ -229,7 +229,7 @@ export async function createCustomer(input: NewCustomerInput): Promise<Customer>
     overseas_markets: input.overseasMarkets ?? [],
     other_contacts: input.otherContacts ?? [],
     product_lines: input.productLines ?? [],
-    stage: input.stage ?? "to_contact",
+    stage: input.stage ?? "opportunity_confirmed",
     status: input.status ?? "active",
     win_rate: input.winRate ?? null,
     amount: input.amount ?? null,
@@ -249,7 +249,7 @@ export async function createCustomer(input: NewCustomerInput): Promise<Customer>
     if (v === undefined) continue;
     row[col] = v ? v : null;
   }
-  if (input.expoLeadId) row.expo_lead_id = input.expoLeadId;
+  if (input.leadId) row.lead_id = input.leadId;
 
   const { data, error } = await supabase.from("customers").insert(row).select("*").single();
   if (error) throw error;
@@ -483,17 +483,17 @@ export async function listTimeBlocksForCustomerOnDate(params: {
 // ---------------------------------------------------------------------------
 
 export interface ConvertLeadInput extends NewCustomerInput {
-  /** expo_leads.id，转化后写回 converted_customer_id。 */
-  expoLeadId: string;
+  /** leads.id，转化后写回 converted_customer_id。 */
+  leadId: string;
 }
 
 /**
  * 由展会线索创建客户：
- * 1. 建 customers 行（source 固定 expo，记录 expo_lead_id）
+ * 1. 建 customers 行（source 固定 expo，记录 lead_id）
  * 2. 写一条建档 stage_history
- * 3. 回写 expo_leads.converted_customer_id 并把 status 置为 converted
+ * 3. 回写 leads.converted_customer_id 并把 status 置为 converted
  */
-export async function convertExpoLeadToCustomer(input: ConvertLeadInput): Promise<Customer> {
+export async function convertLeadToCustomer(input: ConvertLeadInput): Promise<Customer> {
   const { markLeadConverted } = await import("./expoRepository");
   const customer = await createCustomer({ ...input, source: "expo" });
   await insertStageHistory({
@@ -503,7 +503,7 @@ export async function convertExpoLeadToCustomer(input: ConvertLeadInput): Promis
     reason: "由展会线索转化建档",
     relatedBlockId: null,
   });
-  await markLeadConverted(input.expoLeadId, customer.id);
+  await markLeadConverted(input.leadId, customer.id);
   return customer;
 }
 

@@ -63,7 +63,7 @@ src/
   integrations/supabase/client.ts
   styles.css             设计系统全部 token（oklch）
 db/
-  expo_leads.sql         展会线索表、索引与 RLS 定义
+  leads.sql              线索表、索引与 RLS 定义
   customers.sql          customers、stage_history、线索回链、索引与 RLS 定义
 docs/
   customer-board-spec.md 客户看板 / 商机跟进 Phase 4 设计说明
@@ -85,7 +85,7 @@ UI hooks（storage.ts） ←→ localStorage（按用户命名空间 salesup:v1:
 
 ### Supabase 表
 
-`customers`、`stage_history` 的 DDL、索引与 RLS 定义已纳入 `db/customers.sql`；`expo_leads` 的定义在 `db/expo_leads.sql`。这些 SQL 文件仍需在外部 Supabase 项目的 SQL Editor 中手动执行。`time_blocks` 与 `reminders` 在仓库内仍无 migration / RLS 定义，下面两张表的描述继续从 `sync.ts` 行映射反推，线上实际结构以 Supabase 控制台为准。
+`customers`、`stage_history` 的 DDL、索引与 RLS 定义已纳入 `db/customers.sql`；`leads` 的定义在 `db/leads.sql`。这些 SQL 文件仍需在外部 Supabase 项目的 SQL Editor 中手动执行。`time_blocks` 与 `reminders` 在仓库内仍无 migration / RLS 定义，下面两张表的描述继续从 `sync.ts` 行映射反推，线上实际结构以 Supabase 控制台为准。
 
 **time_blocks** — 一切数据的中心
 | 字段 | 说明 |
@@ -111,7 +111,7 @@ UI hooks（storage.ts） ←→ localStorage（按用户命名空间 salesup:v1:
 
 ## 客户看板模块
 
-客户看板已经实现 `/customers`、`/customers/new` 和 `/customers/$id`：以 8 个阶段展示进行中的客户/商机，支持阶段推进留痕、客户详情维护、展会线索转客户，以及把时间块关联到结构化客户。该模块直接通过 `customerRepository.ts` 和配套 hooks 读写 Supabase，不经过 `storage.ts` 的 localStorage 镜像。产品与交互约定见 `docs/customer-board-spec.md`，数据库定义见 `db/customers.sql`（执行前需先执行 `db/expo_leads.sql`）。
+客户看板已经实现 `/customers`、`/customers/new` 和 `/customers/$id`：以 7 个阶段展示进行中的客户/商机，支持阶段推进留痕、客户详情维护、展会线索转客户，以及把时间块关联到结构化客户。该模块直接通过 `customerRepository.ts` 和配套 hooks 读写 Supabase，不经过 `storage.ts` 的 localStorage 镜像。产品与交互约定见 `docs/customer-board-spec.md`，数据库定义见 `db/customers.sql`（执行前需先执行 `db/leads.sql`）。
 
 ### 工作类型 → 统计分类
 

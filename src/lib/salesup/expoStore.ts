@@ -2,11 +2,11 @@
 //   - Per-user draft (draft is intentionally local, not synced to Supabase).
 //   - One-shot detection of Phase-2 leftover leads (for legacy migration UI).
 //
-// Real lead data lives in Supabase — see expoRepository.ts / useExpoLeads.
+// Real lead data lives in Supabase — see expoRepository.ts / useLeads.
 
 import { supabase } from "@/integrations/supabase/client";
 import { createLead } from "./expoRepository";
-import { MOCK_COMPANY_POOL, type ExpoPriority } from "./expoMock";
+import { MOCK_COMPANY_POOL, type LeadPriority } from "./expoMock";
 
 export const LEGACY_LS_KEY_LEADS = "salesup.expo.leads.v1";
 const DRAFT_KEY_PREFIX = "salesup.expo.new.draft.v1";
@@ -15,7 +15,7 @@ const LEGACY_MIGRATED_FLAG = "salesup.expo.legacy.migrated.v1";
 export interface ExpoDraft {
   company: string;
   raw: string;
-  priority: ExpoPriority;
+  priority: LeadPriority;
   signals: string[];
   nextAction: string;
   nextDate: string;
@@ -139,7 +139,7 @@ export async function importLegacyLocalLeads(userId: string): Promise<{
     try {
       const priority = (
         LEGACY_PRIORITIES.has(l.rating ?? "") ? l.rating : "unrated"
-      ) as ExpoPriority;
+      ) as LeadPriority;
       await createLead({
         company: l.company ?? "",
         rawNote: l.rawNote ?? "",

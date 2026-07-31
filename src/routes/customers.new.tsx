@@ -149,7 +149,7 @@ function NewCustomerPage() {
         email: form.email,
         contactNote: form.contactNote,
         productLines: form.productLines,
-        stage: "to_contact",
+        stage: "opportunity_confirmed",
         amount: amount !== null && Number.isFinite(amount) ? amount : null,
         expectedCloseDate: form.expectedCloseDate,
         nextAction: form.nextAction,

@@ -4,7 +4,6 @@
 import { todayKey, toDateKey } from "./date";
 
 export type CustomerStage =
-  | "to_contact"
   | "opportunity_confirmed"
   | "need_confirmed"
   | "solution_confirmed"
@@ -14,7 +13,6 @@ export type CustomerStage =
   | "signed";
 
 export const STAGE_ORDER: CustomerStage[] = [
-  "to_contact",
   "opportunity_confirmed",
   "need_confirmed",
   "solution_confirmed",
@@ -25,7 +23,6 @@ export const STAGE_ORDER: CustomerStage[] = [
 ];
 
 export const STAGE_LABEL: Record<CustomerStage, string> = {
-  to_contact: "待建联",
   opportunity_confirmed: "机会确认",
   need_confirmed: "需求确认",
   solution_confirmed: "方案确认",
@@ -36,7 +33,6 @@ export const STAGE_LABEL: Record<CustomerStage, string> = {
 };
 
 export const STAGE_DEFAULT_WIN_RATE: Record<CustomerStage, number> = {
-  to_contact: 0,
   opportunity_confirmed: 10,
   need_confirmed: 20,
   solution_confirmed: 40,
@@ -48,7 +44,6 @@ export const STAGE_DEFAULT_WIN_RATE: Record<CustomerStage, number> = {
 
 /** 停滞阈值（天）。null = 不判断停滞。 */
 export const STAGE_STALE_DAYS: Record<CustomerStage, number | null> = {
-  to_contact: 5,
   opportunity_confirmed: 7,
   need_confirmed: 10,
   solution_confirmed: 10,
@@ -130,7 +125,7 @@ export interface Customer {
   sourceDetail: string | null;
   sourceDate: string | null; // YYYY-MM-DD
   claimExpiresAt: string | null;
-  expoLeadId: string | null;
+  leadId: string | null;
 
   // 公司层
   companyName: string;

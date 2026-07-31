@@ -1,22 +1,30 @@
-// Supabase-backed CRUD for expo_leads. Phase 3 canonical data layer.
-// Pages should use this repository (or the useExpoLeads hook), NOT expoStore.
+// Supabase-backed CRUD for leads. Phase 3 canonical data layer.
+// Pages should use this repository (or the useLeads hook), NOT expoStore.
 
 import { supabase } from "@/integrations/supabase/client";
 import { toDateKey, todayKey } from "./date";
-import { deriveHeadline, type ExpoLead, type ExpoPriority, type ExpoStatus } from "./expoMock";
+import { deriveHeadline, type Lead, type LeadPriority, type LeadStatus } from "./expoMock";
+import type { CustomerSource } from "./customerTypes";
 
 type Row = {
   id: string;
   user_id: string;
+  source: string;
+  source_date: string | null;
+  source_detail: string | null;
   event_name: string | null;
   event_date: string | null;
   hall: string | null;
   booth: string | null;
   company_name: string | null;
   industry: string | null;
+  company_size: string | null;
+  hq_city: string | null;
+  website: string | null;
   company_background: string | null;
   contact_name: string | null;
   contact_title: string | null;
+  contact_department: string | null;
   phone: string | null;
   wechat: string | null;
   email: string | null;
@@ -28,7 +36,7 @@ type Row = {
   decision_role: string | null;
   budget_signal: string | null;
   timing_signal: string | null;
-  existing_vendor: string | null;
+  current_vendor: string | null;
   priority: string;
   signals: string[] | null;
   score: number | null;
@@ -47,12 +55,18 @@ type Row = {
   updated_at: string;
 };
 
-function rowToLead(r: Row): ExpoLead {
+function rowToLead(r: Row): Lead {
   const raw = r.raw_note ?? "";
   return {
     id: r.id,
+    source: r.source as CustomerSource,
+    sourceDate: r.source_date ?? undefined,
+    sourceDetail: r.source_detail ?? undefined,
     company: r.company_name ?? "",
     industry: r.industry ?? undefined,
+    companySize: r.company_size ?? undefined,
+    hqCity: r.hq_city ?? undefined,
+    website: r.website ?? undefined,
     companyBackground: r.company_background ?? undefined,
     eventName: r.event_name ?? undefined,
     eventDate: r.event_date ?? undefined,
@@ -60,11 +74,12 @@ function rowToLead(r: Row): ExpoLead {
     booth: r.booth ?? undefined,
     contactName: r.contact_name ?? "",
     contactTitle: r.contact_title ?? undefined,
+    contactDepartment: r.contact_department ?? undefined,
     phone: r.phone ?? undefined,
     wechat: r.wechat ?? undefined,
     email: r.email ?? undefined,
-    priority: (r.priority as ExpoPriority) ?? "unrated",
-    status: (r.status as ExpoStatus) ?? "to_organize",
+    priority: (r.priority as LeadPriority) ?? "unrated",
+    status: (r.status as LeadStatus) ?? "to_organize",
     headline: deriveHeadline(raw),
     rawNote: raw,
     summary: r.conversation_summary ?? undefined,
@@ -74,7 +89,7 @@ function rowToLead(r: Row): ExpoLead {
     decisionRole: r.decision_role ?? undefined,
     budgetSignal: r.budget_signal ?? undefined,
     timeline: r.timing_signal ?? undefined,
-    currentVendor: r.existing_vendor ?? undefined,
+    currentVendor: r.current_vendor ?? undefined,
     priorityReason: r.score_reason ?? undefined,
     score: r.score ?? undefined,
     signals: r.signals ?? [],
@@ -92,10 +107,13 @@ function rowToLead(r: Row): ExpoLead {
 }
 
 export interface NewLeadInput {
+  source?: CustomerSource;
+  sourceDate?: string;
+  sourceDetail?: string;
   company: string;
   rawNote: string;
-  priority: ExpoPriority;
-  status?: ExpoStatus;
+  priority: LeadPriority;
+  status?: LeadStatus;
   signals: string[];
   nextAction: string;
   nextActionDate: string;
@@ -103,8 +121,14 @@ export interface NewLeadInput {
 
 // All editable fields for detail-page updates.
 export interface UpdateLeadInput {
+  source?: CustomerSource;
+  sourceDate?: string;
+  sourceDetail?: string;
   company?: string;
   industry?: string;
+  companySize?: string;
+  hqCity?: string;
+  website?: string;
   companyBackground?: string;
   eventName?: string;
   eventDate?: string;
@@ -112,6 +136,7 @@ export interface UpdateLeadInput {
   booth?: string;
   contactName?: string;
   contactTitle?: string;
+  contactDepartment?: string;
   phone?: string;
   wechat?: string;
   email?: string;
@@ -125,8 +150,8 @@ export interface UpdateLeadInput {
   timeline?: string;
   currentVendor?: string;
   priorityReason?: string;
-  priority?: ExpoPriority;
-  status?: ExpoStatus;
+  priority?: LeadPriority;
+  status?: LeadStatus;
   signals?: string[];
   nextAction?: string;
   nextActionDate?: string;
@@ -136,13 +161,18 @@ export interface UpdateLeadInput {
 // Fields → column mapping. Text fields: empty string ⇒ null.
 const TEXT_MAP: Record<string, string> = {
   company: "company_name",
+  sourceDetail: "source_detail",
   industry: "industry",
+  companySize: "company_size",
+  hqCity: "hq_city",
+  website: "website",
   companyBackground: "company_background",
   eventName: "event_name",
   hall: "hall",
   booth: "booth",
   contactName: "contact_name",
   contactTitle: "contact_title",
+  contactDepartment: "contact_department",
   phone: "phone",
   wechat: "wechat",
   email: "email",
@@ -154,26 +184,26 @@ const TEXT_MAP: Record<string, string> = {
   decisionRole: "decision_role",
   budgetSignal: "budget_signal",
   timeline: "timing_signal",
-  currentVendor: "existing_vendor",
+  currentVendor: "current_vendor",
   priorityReason: "score_reason",
 };
 
-export async function listLeads(): Promise<ExpoLead[]> {
+export async function listLeads(): Promise<Lead[]> {
   const { data, error } = await supabase
-    .from("expo_leads")
+    .from("leads")
     .select("*")
     .order("created_at", { ascending: false });
   if (error) throw error;
   return ((data ?? []) as Row[]).map(rowToLead);
 }
 
-export async function getLead(id: string): Promise<ExpoLead | null> {
-  const { data, error } = await supabase.from("expo_leads").select("*").eq("id", id).maybeSingle();
+export async function getLead(id: string): Promise<Lead | null> {
+  const { data, error } = await supabase.from("leads").select("*").eq("id", id).maybeSingle();
   if (error) throw error;
   return data ? rowToLead(data as Row) : null;
 }
 
-export async function createLead(input: NewLeadInput): Promise<ExpoLead> {
+export async function createLead(input: NewLeadInput): Promise<Lead> {
   const { data: userData, error: authErr } = await supabase.auth.getUser();
   if (authErr) throw authErr;
   const uid = userData.user?.id;
@@ -181,6 +211,9 @@ export async function createLead(input: NewLeadInput): Promise<ExpoLead> {
 
   const row = {
     user_id: uid,
+    source: input.source ?? "expo",
+    source_date: input.sourceDate || null,
+    source_detail: input.sourceDetail?.trim() || null,
     company_name: input.company.trim() || null,
     raw_note: input.rawNote.trim() || null,
     priority: input.priority,
@@ -189,12 +222,12 @@ export async function createLead(input: NewLeadInput): Promise<ExpoLead> {
     next_action: input.nextAction.trim() || null,
     next_action_date: input.nextActionDate || null,
   };
-  const { data, error } = await supabase.from("expo_leads").insert(row).select("*").single();
+  const { data, error } = await supabase.from("leads").insert(row).select("*").single();
   if (error) throw error;
   return rowToLead(data as Row);
 }
 
-export async function updateLead(id: string, patch: UpdateLeadInput): Promise<ExpoLead> {
+export async function updateLead(id: string, patch: UpdateLeadInput): Promise<Lead> {
   const update: Record<string, unknown> = {};
 
   for (const [k, col] of Object.entries(TEXT_MAP)) {
@@ -206,6 +239,8 @@ export async function updateLead(id: string, patch: UpdateLeadInput): Promise<Ex
 
   if (patch.priority !== undefined) update.priority = patch.priority;
   if (patch.status !== undefined) update.status = patch.status;
+  if (patch.source !== undefined) update.source = patch.source;
+  if (patch.sourceDate !== undefined) update.source_date = patch.sourceDate || null;
   if (patch.signals !== undefined) update.signals = patch.signals;
   if (patch.eventDate !== undefined) update.event_date = patch.eventDate || null;
 
@@ -233,7 +268,7 @@ export async function updateLead(id: string, patch: UpdateLeadInput): Promise<Ex
   }
 
   const { data, error } = await supabase
-    .from("expo_leads")
+    .from("leads")
     .update(update)
     .eq("id", id)
     .select("*")
@@ -243,14 +278,14 @@ export async function updateLead(id: string, patch: UpdateLeadInput): Promise<Ex
 }
 
 export async function deleteLead(id: string): Promise<void> {
-  const { error } = await supabase.from("expo_leads").delete().eq("id", id);
+  const { error } = await supabase.from("leads").delete().eq("id", id);
   if (error) throw error;
 }
 
 // Extract unique companies from user's own leads (for autocomplete).
 export async function listUserCompanies(): Promise<string[]> {
   const { data, error } = await supabase
-    .from("expo_leads")
+    .from("leads")
     .select("company_name")
     .not("company_name", "is", null)
     .order("created_at", { ascending: false })
@@ -270,11 +305,11 @@ export async function listUserCompanies(): Promise<string[]> {
 
 /**
  * 标记线索已转化：写入 converted_customer_id，并把状态改为 converted。
- * 由 customerRepository.convertExpoLeadToCustomer 在创建客户成功后调用。
+ * 由 customerRepository.convertLeadToCustomer 在创建客户成功后调用。
  */
-export async function markLeadConverted(leadId: string, customerId: string): Promise<ExpoLead> {
+export async function markLeadConverted(leadId: string, customerId: string): Promise<Lead> {
   const { data, error } = await supabase
-    .from("expo_leads")
+    .from("leads")
     .update({ converted_customer_id: customerId, status: "converted" })
     .eq("id", leadId)
     .select("*")

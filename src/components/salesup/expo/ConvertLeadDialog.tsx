@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { ArrowRight, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { convertExpoLeadToCustomer } from "@/lib/salesup/customerRepository";
+import { convertLeadToCustomer } from "@/lib/salesup/customerRepository";
 import {
   ROLE_LABEL,
   STAGE_LABEL,
@@ -14,10 +14,10 @@ import {
   type CustomerStage,
   type DecisionRole,
 } from "@/lib/salesup/customerTypes";
-import type { ExpoLead } from "@/lib/salesup/expoMock";
+import type { Lead } from "@/lib/salesup/expoMock";
 
 interface Props {
-  lead: ExpoLead;
+  lead: Lead;
   onClose: () => void;
   onConverted?: (customer: Customer) => void;
 }
@@ -101,8 +101,8 @@ export function ConvertLeadDialog({ lead, onClose, onConverted }: Props) {
     setSaving(true);
     setError(null);
     try {
-      const customer = await convertExpoLeadToCustomer({
-        expoLeadId: lead.id,
+      const customer = await convertLeadToCustomer({
+        leadId: lead.id,
         companyName: form.companyName,
         industry: form.industry,
         companyBackground: form.companyBackground,

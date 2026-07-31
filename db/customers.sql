@@ -1,7 +1,7 @@
 -- Phase 4: customers + stage_history for the 客户看板 / 商机跟进 module.
 --
--- PREREQUISITE: db/expo_leads.sql must have been run first
---   (customers.expo_lead_id references public.expo_leads).
+-- PREREQUISITE: db/leads.sql must have been run first
+--   (customers.lead_id references public.leads).
 --
 -- HOW TO RUN (this project uses an external Supabase, not Lovable Cloud):
 --   1. Open Supabase Dashboard → SQL Editor → New query
@@ -39,7 +39,7 @@ create table if not exists public.customers (
   source_detail text,        -- 展会名 / 分配人 / 名单批次 / 推荐人姓名
   source_date date,          -- 拿到这条线索的日期
   claim_expires_at date,     -- 名单认领有效期（仅 list_claimed 用）
-  expo_lead_id uuid references public.expo_leads(id) on delete set null,
+  lead_id uuid references public.leads(id) on delete set null,
 
   -- === 公司层 ===============================================================
   company_name text not null,
@@ -73,9 +73,8 @@ create table if not exists public.customers (
 
   -- === 商机层（将来整体迁出到 opportunities） =================================
   product_lines text[] not null default '{}',     -- WiseMonitor / WiseBI / ...
-  stage text not null default 'to_contact'
+  stage text not null default 'opportunity_confirmed'
     check (stage in (
-      'to_contact',            -- 待建联     0%
       'opportunity_confirmed', -- 机会确认   10%
       'need_confirmed',        -- 需求确认   20%
       'solution_confirmed',    -- 方案确认   40%
@@ -209,15 +208,15 @@ create index if not exists idx_stage_history_user_changed
   on public.stage_history (user_id, changed_at desc);
 
 -- ---------------------------------------------------------------------------
--- expo_leads 回链：防止同一条线索被重复转化成客户
+-- leads 回链：防止同一条线索被重复转化成客户
 -- ---------------------------------------------------------------------------
 
-alter table public.expo_leads
+alter table public.leads
   add column if not exists converted_customer_id uuid
     references public.customers(id) on delete set null;
 
-create index if not exists idx_expo_leads_converted
-  on public.expo_leads (user_id, converted_customer_id);
+create index if not exists idx_leads_converted
+  on public.leads (user_id, converted_customer_id);
 
 -- ---------------------------------------------------------------------------
 -- Phase 4.1: preserve structured discovery fields during expo conversion and
@@ -229,6 +228,6 @@ alter table public.customers
   add column if not exists needs text,
   add column if not exists key_info text;
 
-create unique index if not exists uq_customers_expo_lead
-  on public.customers (expo_lead_id)
-  where expo_lead_id is not null;
+create unique index if not exists uq_customers_lead
+  on public.customers (lead_id)
+  where lead_id is not null;

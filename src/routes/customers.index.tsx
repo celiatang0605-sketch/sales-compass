@@ -49,7 +49,7 @@ import {
   type CustomerStage,
 } from "@/lib/salesup/customerTypes";
 
-const BOARD_STAGES = STAGE_ORDER.filter((stage) => stage !== "to_contact");
+const BOARD_STAGES = STAGE_ORDER;
 const CUSTOMER_VIEW_STORAGE_KEY = "salesup:customers:view";
 type CustomerView = "board" | "table";
 
@@ -143,24 +143,14 @@ function CustomersBoardPage() {
       if (isStale(c)) stalled += 1;
     }
     return {
-      total: filtered.filter((c) => c.stage !== "to_contact").length,
+      total: filtered.length,
       followupToday,
       stalled,
     };
   }, [filtered, today]);
 
-  const toContactCustomers = useMemo(
-    () =>
-      filtered
-        .filter((c) => c.stage === "to_contact")
-        .sort((a, b) => acquiredDays(b, today) - acquiredDays(a, today)),
-    [filtered, today],
-  );
-
-  const boardCustomers = useMemo(
-    () => filtered.filter((c) => c.stage !== "to_contact"),
-    [filtered],
-  );
+  const legacyIntakeCustomers: Customer[] = [];
+  const boardCustomers = filtered;
 
   const columns = useMemo(
     () =>
@@ -332,8 +322,8 @@ function CustomersBoardPage() {
       )}
 
       {showBoard && view === "board" && (
-        <ToContactBar
-          customers={toContactCustomers}
+        <LegacyIntakeBar
+          customers={legacyIntakeCustomers}
           today={today}
           onStartFollowup={(customer) =>
             setStageTarget({ customer, stage: "opportunity_confirmed" })
@@ -422,7 +412,7 @@ function CustomersBoardPage() {
   );
 }
 
-function ToContactBar({
+function LegacyIntakeBar({
   customers,
   today,
   onStartFollowup,
