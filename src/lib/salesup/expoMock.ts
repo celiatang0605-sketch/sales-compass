@@ -1,4 +1,4 @@
-// Types + labels + optional mock data for the 展会线索 module.
+// Types + labels + optional mock data for the 线索池 module.
 // Phase 3: MOCK_LEADS is kept for the company autocomplete pool ONLY.
 // It must NOT be rendered as real leads on the /expo pages.
 

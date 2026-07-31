@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/salesup/AppShell";
 import { addDays, todayKey } from "@/lib/salesup/date";
 import { PRIORITY_LABEL, type LeadPriority } from "@/lib/salesup/expoMock";
+import { SOURCE_LABEL, SOURCE_ORDER, type CustomerSource } from "@/lib/salesup/customerTypes";
 import {
   clearDraft,
   getDraft,
@@ -27,7 +28,7 @@ import { useLeads } from "@/lib/salesup/useLeads";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/expo/new")({
-  head: () => ({ meta: [{ title: "快速记录 · 展会线索" }] }),
+  head: () => ({ meta: [{ title: "新建线索 · 线索池" }] }),
   component: ExpoNewPage,
 });
 
@@ -59,11 +60,40 @@ function offsetDate(days: number): string {
   return addDays(todayKey(), days);
 }
 
-const emptyForm = () => ({
+type NewLeadForm = {
+  source: CustomerSource | "";
+  company: string;
+  raw: string;
+  hqCity: string;
+  companySize: string;
+  contactDepartment: string;
+  website: string;
+  eventName: string;
+  eventDate: string;
+  hall: string;
+  booth: string;
+  businessCardUrl: string;
+  priority: LeadPriority;
+  signals: string[];
+  nextAction: string;
+  nextDate: string;
+};
+
+const emptyForm = (): NewLeadForm => ({
+  source: "",
   company: "",
   raw: "",
-  priority: "unrated" as LeadPriority,
-  signals: [] as string[],
+  hqCity: "",
+  companySize: "",
+  contactDepartment: "",
+  website: "",
+  eventName: "",
+  eventDate: "",
+  hall: "",
+  booth: "",
+  businessCardUrl: "",
+  priority: "unrated",
+  signals: [],
   nextAction: "",
   nextDate: "",
 });
@@ -101,7 +131,8 @@ function ExpoNewPage() {
         !form.raw.trim() &&
         !form.nextAction.trim() &&
         form.signals.length === 0 &&
-        form.priority === "unrated";
+        form.priority === "unrated" &&
+        !form.source;
       if (isEmpty) return;
       const d: ExpoDraft = { ...form, updatedAt: Date.now() };
       saveDraft(userId, d);
@@ -114,7 +145,8 @@ function ExpoNewPage() {
     return searchCompanies(form.company, historyCompanies);
   }, [form.company, companyFocus, historyCompanies]);
 
-  const canSave = form.company.trim().length > 0 || form.raw.trim().length > 0;
+  const canSave =
+    Boolean(form.source) && (form.company.trim().length > 0 || form.raw.trim().length > 0);
 
   // Today counts from actual Supabase data.
   const today = todayKey();
@@ -123,7 +155,7 @@ function ExpoNewPage() {
     return {
       total: todays.length,
       A: todays.filter((l) => l.priority === "A").length,
-      toOrganize: todays.filter((l) => l.status === "to_organize").length,
+      toOrganize: todays.filter((l) => l.source === "expo" && l.status === "to_organize").length,
     };
   }, [leads, today]);
 
@@ -140,22 +172,41 @@ function ExpoNewPage() {
   };
 
   const doSave = async (mode: "back" | "again" | "later") => {
-    if (!canSave || saving) return;
+    if (saving) return;
+    if (!form.source) {
+      toast.error("请选择线索来源");
+      return;
+    }
+    if (!canSave) return;
     if (!userId) {
       toast.error("请先登录再保存线索");
       navigate({ to: "/auth" });
       return;
     }
-    const isLater = mode === "later";
+    const shouldOrganize = mode === "later" && form.source === "expo";
     setSaving(true);
     try {
       const nextActionTrimmed = form.nextAction.trim();
-      const hasNextAction = !isLater && nextActionTrimmed.length > 0;
+      const hasNextAction = !shouldOrganize && nextActionTrimmed.length > 0;
       await createLead({
+        source: form.source,
         company: form.company,
         rawNote: form.raw,
-        priority: isLater ? "unrated" : form.priority,
-        status: isLater ? "to_organize" : "to_follow_up",
+        companySize: form.companySize,
+        hqCity: form.hqCity,
+        contactDepartment: form.contactDepartment,
+        website: form.website,
+        ...(form.source === "expo"
+          ? {
+              eventName: form.eventName,
+              eventDate: form.eventDate,
+              hall: form.hall,
+              booth: form.booth,
+              businessCardUrl: form.businessCardUrl,
+            }
+          : {}),
+        priority: shouldOrganize ? "unrated" : form.priority,
+        status: shouldOrganize ? "to_organize" : "to_follow_up",
         signals: form.signals,
         nextAction: hasNextAction ? nextActionTrimmed : "",
         nextActionDate: hasNextAction ? form.nextDate : "",
@@ -190,8 +241,18 @@ function ExpoNewPage() {
   const applyDraft = () => {
     if (!draftPrompt) return;
     setForm({
+      source: draftPrompt.source ?? "",
       company: draftPrompt.company ?? "",
       raw: draftPrompt.raw ?? "",
+      hqCity: draftPrompt.hqCity ?? "",
+      companySize: draftPrompt.companySize ?? "",
+      contactDepartment: draftPrompt.contactDepartment ?? "",
+      website: draftPrompt.website ?? "",
+      eventName: draftPrompt.eventName ?? "",
+      eventDate: draftPrompt.eventDate ?? "",
+      hall: draftPrompt.hall ?? "",
+      booth: draftPrompt.booth ?? "",
+      businessCardUrl: draftPrompt.businessCardUrl ?? "",
       priority: draftPrompt.priority ?? "unrated",
       signals: draftPrompt.signals ?? [],
       nextAction: draftPrompt.nextAction ?? "",
@@ -256,11 +317,36 @@ function ExpoNewPage() {
         )}
 
         <div className="mb-3">
-          <h1 className="text-xl md:text-2xl font-semibold tracking-tight">快速记录</h1>
-          <p className="text-xs text-muted-foreground mt-1">现场先把关键信息落下来，回去再补齐。</p>
+          <h1 className="text-xl md:text-2xl font-semibold tracking-tight">新建线索</h1>
+          <p className="text-xs text-muted-foreground mt-1">
+            记录未验证线索，完成初步接触后再转为客户。
+          </p>
         </div>
 
         <div className="space-y-4 rounded-xl border border-border bg-card p-4 md:p-5">
+          <Field label="来源（必选）">
+            <div className="flex gap-1.5 flex-wrap">
+              {SOURCE_ORDER.map((source) => {
+                const active = form.source === source;
+                return (
+                  <button
+                    key={source}
+                    type="button"
+                    onClick={() => patch({ source })}
+                    className={cn(
+                      "px-3 min-h-9 rounded-full border text-xs transition",
+                      active
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background text-muted-foreground border-border hover:text-foreground",
+                    )}
+                  >
+                    {SOURCE_LABEL[source]}
+                  </button>
+                );
+              })}
+            </div>
+          </Field>
+
           <Field label="公司 / 线索名称">
             <div className="relative">
               <input
@@ -294,7 +380,75 @@ function ExpoNewPage() {
             </div>
           </Field>
 
-          <Field label="原始现场记录" hint="现场简讯 / 关键词">
+          <Field label="基础信息">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <input
+                value={form.hqCity}
+                onChange={(e) => patch({ hqCity: e.target.value })}
+                placeholder="总部城市"
+                className="w-full h-11 px-3 rounded-lg border border-border bg-background text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40"
+              />
+              <input
+                value={form.companySize}
+                onChange={(e) => patch({ companySize: e.target.value })}
+                placeholder="公司规模"
+                className="w-full h-11 px-3 rounded-lg border border-border bg-background text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40"
+              />
+              <input
+                value={form.contactDepartment}
+                onChange={(e) => patch({ contactDepartment: e.target.value })}
+                placeholder="联系人部门"
+                className="w-full h-11 px-3 rounded-lg border border-border bg-background text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40"
+              />
+              <input
+                type="url"
+                value={form.website}
+                onChange={(e) => patch({ website: e.target.value })}
+                placeholder="官网"
+                className="w-full h-11 px-3 rounded-lg border border-border bg-background text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40"
+              />
+            </div>
+          </Field>
+
+          {form.source === "expo" && (
+            <Field label="展会信息">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <input
+                  value={form.eventName}
+                  onChange={(e) => patch({ eventName: e.target.value })}
+                  placeholder="展会名称"
+                  className="w-full h-11 px-3 rounded-lg border border-border bg-background text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40"
+                />
+                <input
+                  type="date"
+                  value={form.eventDate}
+                  onChange={(e) => patch({ eventDate: e.target.value })}
+                  className="w-full h-11 px-3 rounded-lg border border-border bg-background text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40"
+                />
+                <input
+                  value={form.hall}
+                  onChange={(e) => patch({ hall: e.target.value })}
+                  placeholder="展馆"
+                  className="w-full h-11 px-3 rounded-lg border border-border bg-background text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40"
+                />
+                <input
+                  value={form.booth}
+                  onChange={(e) => patch({ booth: e.target.value })}
+                  placeholder="展位"
+                  className="w-full h-11 px-3 rounded-lg border border-border bg-background text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40"
+                />
+                <input
+                  type="url"
+                  value={form.businessCardUrl}
+                  onChange={(e) => patch({ businessCardUrl: e.target.value })}
+                  placeholder="名片照片链接"
+                  className="w-full h-11 px-3 rounded-lg border border-border bg-background text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 md:col-span-2"
+                />
+              </div>
+            </Field>
+          )}
+
+          <Field label="原始线索记录" hint="初步信息 / 关键词">
             <textarea
               value={form.raw}
               onChange={(e) => patch({ raw: e.target.value })}
@@ -304,8 +458,10 @@ function ExpoNewPage() {
             />
             <div className="mt-2 flex gap-1.5 flex-wrap">
               <QuickIcon icon={Mic} label="语音记录" onClick={stub} />
-              <QuickIcon icon={CreditCard} label="拍名片" onClick={stub} />
-              <QuickIcon icon={Camera} label="拍照片" onClick={stub} />
+              {form.source === "expo" && (
+                <QuickIcon icon={CreditCard} label="拍名片" onClick={stub} />
+              )}
+              {form.source === "expo" && <QuickIcon icon={Camera} label="拍照片" onClick={stub} />}
             </div>
           </Field>
 
@@ -332,7 +488,7 @@ function ExpoNewPage() {
             </div>
           </Field>
 
-          <Field label="现场信号" hint="可多选">
+          <Field label="线索信号" hint="可多选">
             <div className="flex gap-1.5 flex-wrap">
               {SIGNAL_OPTIONS.map((s) => {
                 const active = form.signals.includes(s);
@@ -418,16 +574,18 @@ function ExpoNewPage() {
             />
           </Field>
 
-          <div className="pt-1">
-            <button
-              type="button"
-              onClick={() => void doSave("later")}
-              disabled={!canSave || saving}
-              className="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground disabled:opacity-40"
-            >
-              先记下来，稍后整理
-            </button>
-          </div>
+          {form.source === "expo" && (
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => void doSave("later")}
+                disabled={!canSave || saving}
+                className="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground disabled:opacity-40"
+              >
+                先记下来，稍后整理
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Desktop action bar */}

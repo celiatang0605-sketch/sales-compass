@@ -1,4 +1,4 @@
-// 展会线索 → 客户 的确认弹窗。
+// 线索 → 客户 的确认弹窗。
 // 数据层调用全部走 customerRepository，组件内不直接调 supabase。
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { convertLeadToCustomer } from "@/lib/salesup/customerRepository";
 import {
   ROLE_LABEL,
+  SOURCE_LABEL,
   STAGE_LABEL,
   STAGE_ORDER,
   type Customer,
@@ -76,8 +77,8 @@ export function ConvertLeadDialog({ lead, onClose, onConverted }: Props) {
     currentVendor: lead.currentVendor ?? "",
     nextAction: lead.nextAction ?? "",
     nextActionDate: lead.nextActionDate ?? "",
-    sourceDetail: lead.eventName ?? "",
-    sourceDate: lead.eventDate ?? "",
+    sourceDetail: lead.sourceDetail ?? lead.eventName ?? "",
+    sourceDate: lead.sourceDate ?? lead.eventDate ?? "",
     stage: "opportunity_confirmed",
   });
 
@@ -103,6 +104,7 @@ export function ConvertLeadDialog({ lead, onClose, onConverted }: Props) {
     try {
       const customer = await convertLeadToCustomer({
         leadId: lead.id,
+        source: lead.source,
         companyName: form.companyName,
         industry: form.industry,
         companyBackground: form.companyBackground,
@@ -148,7 +150,7 @@ export function ConvertLeadDialog({ lead, onClose, onConverted }: Props) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
               <ArrowRight className="w-3.5 h-3.5" />
-              展会线索 转为 客户
+              线索 转为 客户
             </div>
             <div className="mt-1 text-sm font-medium truncate">
               {lead.company || "(未命名线索)"}
@@ -166,7 +168,7 @@ export function ConvertLeadDialog({ lead, onClose, onConverted }: Props) {
 
         <div className="px-4 py-3 space-y-3">
           <p className="text-xs text-muted-foreground">
-            以下字段已从线索预填，可在此调整；来源固定为「展会建联」。
+            以下字段已从线索预填，可在此调整；来源固定为「{SOURCE_LABEL[lead.source]}」。
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
@@ -250,7 +252,7 @@ export function ConvertLeadDialog({ lead, onClose, onConverted }: Props) {
               </select>
             </div>
             <TextField
-              label="来源说明（展会名称）"
+              label="来源说明"
               value={form.sourceDetail}
               onChange={(v) => patch({ sourceDetail: v })}
             />

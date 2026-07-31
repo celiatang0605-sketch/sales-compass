@@ -479,7 +479,7 @@ export async function listTimeBlocksForCustomerOnDate(params: {
 }
 
 // ---------------------------------------------------------------------------
-// 展会线索 → 客户
+// 线索 → 客户
 // ---------------------------------------------------------------------------
 
 export interface ConvertLeadInput extends NewCustomerInput {
@@ -488,19 +488,19 @@ export interface ConvertLeadInput extends NewCustomerInput {
 }
 
 /**
- * 由展会线索创建客户：
- * 1. 建 customers 行（source 固定 expo，记录 lead_id）
+ * 由线索创建客户：
+ * 1. 建 customers 行（继承线索来源，记录 lead_id）
  * 2. 写一条建档 stage_history
  * 3. 回写 leads.converted_customer_id 并把 status 置为 converted
  */
 export async function convertLeadToCustomer(input: ConvertLeadInput): Promise<Customer> {
   const { markLeadConverted } = await import("./expoRepository");
-  const customer = await createCustomer({ ...input, source: "expo" });
+  const customer = await createCustomer(input);
   await insertStageHistory({
     customerId: customer.id,
     fromStage: null,
     toStage: customer.stage,
-    reason: "由展会线索转化建档",
+    reason: "由线索转化建档",
     relatedBlockId: null,
   });
   await markLeadConverted(input.leadId, customer.id);

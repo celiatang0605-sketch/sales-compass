@@ -7,14 +7,25 @@
 import { supabase } from "@/integrations/supabase/client";
 import { createLead } from "./expoRepository";
 import { MOCK_COMPANY_POOL, type LeadPriority } from "./expoMock";
+import type { CustomerSource } from "./customerTypes";
 
 export const LEGACY_LS_KEY_LEADS = "salesup.expo.leads.v1";
 const DRAFT_KEY_PREFIX = "salesup.expo.new.draft.v1";
 const LEGACY_MIGRATED_FLAG = "salesup.expo.legacy.migrated.v1";
 
 export interface ExpoDraft {
+  source?: CustomerSource | "";
   company: string;
   raw: string;
+  hqCity?: string;
+  companySize?: string;
+  contactDepartment?: string;
+  website?: string;
+  eventName?: string;
+  eventDate?: string;
+  hall?: string;
+  booth?: string;
+  businessCardUrl?: string;
   priority: LeadPriority;
   signals: string[];
   nextAction: string;
@@ -47,7 +58,8 @@ function isDraftEmpty(d: ExpoDraft): boolean {
     !d.raw?.trim() &&
     !d.nextAction?.trim() &&
     (!d.signals || d.signals.length === 0) &&
-    (!d.priority || d.priority === "unrated")
+    (!d.priority || d.priority === "unrated") &&
+    !d.source
   );
 }
 
@@ -141,6 +153,7 @@ export async function importLegacyLocalLeads(userId: string): Promise<{
         LEGACY_PRIORITIES.has(l.rating ?? "") ? l.rating : "unrated"
       ) as LeadPriority;
       await createLead({
+        source: "expo",
         company: l.company ?? "",
         rawNote: l.rawNote ?? "",
         priority,

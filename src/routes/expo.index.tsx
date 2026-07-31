@@ -27,6 +27,7 @@ import {
 } from "@/lib/salesup/expoMock";
 import { todayKey } from "@/lib/salesup/date";
 import { useLeads } from "@/lib/salesup/useLeads";
+import { SOURCE_LABEL, SOURCE_ORDER, type CustomerSource } from "@/lib/salesup/customerTypes";
 import {
   countLegacyLocalLeads,
   hasLegacyLocalLeads,
@@ -37,10 +38,10 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/expo/")({
   head: () => ({
     meta: [
-      { title: "展会线索 · Sales Up" },
+      { title: "线索池 · Sales Up" },
       {
         name: "description",
-        content: "快速记录展会现场信息，整理高价值客户并推进下一步。",
+        content: "集中管理各来源的未验证线索，完成初步接触后再转为客户。",
       },
     ],
   }),
@@ -52,6 +53,7 @@ const PRIORITY_FILTERS: (LeadPriority | "all")[] = ["all", "A", "B", "C", "D", "
 function ExpoIndexPage() {
   const [q, setQ] = useState("");
   const [priority, setPriority] = useState<LeadPriority | "all">("all");
+  const [sources, setSources] = useState<CustomerSource[]>([]);
   const today = todayKey();
   const { leads, loading, error, userId, refresh } = useLeads();
 
@@ -77,7 +79,9 @@ function ExpoIndexPage() {
 
   const stats = useMemo(() => {
     const todayNew = leads.filter((l) => l.createdAt === today).length;
-    const toOrganize = leads.filter((l) => l.status === "to_organize").length;
+    const toOrganize = leads.filter(
+      (l) => l.source === "expo" && l.status === "to_organize",
+    ).length;
     const highPriority = leads.filter((l) => l.priority === "A").length;
     const followups = leads.filter((l) => isActiveFollowup(l, today)).length;
     return { todayNew, toOrganize, highPriority, followups };
@@ -87,6 +91,7 @@ function ExpoIndexPage() {
     const kw = q.trim().toLowerCase();
     return leads.filter((l) => {
       if (priority !== "all" && l.priority !== priority) return false;
+      if (sources.length > 0 && !sources.includes(l.source)) return false;
       if (!kw) return true;
       return (
         l.company.toLowerCase().includes(kw) ||
@@ -94,7 +99,13 @@ function ExpoIndexPage() {
         l.headline.toLowerCase().includes(kw)
       );
     });
-  }, [leads, q, priority]);
+  }, [leads, q, priority, sources]);
+
+  const toggleSource = (source: CustomerSource) => {
+    setSources((current) =>
+      current.includes(source) ? current.filter((item) => item !== source) : [...current, source],
+    );
+  };
 
   const runImport = async () => {
     if (!userId || importing) return;
@@ -119,9 +130,9 @@ function ExpoIndexPage() {
     <AppShell>
       {/* Header */}
       <div className="mb-4 md:mb-6">
-        <h1 className="text-xl md:text-2xl font-semibold tracking-tight">展会线索</h1>
+        <h1 className="text-xl md:text-2xl font-semibold tracking-tight">线索池</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          快速记录现场信息，整理高价值客户并推进下一步。
+          集中管理各来源的未验证线索，完成初步接触后再转为客户。
         </p>
       </div>
 
@@ -130,9 +141,7 @@ function ExpoIndexPage() {
         <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 md:p-4 flex items-start gap-3">
           <Database className="w-4 h-4 text-amber-700 mt-0.5 shrink-0" />
           <div className="flex-1 min-w-0 text-sm">
-            <div className="font-medium text-amber-900">
-              发现 {legacyCount} 条本地保存的展会线索
-            </div>
+            <div className="font-medium text-amber-900">发现 {legacyCount} 条本地保存的线索</div>
             <div className="text-xs text-amber-800/80 mt-0.5">
               这些是 Phase 2 阶段暂存在浏览器里的记录。点击下方按钮导入到当前账号。
             </div>
@@ -216,12 +225,33 @@ function ExpoIndexPage() {
         })}
       </div>
 
+      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 mb-4">
+        <span className="shrink-0 text-xs text-muted-foreground">来源</span>
+        {SOURCE_ORDER.map((source) => {
+          const active = sources.includes(source);
+          return (
+            <button
+              key={source}
+              onClick={() => toggleSource(source)}
+              className={cn(
+                "shrink-0 px-3 h-8 rounded-full text-xs border transition",
+                active
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background text-muted-foreground border-border hover:text-foreground",
+              )}
+            >
+              {SOURCE_LABEL[source]}
+            </button>
+          );
+        })}
+      </div>
+
       {/* List */}
       <section id="all-leads" className="space-y-2.5 pb-24 md:pb-6">
         {!userId && !loading && (
           <EmptyState
             title="请先登录"
-            hint="展会线索按账号保存到云端。"
+            hint="线索按账号保存到云端。"
             action={{ to: "/auth", label: "去登录" }}
           />
         )}
@@ -247,7 +277,7 @@ function ExpoIndexPage() {
         {userId && !loading && !error && list.length === 0 && (
           <EmptyState
             title={leads.length === 0 ? "还没有线索" : "没有匹配的线索"}
-            hint={leads.length === 0 ? "去展会现场记录第一条吧。" : undefined}
+            hint={leads.length === 0 ? "开始记录第一条线索吧。" : undefined}
             action={leads.length === 0 ? { to: "/expo/new", label: "开始快速记录" } : undefined}
           />
         )}
@@ -344,6 +374,9 @@ function LeadCard({ lead }: { lead: Lead }) {
               )}
             >
               {PRIORITY_LABEL[lead.priority]}
+            </span>
+            <span className="px-1.5 h-5 inline-flex items-center rounded bg-secondary text-secondary-foreground text-[10px]">
+              {SOURCE_LABEL[lead.source]}
             </span>
             <span className="px-1.5 h-5 inline-flex items-center rounded bg-secondary text-secondary-foreground text-[10px]">
               {STATUS_LABEL[lead.status]}

@@ -31,7 +31,7 @@ export function useLeads(): LeadsState {
       const list = await listLeads();
       setLeads(list);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "读取展会线索失败";
+      const msg = e instanceof Error ? e.message : "读取线索失败";
       setError(msg);
       setLeads([]);
     } finally {

@@ -107,10 +107,19 @@ function rowToLead(r: Row): Lead {
 }
 
 export interface NewLeadInput {
-  source?: CustomerSource;
+  source: CustomerSource;
   sourceDate?: string;
   sourceDetail?: string;
   company: string;
+  companySize?: string;
+  hqCity?: string;
+  website?: string;
+  contactDepartment?: string;
+  eventName?: string;
+  eventDate?: string;
+  hall?: string;
+  booth?: string;
+  businessCardUrl?: string;
   rawNote: string;
   priority: LeadPriority;
   status?: LeadStatus;
@@ -134,6 +143,7 @@ export interface UpdateLeadInput {
   eventDate?: string;
   hall?: string;
   booth?: string;
+  businessCardUrl?: string;
   contactName?: string;
   contactTitle?: string;
   contactDepartment?: string;
@@ -170,6 +180,7 @@ const TEXT_MAP: Record<string, string> = {
   eventName: "event_name",
   hall: "hall",
   booth: "booth",
+  businessCardUrl: "business_card_url",
   contactName: "contact_name",
   contactTitle: "contact_title",
   contactDepartment: "contact_department",
@@ -211,10 +222,19 @@ export async function createLead(input: NewLeadInput): Promise<Lead> {
 
   const row = {
     user_id: uid,
-    source: input.source ?? "expo",
+    source: input.source,
     source_date: input.sourceDate || null,
     source_detail: input.sourceDetail?.trim() || null,
     company_name: input.company.trim() || null,
+    company_size: input.companySize?.trim() || null,
+    hq_city: input.hqCity?.trim() || null,
+    website: input.website?.trim() || null,
+    contact_department: input.contactDepartment?.trim() || null,
+    event_name: input.eventName?.trim() || null,
+    event_date: input.eventDate || null,
+    hall: input.hall?.trim() || null,
+    booth: input.booth?.trim() || null,
+    business_card_url: input.businessCardUrl?.trim() || null,
     raw_note: input.rawNote.trim() || null,
     priority: input.priority,
     status: input.status ?? "to_follow_up",

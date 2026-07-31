@@ -28,6 +28,7 @@ import {
   type LeadStatus,
 } from "@/lib/salesup/expoMock";
 import { getLead, updateLead, type UpdateLeadInput } from "@/lib/salesup/expoRepository";
+import { SOURCE_LABEL } from "@/lib/salesup/customerTypes";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/expo/$id")({
@@ -82,6 +83,9 @@ const SIGNAL_OPTIONS = [
 interface FormState {
   company: string;
   industry: string;
+  companySize: string;
+  hqCity: string;
+  website: string;
   companyBackground: string;
   eventName: string;
   eventDate: string;
@@ -89,6 +93,7 @@ interface FormState {
   booth: string;
   contactName: string;
   contactTitle: string;
+  contactDepartment: string;
   phone: string;
   wechat: string;
   email: string;
@@ -114,6 +119,9 @@ function leadToForm(l: Lead): FormState {
   return {
     company: l.company ?? "",
     industry: l.industry ?? "",
+    companySize: l.companySize ?? "",
+    hqCity: l.hqCity ?? "",
+    website: l.website ?? "",
     companyBackground: l.companyBackground ?? "",
     eventName: l.eventName ?? "",
     eventDate: l.eventDate ?? "",
@@ -121,6 +129,7 @@ function leadToForm(l: Lead): FormState {
     booth: l.booth ?? "",
     contactName: l.contactName ?? "",
     contactTitle: l.contactTitle ?? "",
+    contactDepartment: l.contactDepartment ?? "",
     phone: l.phone ?? "",
     wechat: l.wechat ?? "",
     email: l.email ?? "",
@@ -381,6 +390,9 @@ function ExpoDetailPage() {
                   {PRIORITY_LABEL[lead.priority]}
                 </span>
                 <span className="px-2 h-6 inline-flex items-center rounded bg-secondary text-secondary-foreground text-xs">
+                  {SOURCE_LABEL[lead.source]}
+                </span>
+                <span className="px-2 h-6 inline-flex items-center rounded bg-secondary text-secondary-foreground text-xs">
                   {STATUS_LABEL[lead.status]}
                 </span>
               </div>
@@ -441,7 +453,6 @@ function ExpoDetailPage() {
           )}
         </div>
 
-        {/* Basic info (展会 + 公司) */}
         <Section title="基础信息">
           {editing && form ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -451,18 +462,41 @@ function ExpoDetailPage() {
                 onChange={(v) => patch({ industry: v })}
               />
               <EditInput
-                label="展会名称"
-                value={form.eventName}
-                onChange={(v) => patch({ eventName: v })}
+                label="公司规模"
+                value={form.companySize}
+                onChange={(v) => patch({ companySize: v })}
               />
               <EditInput
-                label="展会日期"
-                type="date"
-                value={form.eventDate}
-                onChange={(v) => patch({ eventDate: v })}
+                label="总部城市"
+                value={form.hqCity}
+                onChange={(v) => patch({ hqCity: v })}
               />
-              <EditInput label="展馆" value={form.hall} onChange={(v) => patch({ hall: v })} />
-              <EditInput label="展位" value={form.booth} onChange={(v) => patch({ booth: v })} />
+              <EditInput
+                label="官网"
+                value={form.website}
+                onChange={(v) => patch({ website: v })}
+              />
+              {lead.source === "expo" && (
+                <>
+                  <EditInput
+                    label="展会名称"
+                    value={form.eventName}
+                    onChange={(v) => patch({ eventName: v })}
+                  />
+                  <EditInput
+                    label="展会日期"
+                    type="date"
+                    value={form.eventDate}
+                    onChange={(v) => patch({ eventDate: v })}
+                  />
+                  <EditInput label="展馆" value={form.hall} onChange={(v) => patch({ hall: v })} />
+                  <EditInput
+                    label="展位"
+                    value={form.booth}
+                    onChange={(v) => patch({ booth: v })}
+                  />
+                </>
+              )}
               <EditTextarea
                 label="公司背景"
                 value={form.companyBackground}
@@ -473,10 +507,17 @@ function ExpoDetailPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-y-2 gap-x-6">
               <InfoRow label="行业" value={lead.industry} />
-              <InfoRow label="展会名称" value={lead.eventName} />
-              <InfoRow label="展会日期" value={lead.eventDate} />
-              <InfoRow label="展馆" value={lead.hall} />
-              <InfoRow label="展位" value={lead.booth} />
+              <InfoRow label="公司规模" value={lead.companySize} />
+              <InfoRow label="总部城市" value={lead.hqCity} />
+              <InfoRow label="官网" value={lead.website} />
+              {lead.source === "expo" && (
+                <>
+                  <InfoRow label="展会名称" value={lead.eventName} />
+                  <InfoRow label="展会日期" value={lead.eventDate} />
+                  <InfoRow label="展馆" value={lead.hall} />
+                  <InfoRow label="展位" value={lead.booth} />
+                </>
+              )}
               <InfoRow label="公司背景" value={lead.companyBackground} multiline />
             </div>
           )}
@@ -488,17 +529,17 @@ function ExpoDetailPage() {
               value={form.rawNote}
               onChange={(e) => patch({ rawNote: e.target.value })}
               rows={8}
-              placeholder="现场简讯、关键词、追加的补充……"
+              placeholder="初步信息、关键词、追加的补充……"
               className="w-full min-h-[180px] px-3 py-2.5 rounded-lg border border-border bg-background text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 leading-relaxed"
             />
           ) : (
             <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">
-              {lead.rawNote || <span className="text-muted-foreground">现场未记录</span>}
+              {lead.rawNote || <span className="text-muted-foreground">尚未记录</span>}
             </p>
           )}
         </Section>
 
-        <Section title="现场信号" hint="可多选">
+        <Section title="线索信号" hint="可多选">
           {editing && form ? (
             <div className="flex gap-1.5 flex-wrap">
               {SIGNAL_OPTIONS.map((s) => {
@@ -550,6 +591,11 @@ function ExpoDetailPage() {
                 onChange={(v) => patch({ contactTitle: v })}
               />
               <EditInput
+                label="部门"
+                value={form.contactDepartment}
+                onChange={(v) => patch({ contactDepartment: v })}
+              />
+              <EditInput
                 label="手机"
                 value={form.phone}
                 onChange={(v) => patch({ phone: v })}
@@ -568,6 +614,7 @@ function ExpoDetailPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-y-2 gap-x-6">
               <InfoRow label="姓名" value={lead.contactName} />
               <InfoRow label="职位" value={lead.contactTitle} />
+              <InfoRow label="部门" value={lead.contactDepartment} />
               <InfoRow label="手机" value={lead.phone} icon={Phone} />
               <InfoRow label="微信" value={lead.wechat} icon={MessageCircle} />
               <InfoRow label="邮箱" value={lead.email} icon={Mail} />
@@ -575,7 +622,7 @@ function ExpoDetailPage() {
           )}
         </Section>
 
-        <Section title="现场沟通">
+        <Section title="初步沟通">
           {editing && form ? (
             <div className="space-y-3">
               <EditTextarea
@@ -719,7 +766,7 @@ function ExpoDetailPage() {
           )}
         </Section>
 
-        {!editing && (
+        {!editing && lead.source === "expo" && (
           <Section title="附件" hint="下一阶段接入">
             <div className="grid grid-cols-2 gap-2">
               <AttachmentSlot icon={CreditCard} label="名片" />
