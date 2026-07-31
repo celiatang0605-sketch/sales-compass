@@ -132,7 +132,6 @@ function CustomersBoardPage() {
     let stalled = 0;
     let inProgressTotal = 0;
     let totalAmount = 0;
-    let weightedAmount = 0;
     for (const c of filtered) {
       if (c.nextAction && c.nextActionDate && c.nextActionDate <= today) followupToday += 1;
       if (c.nextAction && c.nextActionDate && c.nextActionDate < today) overdueFollowups += 1;
@@ -141,7 +140,6 @@ function CustomersBoardPage() {
         inProgressTotal += 1;
         if (c.amount !== null) {
           totalAmount += c.amount;
-          weightedAmount += c.amount * (effectiveWinRate(c) / 100);
         }
       }
     }
@@ -152,7 +150,6 @@ function CustomersBoardPage() {
       stalled,
       inProgressTotal,
       totalAmount,
-      weightedAmount,
     };
   }, [filtered, today]);
 
@@ -282,11 +279,6 @@ function CustomersBoardPage() {
               合计{" "}
               <span className="font-semibold text-foreground tabular-nums">
                 {formatAmount(stats.totalAmount, "CNY")}
-              </span>
-              <span className="mx-1.5">·</span>
-              加权{" "}
-              <span className="font-semibold text-foreground tabular-nums">
-                {formatAmount(stats.weightedAmount, "CNY")}
               </span>
             </div>
           </div>
