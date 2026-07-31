@@ -1,13 +1,15 @@
-import { CalendarClock, Timer } from "lucide-react";
+import { useState } from "react";
+import { CalendarClock, SlidersHorizontal, Timer } from "lucide-react";
 import {
   isStale,
   STAGE_COLOR_TOKEN,
   STAGE_LABEL,
   STAGE_ORDER,
-  STAGE_STALE_DAYS,
   type Customer,
 } from "@/lib/salesup/customerTypes";
+import { useStageSettings } from "@/lib/salesup/stageSettings";
 import { cn } from "@/lib/utils";
+import { StageSettingsDialog } from "./StageSettingsDialog";
 
 function formatAmount(amount: number): string {
   if (amount >= 10000) {
@@ -51,11 +53,13 @@ export function CustomerViewSummary({
   customers: Customer[];
   today: string;
 }) {
+  const { staleDays } = useStageSettings();
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const overdueFollowups = customers.filter(
     (customer) =>
       !!customer.nextAction && !!customer.nextActionDate && customer.nextActionDate < today,
   ).length;
-  const stalled = customers.filter(isStale).length;
+  const stalled = customers.filter((customer) => isStale(customer, staleDays)).length;
   const totalAmount = customers.reduce((total, customer) => total + (customer.amount ?? 0), 0);
   const maxCount = Math.max(
     1,
@@ -67,7 +71,15 @@ export function CustomerViewSummary({
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <AlertPill icon={CalendarClock} label="逾期跟进" value={overdueFollowups} />
         <AlertPill icon={Timer} label="停滞" value={stalled} />
-        <div className="ml-auto text-xs text-muted-foreground">
+        <button
+          type="button"
+          onClick={() => setSettingsOpen(true)}
+          className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground transition hover:bg-secondary hover:text-primary"
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          阈值设置
+        </button>
+        <div className="text-xs text-muted-foreground">
           共 <span className="font-semibold text-foreground tabular-nums">{customers.length}</span>{" "}
           家<span className="mx-1.5">·</span>
           合计{" "}
@@ -86,7 +98,7 @@ export function CustomerViewSummary({
           );
           const hasAmount = stageCustomers.some((customer) => customer.amount !== null);
           const colorToken = STAGE_COLOR_TOKEN[stage];
-          const threshold = STAGE_STALE_DAYS[stage];
+          const threshold = staleDays[stage];
           const isSigned = stage === "signed";
           return (
             <div
@@ -126,6 +138,7 @@ export function CustomerViewSummary({
           );
         })}
       </div>
+      {settingsOpen && <StageSettingsDialog onClose={() => setSettingsOpen(false)} />}
     </div>
   );
 }

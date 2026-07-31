@@ -53,8 +53,10 @@ export const STAGE_DEFAULT_WIN_RATE: Record<CustomerStage, number> = {
   signed: 100,
 };
 
-/** 停滞阈值（天）。null = 不判断停滞。 */
-export const STAGE_STALE_DAYS: Record<CustomerStage, number | null> = {
+/** 默认停滞阈值（天）。null = 不判断停滞。 */
+export type StageStaleDays = Record<CustomerStage, number | null>;
+
+export const STAGE_STALE_DAYS: StageStaleDays = {
   opportunity_confirmed: 7,
   need_confirmed: 10,
   solution_confirmed: 10,
@@ -203,8 +205,8 @@ export function staleDays(customer: Customer): number {
 }
 
 /** 停滞天数是否超过该阶段阈值。 */
-export function isStale(customer: Customer): boolean {
-  const threshold = STAGE_STALE_DAYS[customer.stage];
+export function isStale(customer: Customer, thresholds: StageStaleDays): boolean {
+  const threshold = thresholds[customer.stage];
   if (threshold === null || threshold === undefined) return false;
   return staleDays(customer) > threshold;
 }

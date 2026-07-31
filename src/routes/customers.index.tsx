@@ -30,6 +30,7 @@ import { CustomerTableView } from "@/components/salesup/customer/CustomerTableVi
 import { CustomerViewSummary } from "@/components/salesup/customer/CustomerViewSummary";
 import { useCustomers } from "@/lib/salesup/useCustomers";
 import { todayKey } from "@/lib/salesup/date";
+import { useStageSettings } from "@/lib/salesup/stageSettings";
 import {
   isStale,
   staleDays,
@@ -43,6 +44,7 @@ import {
   type Customer,
   type CustomerSource,
   type CustomerStage,
+  type StageStaleDays,
 } from "@/lib/salesup/customerTypes";
 
 const BOARD_STAGES = STAGE_ORDER;
@@ -85,6 +87,7 @@ function stageChangedAtTimestamp(customer: Customer): number {
 
 function CustomersBoardPage() {
   const { customers, loading, error, userId, refresh } = useCustomers();
+  const { staleDays: staleThresholds } = useStageSettings();
   const [sources, setSources] = useState<CustomerSource[]>([]);
   const [productLines, setProductLines] = useState<string[]>([]);
   const [stageTarget, setStageTarget] = useState<{
@@ -346,6 +349,7 @@ function CustomersBoardPage() {
                       <KanbanCustomerCard
                         customer={c}
                         today={today}
+                        staleThresholds={staleThresholds}
                         onPickStage={(cust, s) => setStageTarget({ customer: cust, stage: s })}
                       />
                     </DraggableCard>
@@ -360,6 +364,7 @@ function CustomersBoardPage() {
                 <KanbanCustomerCard
                   customer={draggingCustomer}
                   today={today}
+                  staleThresholds={staleThresholds}
                   onPickStage={() => {}}
                 />
               </div>
@@ -443,14 +448,16 @@ function DraggableCard({ id, children }: { id: string; children: React.ReactNode
 function KanbanCustomerCard({
   customer,
   today,
+  staleThresholds,
   onPickStage,
 }: {
   customer: Customer;
   today: string;
+  staleThresholds: StageStaleDays;
   onPickStage: (customer: Customer, stage: CustomerStage) => void;
 }) {
   const showsStale = customer.stage !== "signed";
-  const stale = showsStale && isStale(customer);
+  const stale = showsStale && isStale(customer, staleThresholds);
   const days = staleDays(customer);
   const winRate = effectiveWinRate(customer);
   const overdue =

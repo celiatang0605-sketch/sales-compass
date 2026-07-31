@@ -37,7 +37,6 @@ import {
   SOURCE_LABEL,
   STAGE_COLOR_TOKEN,
   STAGE_LABEL,
-  STAGE_STALE_DAYS,
   STATUS_LABEL,
   staleDays,
   type Customer,
@@ -45,6 +44,7 @@ import {
   type CustomerStatus,
   STAGE_ORDER,
 } from "@/lib/salesup/customerTypes";
+import { useStageSettings } from "@/lib/salesup/stageSettings";
 
 type ColumnKey =
   | "companyName"
@@ -242,12 +242,18 @@ function SortIcon({ active, direction }: { active: boolean; direction: SortDirec
   );
 }
 
-function StaleDays({ customer }: { customer: Customer }) {
-  if (STAGE_STALE_DAYS[customer.stage] === null) {
+function StaleDays({
+  customer,
+  thresholds,
+}: {
+  customer: Customer;
+  thresholds: Parameters<typeof isStale>[1];
+}) {
+  if (thresholds[customer.stage] === null) {
     return <span className="text-xs text-muted-foreground">—</span>;
   }
 
-  const stale = isStale(customer);
+  const stale = isStale(customer, thresholds);
   return (
     <span
       className={cn(
@@ -266,11 +272,13 @@ function CellContent({
   customer,
   today,
   showNextActionDate,
+  thresholds,
 }: {
   field: ColumnKey;
   customer: Customer;
   today: string;
   showNextActionDate: boolean;
+  thresholds: Parameters<typeof isStale>[1];
 }) {
   const overdue =
     !!customer.nextAction && !!customer.nextActionDate && customer.nextActionDate < today;
@@ -289,7 +297,7 @@ function CellContent({
       );
     }
     case "staleDays":
-      return <StaleDays customer={customer} />;
+      return <StaleDays customer={customer} thresholds={thresholds} />;
     case "nextActionDate":
       return (
         <span
@@ -481,6 +489,7 @@ export function CustomerTableView({
 }) {
   const navigate = useNavigate();
   const tableRef = useRef<HTMLTableElement>(null);
+  const { staleDays: staleThresholds } = useStageSettings();
   const [status, setStatus] = useState<StatusFilter>("active");
   const [preset, setPreset] = useState<PresetKey>("followup");
   const [query, setQuery] = useState("");
@@ -903,6 +912,7 @@ export function CustomerTableView({
                       showNextActionDate={
                         field === "nextAction" && !visibleFields.includes("nextActionDate")
                       }
+                      thresholds={staleThresholds}
                     />
                   </TableCell>
                 ))}
