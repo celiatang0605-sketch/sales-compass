@@ -483,7 +483,10 @@ export async function listTimeBlocksForCustomerOnDate(params: {
 // ---------------------------------------------------------------------------
 
 export interface ConvertLeadInput extends NewCustomerInput {
-  /** leads.id，转化后写回 converted_customer_id。 */
+  /**
+   * leads.id。客户去重的唯一权威是 customers.lead_id 的 uq_customers_lead 索引；
+   * leads.converted_customer_id 仅是派生冗余，不能用于判断是否已转客户。
+   */
   leadId: string;
   /** 首条阶段历史中记录的准入确认结果。 */
   conversionReason: string;
