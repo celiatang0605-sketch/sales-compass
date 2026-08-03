@@ -14,22 +14,22 @@ import {
 import { toast } from "sonner";
 import { AppShell } from "@/components/salesup/AppShell";
 import { addDays, todayKey } from "@/lib/salesup/date";
-import { PRIORITY_LABEL, type LeadPriority } from "@/lib/salesup/expoMock";
+import { PRIORITY_LABEL, type LeadPriority } from "@/lib/salesup/leadMock";
 import { SOURCE_LABEL, SOURCE_ORDER, type CustomerSource } from "@/lib/salesup/customerTypes";
 import {
   clearDraft,
   getDraft,
   saveDraft,
   searchCompanies,
-  type ExpoDraft,
-} from "@/lib/salesup/expoStore";
+  type LeadDraft,
+} from "@/lib/salesup/leadStore";
 import { createLead, listLeads, listUserCompanies } from "@/lib/salesup/leadRepository";
 import { useLeads } from "@/lib/salesup/useLeads";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/expo/new")({
+export const Route = createFileRoute("/leads/new")({
   head: () => ({ meta: [{ title: "新建线索 · 线索池" }] }),
-  component: ExpoNewPage,
+  component: LeadNewPage,
 });
 
 const PRIORITIES: LeadPriority[] = ["A", "B", "C", "D", "unrated"];
@@ -98,13 +98,13 @@ const emptyForm = (): NewLeadForm => ({
   nextDate: "",
 });
 
-function ExpoNewPage() {
+function LeadNewPage() {
   const navigate = useNavigate();
   const { userId, leads, refresh } = useLeads();
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState<null | "back" | "again" | "later">(null);
-  const [draftPrompt, setDraftPrompt] = useState<ExpoDraft | null>(null);
+  const [draftPrompt, setDraftPrompt] = useState<LeadDraft | null>(null);
   const [companyFocus, setCompanyFocus] = useState(false);
   const [historyCompanies, setHistoryCompanies] = useState<string[]>([]);
   const companyRef = useRef<HTMLInputElement>(null);
@@ -134,7 +134,7 @@ function ExpoNewPage() {
         form.priority === "unrated" &&
         !form.source;
       if (isEmpty) return;
-      const d: ExpoDraft = { ...form, updatedAt: Date.now() };
+      const d: LeadDraft = { ...form, updatedAt: Date.now() };
       saveDraft(userId, d);
     }, 400);
     return () => clearTimeout(t);
@@ -220,7 +220,7 @@ function ExpoNewPage() {
       setSavedFlash(mode);
 
       if (mode === "back") {
-        setTimeout(() => navigate({ to: "/expo" }), 350);
+        setTimeout(() => navigate({ to: "/leads" }), 350);
         return;
       }
       setTimeout(() => {
@@ -273,7 +273,7 @@ function ExpoNewPage() {
       <div className="max-w-2xl mx-auto pb-40 md:pb-8">
         <div className="flex items-center gap-2 mb-3">
           <Link
-            to="/expo"
+            to="/leads"
             className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
           >
             <ChevronLeft className="w-4 h-4" />

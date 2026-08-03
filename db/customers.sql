@@ -219,8 +219,8 @@ create index if not exists idx_leads_converted
   on public.leads (user_id, converted_customer_id);
 
 -- ---------------------------------------------------------------------------
--- Phase 4.1: preserve structured discovery fields during expo conversion and
--- guarantee that one expo lead can create at most one customer.
+-- Phase 4.1: preserve structured discovery fields during lead conversion and
+-- guarantee that one lead can create at most one customer.
 -- ---------------------------------------------------------------------------
 
 alter table public.customers

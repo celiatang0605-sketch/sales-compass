@@ -34,7 +34,7 @@ import { useStageSettings } from "@/lib/salesup/stageSettings";
 import {
   isStale,
   staleDays,
-  effectiveWinRate,
+  getEffectiveWinRate,
   ROLE_LABEL,
   SOURCE_LABEL,
   SOURCE_ORDER,
@@ -459,7 +459,7 @@ function KanbanCustomerCard({
   const showsStale = customer.stage !== "signed";
   const stale = showsStale && isStale(customer, staleThresholds);
   const days = staleDays(customer);
-  const winRate = effectiveWinRate(customer);
+  const winRate = getEffectiveWinRate(customer);
   const overdue =
     !!customer.nextAction && !!customer.nextActionDate && customer.nextActionDate < today;
   const colorToken = STAGE_COLOR_TOKEN[customer.stage];
@@ -512,7 +512,18 @@ function KanbanCustomerCard({
           <div className="w-24 shrink-0">
             <div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
               <span>赢率</span>
-              <span className="font-semibold text-foreground tabular-nums">{winRate}%</span>
+              <span className="flex items-center gap-1 tabular-nums">
+                <span
+                  className={cn("text-foreground", customer.winRate !== null && "font-semibold")}
+                >
+                  {winRate}%
+                </span>
+                {customer.winRate !== null && (
+                  <span className="rounded border border-primary/30 bg-primary/5 px-1 py-px text-[9px] font-medium text-primary">
+                    手动
+                  </span>
+                )}
+              </span>
             </div>
             <div className="h-[3px] overflow-hidden rounded-full bg-border/70">
               <div className="h-full rounded-full bg-primary" style={{ width: `${winRate}%` }} />

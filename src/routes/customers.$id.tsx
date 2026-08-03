@@ -795,7 +795,12 @@ function CustomerDetailPage() {
                   <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 tabular-nums">
                     {form.overrideWinRate ? (
                       <>
-                        <span className="text-sm font-medium">你的判断 {form.winRate || "—"}%</span>
+                        <span className="inline-flex items-center gap-1.5 text-sm font-medium">
+                          <span>你的判断 {form.winRate || "—"}%</span>
+                          <span className="rounded border border-primary/30 bg-primary/5 px-1 py-px text-[9px] font-medium text-primary">
+                            手动覆盖
+                          </span>
+                        </span>
                         <span className="text-xs text-muted-foreground">阶段默认 {stageRate}%</span>
                       </>
                     ) : (

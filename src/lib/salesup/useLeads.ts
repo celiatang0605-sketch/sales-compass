@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { listLeads } from "./leadRepository";
-import type { Lead } from "./expoMock";
+import type { Lead } from "./leadMock";
 
 export interface LeadsState {
   leads: Lead[];

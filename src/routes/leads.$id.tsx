@@ -14,11 +14,10 @@ import {
   X,
   Save,
   UserPlus,
-  UserCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/salesup/AppShell";
-import { ConvertLeadDialog } from "@/components/salesup/expo/ConvertLeadDialog";
+import { ConvertLeadDialog } from "@/components/salesup/lead/ConvertLeadDialog";
 import {
   PRIORITY_LABEL,
   PRIORITY_STYLE,
@@ -26,12 +25,12 @@ import {
   type Lead,
   type LeadPriority,
   type LeadStatus,
-} from "@/lib/salesup/expoMock";
+} from "@/lib/salesup/leadMock";
 import { getLead, updateLead, type UpdateLeadInput } from "@/lib/salesup/leadRepository";
 import { SOURCE_LABEL } from "@/lib/salesup/customerTypes";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/expo/$id")({
+export const Route = createFileRoute("/leads/$id")({
   head: ({ params }) => ({ meta: [{ title: `线索详情 · ${params.id}` }] }),
   notFoundComponent: LeadNotFound,
   errorComponent: ({ error }) => (
@@ -41,7 +40,7 @@ export const Route = createFileRoute("/expo/$id")({
       </div>
     </AppShell>
   ),
-  component: ExpoDetailPage,
+  component: LeadDetailPage,
 });
 
 function LeadNotFound() {
@@ -49,7 +48,7 @@ function LeadNotFound() {
     <AppShell>
       <div className="py-16 text-center">
         <p className="text-sm text-muted-foreground mb-4">找不到这条线索</p>
-        <Link to="/expo" className="text-sm text-primary hover:underline">
+        <Link to="/leads" className="text-sm text-primary hover:underline">
           返回列表
         </Link>
       </div>
@@ -167,7 +166,7 @@ function formEqual(a: FormState, b: FormState): boolean {
   return true;
 }
 
-function ExpoDetailPage() {
+function LeadDetailPage() {
   const { id } = Route.useParams();
   const [lead, setLead] = useState<Lead | null>(null);
   const [loading, setLoading] = useState(true);
@@ -307,7 +306,7 @@ function ExpoDetailPage() {
       <div className={cn("max-w-3xl mx-auto", editing ? "pb-40 md:pb-8" : "pb-8")}>
         <div className="flex items-center justify-between gap-2 mb-4">
           <Link
-            to="/expo"
+            to="/leads"
             className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -315,24 +314,13 @@ function ExpoDetailPage() {
           </Link>
           {!editing ? (
             <div className="flex items-center gap-2">
-              {lead.convertedCustomerId ? (
-                <Link
-                  to="/customers/$id"
-                  params={{ id: lead.convertedCustomerId }}
-                  className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-secondary text-sm hover:bg-secondary/80"
-                >
-                  <UserCheck className="w-4 h-4" />
-                  查看已转化的客户
-                </Link>
-              ) : (
-                <button
-                  onClick={() => setConvertOpen(true)}
-                  className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm hover:opacity-90"
-                >
-                  <UserPlus className="w-4 h-4" />
-                  转为客户
-                </button>
-              )}
+              <button
+                onClick={() => setConvertOpen(true)}
+                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm hover:opacity-90"
+              >
+                <UserPlus className="w-4 h-4" />
+                转为客户
+              </button>
               <button
                 onClick={startEdit}
                 className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-background text-sm hover:bg-secondary"
@@ -346,7 +334,7 @@ function ExpoDetailPage() {
           )}
         </div>
 
-        {convertOpen && !lead.convertedCustomerId && (
+        {convertOpen && (
           <ConvertLeadDialog
             lead={lead}
             onClose={() => setConvertOpen(false)}

@@ -1,6 +1,6 @@
 // Types + labels + optional mock data for the 线索池 module.
 // Phase 3: MOCK_LEADS is kept for the company autocomplete pool ONLY.
-// It must NOT be rendered as real leads on the /expo pages.
+// It must NOT be rendered as real leads on the /leads pages.
 
 import type { CustomerSource } from "./customerTypes";
 
@@ -63,7 +63,6 @@ export interface Lead {
   photoUrls?: string[];
   createdAt: string; // YYYY-MM-DD
   /** 已转化为客户看板中的客户时，指向 customers.id。 */
-  convertedCustomerId?: string | null;
 }
 
 export const STATUS_LABEL: Record<LeadStatus, string> = {

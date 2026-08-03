@@ -31,7 +31,7 @@ import {
 import { cn } from "@/lib/utils";
 import { changeCustomerStage, updateCustomer } from "@/lib/salesup/customerRepository";
 import {
-  effectiveWinRate,
+  getEffectiveWinRate,
   isStale,
   ROLE_LABEL,
   SOURCE_LABEL,
@@ -187,7 +187,7 @@ function sortValue(customer: Customer, field: ColumnKey): string | number {
     case "amount":
       return customer.amount ?? -1;
     case "winRate":
-      return effectiveWinRate(customer);
+      return getEffectiveWinRate(customer);
     case "stage":
       return STAGE_LABEL[customer.stage];
     case "status":
@@ -334,13 +334,20 @@ function CellContent({
         <span className="text-muted-foreground">—</span>
       );
     case "winRate": {
-      const rate = effectiveWinRate(customer);
+      const rate = getEffectiveWinRate(customer);
       return (
         <span className="flex min-w-24 items-center gap-2">
           <span className="h-1 flex-1 overflow-hidden rounded-full bg-border/70">
             <span className="block h-full rounded-full bg-primary" style={{ width: `${rate}%` }} />
           </span>
-          <span className="w-8 text-right text-xs font-semibold tabular-nums">{rate}%</span>
+          <span className="flex w-14 items-center justify-end gap-1 text-xs tabular-nums">
+            <span className={cn(customer.winRate !== null && "font-semibold")}>{rate}%</span>
+            {customer.winRate !== null && (
+              <span className="rounded border border-primary/30 bg-primary/5 px-1 py-px text-[9px] font-medium text-primary">
+                手动
+              </span>
+            )}
+          </span>
         </span>
       );
     }
@@ -437,7 +444,7 @@ function csvValue(field: ColumnKey, customer: Customer, today: string): string {
     case "productLines":
       return customer.productLines.join("、");
     case "winRate":
-      return `${effectiveWinRate(customer)}%`;
+      return `${getEffectiveWinRate(customer)}%`;
     case "expectedCloseDate":
       return customer.expectedCloseDate ?? "";
     case "status":

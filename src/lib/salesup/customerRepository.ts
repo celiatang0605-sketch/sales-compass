@@ -219,6 +219,22 @@ export async function getCustomer(id: string): Promise<Customer | null> {
   return data ? rowToCustomer(data as Row) : null;
 }
 
+/**
+ * 客户去重的唯一权威：customers.lead_id 上的 uq_customers_lead 唯一索引。
+ * leads.converted_customer_id 只是回写的派生冗余，不能用于判断是否已经转客户。
+ */
+export async function getCustomerByLeadId(leadId: string): Promise<Customer | null> {
+  const uid = await requireUserId();
+  const { data, error } = await supabase
+    .from("customers")
+    .select("*")
+    .eq("user_id", uid)
+    .eq("lead_id", leadId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? rowToCustomer(data as Row) : null;
+}
+
 export async function createCustomer(input: NewCustomerInput): Promise<Customer> {
   const uid = await requireUserId();
   const row: Record<string, unknown> = {
@@ -230,6 +246,7 @@ export async function createCustomer(input: NewCustomerInput): Promise<Customer>
     other_contacts: input.otherContacts ?? [],
     product_lines: input.productLines ?? [],
     stage: input.stage ?? "opportunity_confirmed",
+    stage_changed_at: input.stageChangedAt ?? new Date().toISOString(),
     status: input.status ?? "active",
     win_rate: input.winRate ?? null,
     amount: input.amount ?? null,
@@ -488,31 +505,64 @@ export interface ConvertLeadInput extends NewCustomerInput {
    * leads.converted_customer_id 仅是派生冗余，不能用于判断是否已转客户。
    */
   leadId: string;
-  /** 首条阶段历史中记录的准入确认结果。 */
-  conversionReason: string;
+}
+
+export type LeadConversionResult =
+  | { kind: "converted"; customer: Customer }
+  | { kind: "already_converted"; customer: Customer };
+
+/** 客户已插入，但回写线索状态失败时抛出，供 UI 明确引导用户处理。 */
+export class LeadConversionFollowupError extends Error {
+  customer: Customer;
+
+  constructor(customer: Customer, cause: unknown) {
+    super("客户已创建，但线索状态回写失败。请打开该客户后再处理这条线索。");
+    this.name = "LeadConversionFollowupError";
+    this.customer = customer;
+    this.cause = cause;
+  }
+}
+
+function isUniqueLeadConflict(cause: unknown): boolean {
+  return (
+    typeof cause === "object" &&
+    cause !== null &&
+    "code" in cause &&
+    (cause as { code?: string }).code === "23505"
+  );
 }
 
 /**
  * 由线索创建客户：
  * 1. 建 customers 行（继承线索来源，记录 lead_id）
- * 2. 写一条建档 stage_history
- * 3. 回写 leads.converted_customer_id 并把 status 置为 converted
+ * 2. 回写 leads.converted_customer_id 并把 status 置为 converted
+ *
+ * 这两个写入分属不同表，前端无法做数据库事务；若第 2 步失败，必须显式告知
+ * 客户已生成，不能静默吞掉错误。
  */
-export async function convertLeadToCustomer(input: ConvertLeadInput): Promise<Customer> {
-  if (!input.conversionReason.trim()) {
-    throw new Error("转化时必须记录准入确认结果。");
-  }
+export async function convertLeadToCustomer(
+  input: ConvertLeadInput,
+): Promise<LeadConversionResult> {
+  const existing = await getCustomerByLeadId(input.leadId);
+  if (existing) return { kind: "already_converted", customer: existing };
+
   const { markLeadConverted } = await import("./leadRepository");
-  const customer = await createCustomer(input);
-  await insertStageHistory({
-    customerId: customer.id,
-    fromStage: null,
-    toStage: customer.stage,
-    reason: input.conversionReason,
-    relatedBlockId: null,
-  });
-  await markLeadConverted(input.leadId, customer.id);
-  return customer;
+  let customer: Customer;
+  try {
+    customer = await createCustomer(input);
+  } catch (cause) {
+    if (!isUniqueLeadConflict(cause)) throw cause;
+    const conflicted = await getCustomerByLeadId(input.leadId);
+    if (conflicted) return { kind: "already_converted", customer: conflicted };
+    throw cause;
+  }
+
+  try {
+    await markLeadConverted(input.leadId, customer.id);
+  } catch (cause) {
+    throw new LeadConversionFollowupError(customer, cause);
+  }
+  return { kind: "converted", customer };
 }
 
 // ---------------------------------------------------------------------------

@@ -6,14 +6,14 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { createLead } from "./leadRepository";
-import { MOCK_COMPANY_POOL, type LeadPriority } from "./expoMock";
+import { MOCK_COMPANY_POOL, type LeadPriority } from "./leadMock";
 import type { CustomerSource } from "./customerTypes";
 
 export const LEGACY_LS_KEY_LEADS = "salesup.expo.leads.v1";
 const DRAFT_KEY_PREFIX = "salesup.expo.new.draft.v1";
 const LEGACY_MIGRATED_FLAG = "salesup.expo.legacy.migrated.v1";
 
-export interface ExpoDraft {
+export interface LeadDraft {
   source?: CustomerSource | "";
   company: string;
   raw: string;
@@ -52,7 +52,7 @@ function draftKey(userId: string | null | undefined): string {
   return userId ? `${DRAFT_KEY_PREFIX}:${userId}` : DRAFT_KEY_PREFIX;
 }
 
-function isDraftEmpty(d: ExpoDraft): boolean {
+function isDraftEmpty(d: LeadDraft): boolean {
   return (
     !d.company?.trim() &&
     !d.raw?.trim() &&
@@ -63,14 +63,14 @@ function isDraftEmpty(d: ExpoDraft): boolean {
   );
 }
 
-export function getDraft(userId: string | null | undefined): ExpoDraft | null {
+export function getDraft(userId: string | null | undefined): LeadDraft | null {
   if (!isBrowser()) return null;
-  const d = safeParse<ExpoDraft | null>(window.localStorage.getItem(draftKey(userId)), null);
+  const d = safeParse<LeadDraft | null>(window.localStorage.getItem(draftKey(userId)), null);
   if (!d) return null;
   return isDraftEmpty(d) ? null : d;
 }
 
-export function saveDraft(userId: string | null | undefined, d: ExpoDraft): void {
+export function saveDraft(userId: string | null | undefined, d: LeadDraft): void {
   if (!isBrowser()) return;
   window.localStorage.setItem(draftKey(userId), JSON.stringify(d));
 }
@@ -164,7 +164,7 @@ export async function importLegacyLocalLeads(userId: string): Promise<{
       });
       imported++;
     } catch (e) {
-      console.error("[expo] legacy import failed", e);
+      console.error("[leads] legacy import failed", e);
       failed++;
       remaining.push(l);
     }

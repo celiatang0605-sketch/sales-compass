@@ -186,7 +186,7 @@ export interface Customer {
 }
 
 /** 手动覆盖的赢率优先，否则用该阶段的默认赢率。 */
-export function effectiveWinRate(customer: Customer): number {
+export function getEffectiveWinRate(customer: Customer): number {
   if (customer.winRate !== null && customer.winRate !== undefined) {
     return customer.winRate;
   }

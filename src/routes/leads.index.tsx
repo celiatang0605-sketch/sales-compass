@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { LeadExitDialog } from "@/components/salesup/lead/LeadExitDialog";
+import { ConvertLeadDialog } from "@/components/salesup/lead/ConvertLeadDialog";
 import { AppShell } from "@/components/salesup/AppShell";
 import {
   Table,
@@ -33,8 +34,8 @@ import {
   countLegacyLocalLeads,
   hasLegacyLocalLeads,
   importLegacyLocalLeads,
-} from "@/lib/salesup/expoStore";
-import { PRIORITY_LABEL, type LeadPriority } from "@/lib/salesup/expoMock";
+} from "@/lib/salesup/leadStore";
+import { PRIORITY_LABEL, type LeadPriority } from "@/lib/salesup/leadMock";
 import type { ExitLeadInput, LeadPoolLead } from "@/lib/salesup/leadRepository";
 import {
   LEAD_STAGES,
@@ -91,7 +92,7 @@ function parseSources(value: string): CustomerSource[] {
     .filter((source): source is CustomerSource => SOURCE_ORDER.includes(source as CustomerSource));
 }
 
-export const Route = createFileRoute("/expo/")({
+export const Route = createFileRoute("/leads/")({
   validateSearch: (search: Record<string, unknown>): LeadPoolSearch => ({
     priority:
       typeof search.priority === "string" &&
@@ -115,10 +116,10 @@ export const Route = createFileRoute("/expo/")({
       { name: "description", content: "集中管理各来源线索，按下一步动作推进。" },
     ],
   }),
-  component: ExpoIndexPage,
+  component: LeadIndexPage,
 });
 
-function ExpoIndexPage() {
+function LeadIndexPage() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const today = todayKey();
@@ -133,7 +134,7 @@ function ExpoIndexPage() {
 
   const setSearch = useCallback(
     (patch: Partial<typeof search>) => {
-      void navigate({ to: "/expo", search: (previous) => ({ ...previous, ...patch }) });
+      void navigate({ to: "/leads", search: (previous) => ({ ...previous, ...patch }) });
     },
     [navigate],
   );
@@ -326,7 +327,7 @@ function ExpoIndexPage() {
         </div>
         <div className="flex items-center gap-2">
           <Link
-            to="/expo/new"
+            to="/leads/new"
             className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm transition hover:bg-primary/90"
           >
             <Plus className="h-4 w-4" />
@@ -394,7 +395,7 @@ function ExpoIndexPage() {
             title={allVisibleLeads.length === 0 ? "这里还没有线索" : "没有匹配的线索"}
             hint={allVisibleLeads.length === 0 ? "开始记录第一条线索吧。" : undefined}
             action={
-              allVisibleLeads.length === 0 ? { to: "/expo/new", label: "快速记录" } : undefined
+              allVisibleLeads.length === 0 ? { to: "/leads/new", label: "快速记录" } : undefined
             }
           />
         )}
@@ -406,13 +407,14 @@ function ExpoIndexPage() {
             onAdvance={runAdvance}
             onExit={runExit}
             onResume={runResume}
+            onConverted={refresh}
           />
         )}
       </section>
 
       <div className="fixed inset-x-4 bottom-4 z-40 md:hidden">
         <Link
-          to="/expo/new"
+          to="/leads/new"
           className="inline-flex h-12 w-full items-center justify-center gap-1.5 rounded-full bg-primary text-sm font-medium text-primary-foreground shadow-lg shadow-primary/20"
         >
           <Plus className="h-4 w-4" />
@@ -456,7 +458,7 @@ function EmptyState({
 }: {
   title: string;
   hint?: string;
-  action?: { to: "/auth" | "/expo/new"; label: string };
+  action?: { to: "/auth" | "/leads/new"; label: string };
 }) {
   return (
     <div className="rounded-xl border border-dashed border-border py-12 text-center">
@@ -501,11 +503,21 @@ interface LeadTableProps {
   onAdvance: (leadId: string, action: LeadStageAction) => Promise<void>;
   onExit: (leadId: string, input: ExitLeadInput) => Promise<void>;
   onResume: (leadId: string) => Promise<void>;
+  onConverted: () => Promise<void>;
 }
 
-function LeadTable({ leads, today, pendingId, onAdvance, onExit, onResume }: LeadTableProps) {
+function LeadTable({
+  leads,
+  today,
+  pendingId,
+  onAdvance,
+  onExit,
+  onResume,
+  onConverted,
+}: LeadTableProps) {
   const navigate = useNavigate();
   const [exitTarget, setExitTarget] = useState<LeadPoolLead | null>(null);
+  const [conversionTarget, setConversionTarget] = useState<LeadPoolLead | null>(null);
 
   return (
     <>
@@ -533,11 +545,11 @@ function LeadTable({ leads, today, pendingId, onAdvance, onExit, onResume }: Lea
                   key={lead.id}
                   role="link"
                   tabIndex={0}
-                  onClick={() => void navigate({ to: "/expo/$id", params: { id: lead.id } })}
+                  onClick={() => void navigate({ to: "/leads/$id", params: { id: lead.id } })}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
-                      void navigate({ to: "/expo/$id", params: { id: lead.id } });
+                      void navigate({ to: "/leads/$id", params: { id: lead.id } });
                     }
                   }}
                   className="h-12 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -601,13 +613,17 @@ function LeadTable({ leads, today, pendingId, onAdvance, onExit, onResume }: Lea
                       )}
                       <button
                         type="button"
-                        disabled={!action.action || busy}
-                        onClick={() => action.action && void onAdvance(lead.id, action.action)}
+                        disabled={busy}
+                        onClick={() =>
+                          action.action
+                            ? void onAdvance(lead.id, action.action)
+                            : setConversionTarget(lead)
+                        }
                         className={cn(
                           "inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] disabled:cursor-not-allowed disabled:opacity-50",
                           action.action
                             ? `lead-stage-action--${lead.leadStage}`
-                            : "border border-border bg-muted text-muted-foreground",
+                            : "bg-primary text-primary-foreground hover:bg-primary/90",
                         )}
                       >
                         {busy ? (
@@ -640,6 +656,13 @@ function LeadTable({ leads, today, pendingId, onAdvance, onExit, onResume }: Lea
           lead={exitTarget}
           onClose={() => setExitTarget(null)}
           onConfirm={(input) => onExit(exitTarget.id, input)}
+        />
+      )}
+      {conversionTarget && (
+        <ConvertLeadDialog
+          lead={conversionTarget}
+          onClose={() => setConversionTarget(null)}
+          onConverted={() => onConverted()}
         />
       )}
     </>

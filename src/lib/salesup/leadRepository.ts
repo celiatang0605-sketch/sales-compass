@@ -1,10 +1,10 @@
 // Supabase-backed CRUD for leads. Phase 3 canonical data layer.
-// Pages should use this repository (or the useLeads hook), NOT expoStore.
+// Pages should use this repository (or the useLeads hook), not the local lead store.
 
 import { supabase } from "@/integrations/supabase/client";
 import type { LeadRow, LeadUpdate } from "@/integrations/supabase/types";
 import { toDateKey, todayKey } from "./date";
-import { deriveHeadline, type Lead, type LeadPriority, type LeadStatus } from "./expoMock";
+import { deriveHeadline, type Lead, type LeadPriority, type LeadStatus } from "./leadMock";
 import type { CustomerSource } from "./customerTypes";
 import {
   emptyLeadStageCounts,
@@ -142,7 +142,6 @@ function rowToLead(r: Row): Lead {
     nextActionDate: r.next_action_date ?? "",
     lastContactedAt: r.last_contact_at ? toDateKey(new Date(r.last_contact_at)) : undefined,
     createdAt: r.created_at ? toDateKey(new Date(r.created_at)) : todayKey(),
-    convertedCustomerId: r.converted_customer_id ?? null,
   };
 }
 
@@ -550,9 +549,11 @@ export async function listUserCompanies(): Promise<string[]> {
 export async function markLeadConverted(leadId: string, customerId: string): Promise<Lead> {
   // 是否已转客户必须查询 customers.lead_id（uq_customers_lead）；
   // converted_customer_id 只是回写的派生冗余，不能作为判断依据。
+  const userId = await requireUserId();
   const { data, error } = await supabase
     .from("leads")
     .update({ converted_customer_id: customerId, status: "converted" })
+    .eq("user_id", userId)
     .eq("id", leadId)
     .select("*")
     .single();
