@@ -186,11 +186,16 @@ export interface Customer {
 }
 
 /** 手动覆盖的赢率优先，否则用该阶段的默认赢率。 */
-export function getEffectiveWinRate(customer: Customer): number {
-  if (customer.winRate !== null && customer.winRate !== undefined) {
-    return customer.winRate;
+export interface StageWinRateEntity {
+  stage: CustomerStage;
+  winRate: number | null | undefined;
+}
+
+export function getEffectiveWinRate(entity: StageWinRateEntity): number {
+  if (entity.winRate !== null && entity.winRate !== undefined) {
+    return entity.winRate;
   }
-  return STAGE_DEFAULT_WIN_RATE[customer.stage] ?? 0;
+  return STAGE_DEFAULT_WIN_RATE[entity.stage] ?? 0;
 }
 
 /** 今天减去 stage_changed_at 的天数（按本地日期计算，>= 0）。 */

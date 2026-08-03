@@ -10,6 +10,9 @@ import type {
   DecisionRole,
   OtherContact,
 } from "./customerTypes";
+import { rowToContact } from "./contactRepository";
+import { listOpportunities } from "./opportunityRepository";
+import type { Contact, Opportunity } from "./opportunityTypes";
 
 type Row = {
   id: string;
@@ -205,6 +208,49 @@ export async function listCustomers(): Promise<Customer[]> {
     .order("stage_changed_at", { ascending: true });
   if (error) throw error;
   return ((data ?? []) as Row[]).map(rowToCustomer);
+}
+
+/**
+ * 两层数据模型的聚合读取入口。保留 listCustomers 的旧返回值和旧查询不变，供阶段 3
+ * 切换看板时按需采用本函数。
+ */
+export interface CustomerWithOpportunities extends Customer {
+  opportunities: Opportunity[];
+  contacts: Contact[];
+}
+
+export async function listCustomersWithOpportunities(): Promise<CustomerWithOpportunities[]> {
+  const userId = await requireUserId();
+  const [customers, opportunities, contactsResult] = await Promise.all([
+    listCustomers(),
+    listOpportunities(),
+    supabase
+      .from("contacts")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true }),
+  ]);
+  if (contactsResult.error) throw contactsResult.error;
+
+  const opportunitiesByCustomer = new Map<string, Opportunity[]>();
+  for (const opportunity of opportunities) {
+    const customerOpportunities = opportunitiesByCustomer.get(opportunity.customerId) ?? [];
+    customerOpportunities.push(opportunity);
+    opportunitiesByCustomer.set(opportunity.customerId, customerOpportunities);
+  }
+
+  const contactsByCustomer = new Map<string, Contact[]>();
+  for (const contact of (contactsResult.data ?? []).map((row) => rowToContact(row))) {
+    const customerContacts = contactsByCustomer.get(contact.customerId) ?? [];
+    customerContacts.push(contact);
+    contactsByCustomer.set(contact.customerId, customerContacts);
+  }
+
+  return customers.map((customer) => ({
+    ...customer,
+    opportunities: opportunitiesByCustomer.get(customer.id) ?? [],
+    contacts: contactsByCustomer.get(customer.id) ?? [],
+  }));
 }
 
 export async function getCustomer(id: string): Promise<Customer | null> {

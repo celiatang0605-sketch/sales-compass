@@ -19,9 +19,32 @@ export type Database = {
         Update: CustomerUpdate;
         Relationships: [];
       };
+      opportunities: {
+        Row: OpportunityRow;
+        Insert: OpportunityInsert;
+        Update: OpportunityUpdate;
+        Relationships: [];
+      };
+      contacts: {
+        Row: ContactRow;
+        Insert: ContactInsert;
+        Update: ContactUpdate;
+        Relationships: [];
+      };
+      opportunity_contacts: {
+        Row: OpportunityContactRow;
+        Insert: OpportunityContactInsert;
+        Update: OpportunityContactUpdate;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      set_primary_contact: {
+        Args: { p_contact_id: string; p_customer_id: string };
+        Returns: undefined;
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };
@@ -151,3 +174,71 @@ export type CustomerInsert = Omit<CustomerRow, "id" | "created_at" | "updated_at
 };
 
 export type CustomerUpdate = Partial<Omit<CustomerInsert, "user_id">>;
+
+export type OpportunityRow = {
+  id: string;
+  user_id: string;
+  customer_id: string;
+  name: string;
+  product_lines: string[];
+  stage: string;
+  stage_changed_at: string;
+  status: string;
+  win_rate: number | null;
+  win_rate_override_reason: string | null;
+  amount: number | null;
+  currency: string;
+  expected_close_date: string | null;
+  next_action: string | null;
+  next_action_date: string | null;
+  last_contact_at: string | null;
+  pain_points: string | null;
+  needs: string | null;
+  key_info: string | null;
+  loss_reason: string | null;
+  on_hold_until: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type OpportunityInsert = Omit<OpportunityRow, "id" | "created_at" | "updated_at"> & {
+  id?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type OpportunityUpdate = Partial<Omit<OpportunityInsert, "user_id" | "customer_id">>;
+
+export type ContactRow = {
+  id: string;
+  user_id: string;
+  customer_id: string;
+  name: string;
+  title: string | null;
+  department: string | null;
+  decision_role: string;
+  phone: string | null;
+  wechat: string | null;
+  email: string | null;
+  note: string | null;
+  is_primary: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ContactInsert = Omit<ContactRow, "id" | "created_at" | "updated_at"> & {
+  id?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type ContactUpdate = Partial<Omit<ContactInsert, "user_id" | "customer_id">>;
+
+export type OpportunityContactRow = {
+  opportunity_id: string;
+  contact_id: string;
+};
+
+export type OpportunityContactInsert = OpportunityContactRow;
+export type OpportunityContactUpdate = Partial<OpportunityContactRow>;
