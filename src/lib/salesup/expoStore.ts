@@ -2,10 +2,10 @@
 //   - Per-user draft (draft is intentionally local, not synced to Supabase).
 //   - One-shot detection of Phase-2 leftover leads (for legacy migration UI).
 //
-// Real lead data lives in Supabase — see expoRepository.ts / useLeads.
+// Real lead data lives in Supabase — see leadRepository.ts / useLeads.
 
 import { supabase } from "@/integrations/supabase/client";
-import { createLead } from "./expoRepository";
+import { createLead } from "./leadRepository";
 import { MOCK_COMPANY_POOL, type LeadPriority } from "./expoMock";
 import type { CustomerSource } from "./customerTypes";
 

@@ -502,7 +502,7 @@ export async function convertLeadToCustomer(input: ConvertLeadInput): Promise<Cu
   if (!input.conversionReason.trim()) {
     throw new Error("转化时必须记录准入确认结果。");
   }
-  const { markLeadConverted } = await import("./expoRepository");
+  const { markLeadConverted } = await import("./leadRepository");
   const customer = await createCustomer(input);
   await insertStageHistory({
     customerId: customer.id,

@@ -27,7 +27,7 @@ import {
   type LeadPriority,
   type LeadStatus,
 } from "@/lib/salesup/expoMock";
-import { getLead, updateLead, type UpdateLeadInput } from "@/lib/salesup/expoRepository";
+import { getLead, updateLead, type UpdateLeadInput } from "@/lib/salesup/leadRepository";
 import { SOURCE_LABEL } from "@/lib/salesup/customerTypes";
 import { cn } from "@/lib/utils";
 

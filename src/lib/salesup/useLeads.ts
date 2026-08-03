@@ -1,7 +1,7 @@
 // Client-side hook: subscribes to Supabase auth and exposes lead state.
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { listLeads } from "./expoRepository";
+import { listLeads } from "./leadRepository";
 import type { Lead } from "./expoMock";
 
 export interface LeadsState {

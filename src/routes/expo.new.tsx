@@ -23,7 +23,7 @@ import {
   searchCompanies,
   type ExpoDraft,
 } from "@/lib/salesup/expoStore";
-import { createLead, listLeads, listUserCompanies } from "@/lib/salesup/expoRepository";
+import { createLead, listLeads, listUserCompanies } from "@/lib/salesup/leadRepository";
 import { useLeads } from "@/lib/salesup/useLeads";
 import { cn } from "@/lib/utils";
 

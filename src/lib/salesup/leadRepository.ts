@@ -89,8 +89,10 @@ export type LeadPoolLead = Omit<Lead, "status"> & {
 
 export interface LeadPool {
   leads: LeadPoolLead[];
+  needsOrganizeLeads: LeadPoolLead[];
   stageCounts: LeadStageCounts;
   needsOrganizeCount: number;
+  todayNewCount: number;
 }
 
 function rowToLead(r: Row): Lead {
@@ -279,7 +281,8 @@ async function requireUserId(): Promise<string> {
 export async function getLeadPool(today = todayKey()): Promise<LeadPool> {
   const userId = await requireUserId();
   const activeFilter = `status.eq.to_follow_up,and(status.eq.paused,resume_on.lte.${today})`;
-  const [activeResult, organizeResult] = await Promise.all([
+  const todayStart = new Date(`${today}T00:00:00`).toISOString();
+  const [activeResult, organizeResult, todayResult] = await Promise.all([
     supabase
       .from("leads")
       .select("*")
@@ -288,13 +291,19 @@ export async function getLeadPool(today = todayKey()): Promise<LeadPool> {
       .order("created_at", { ascending: false }),
     supabase
       .from("leads")
-      .select("id", { count: "exact", head: true })
+      .select("*", { count: "exact" })
       .eq("user_id", userId)
       .eq("status", "to_organize"),
+    supabase
+      .from("leads")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .gte("created_at", todayStart),
   ]);
 
   if (activeResult.error) throw activeResult.error;
   if (organizeResult.error) throw organizeResult.error;
+  if (todayResult.error) throw todayResult.error;
 
   const rows = (activeResult.data ?? []) as LeadRow[];
   const stageCounts = emptyLeadStageCounts();
@@ -306,8 +315,10 @@ export async function getLeadPool(today = todayKey()): Promise<LeadPool> {
 
   return {
     leads: rows.map(rowToLeadPool),
+    needsOrganizeLeads: ((organizeResult.data ?? []) as LeadRow[]).map(rowToLeadPool),
     stageCounts,
     needsOrganizeCount: organizeResult.count ?? 0,
+    todayNewCount: todayResult.count ?? 0,
   };
 }
 
@@ -466,7 +477,7 @@ export async function exitLead(leadId: string, input: ExitLeadInput): Promise<Le
       status: "paused",
       exit_at: exitAt,
       resume_on: input.resumeOn,
-      exit_reason: null,
+      exit_reason: input.reason?.trim() || null,
     };
   } else {
     const reason = input.reason?.trim();
