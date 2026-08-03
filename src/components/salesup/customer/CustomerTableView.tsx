@@ -2,13 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   AlertTriangle,
-  Download,
   ChevronDown,
   ChevronUp,
   ChevronsUpDown,
   Loader2,
   Search,
-  SlidersHorizontal,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -19,7 +17,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Table,
   TableBody,
@@ -45,6 +42,9 @@ import {
   STAGE_ORDER,
 } from "@/lib/salesup/customerTypes";
 import { useStageSettings } from "@/lib/salesup/stageSettings";
+import { downloadCsv } from "@/lib/salesup/csv";
+import { useTableFieldPreferences } from "@/lib/salesup/tableFields";
+import { TableFieldControls } from "@/components/salesup/table/TableFieldControls";
 
 type ColumnKey =
   | "companyName"
@@ -166,6 +166,12 @@ const PRESET_LABEL: Record<PresetKey, string> = {
 const CUSTOMIZABLE_FIELDS = (Object.keys(COLUMN_LABEL) as ColumnKey[]).filter(
   (field): field is CustomizableColumnKey => field !== "companyName",
 );
+
+const CUSTOM_FIELD_OPTIONS = CUSTOMIZABLE_FIELDS.map((key) => ({ key, label: COLUMN_LABEL[key] }));
+const PRESET_OPTIONS = (Object.keys(PRESET_LABEL) as PresetKey[]).map((value) => ({
+  value,
+  label: PRESET_LABEL[value],
+}));
 
 function formatAmount(amount: number, currency: string): string {
   const symbol = currency === "CNY" ? "¥" : `${currency} `;
@@ -478,11 +484,6 @@ function csvValue(field: ColumnKey, customer: Customer, today: string): string {
   }
 }
 
-function escapeCsvCell(value: string): string {
-  const escaped = value.replaceAll('"', '""');
-  return /[",\n\r]/.test(escaped) ? `"${escaped}"` : escaped;
-}
-
 export function CustomerTableView({
   customers,
   today,
@@ -498,11 +499,20 @@ export function CustomerTableView({
   const tableRef = useRef<HTMLTableElement>(null);
   const { staleDays: staleThresholds } = useStageSettings();
   const [status, setStatus] = useState<StatusFilter>("active");
-  const [preset, setPreset] = useState<PresetKey>("followup");
   const [query, setQuery] = useState("");
   const [sortField, setSortField] = useState<ColumnKey>("staleDays");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
-  const [customFields, setCustomFields] = useState<ColumnKey[]>(PRESETS.followup.slice(1));
+  const { preset, customFields, visibleFields, changePreset, toggleCustomField } =
+    useTableFieldPreferences<ColumnKey, PresetKey>({
+      fixedField: "companyName",
+      allCustomFields: CUSTOMIZABLE_FIELDS,
+      presets: PRESETS,
+      presetValues: PRESET_VALUES,
+      defaultPreset: "followup",
+      customPreset: "custom",
+      presetStorageKey: PRESET_STORAGE_KEY,
+      customFieldsStorageKey: CUSTOM_FIELDS_STORAGE_KEY,
+    });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState<BulkAction | null>(null);
   const [bulkStep, setBulkStep] = useState<BulkStep>("form");
@@ -512,31 +522,6 @@ export function CustomerTableView({
   const [stageReason, setStageReason] = useState("");
   const [processing, setProcessing] = useState(false);
   const [bulkResult, setBulkResult] = useState<BulkResult | null>(null);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const savedPreset = window.localStorage.getItem(PRESET_STORAGE_KEY);
-      if (savedPreset && PRESET_VALUES.includes(savedPreset as PresetKey)) {
-        setPreset(savedPreset as PresetKey);
-      }
-
-      const saved = JSON.parse(window.localStorage.getItem(CUSTOM_FIELDS_STORAGE_KEY) ?? "null");
-      if (!Array.isArray(saved)) return;
-      const fields = saved.filter(
-        (field): field is ColumnKey =>
-          typeof field === "string" && CUSTOMIZABLE_FIELDS.includes(field as CustomizableColumnKey),
-      );
-      setCustomFields(Array.from(new Set(fields)));
-    } catch {
-      // Ignore malformed local preferences and use the default fields.
-    }
-  }, []);
-
-  const visibleFields = useMemo(() => {
-    if (preset !== "custom") return PRESETS[preset];
-    return ["companyName", ...customFields] as ColumnKey[];
-  }, [customFields, preset]);
 
   const rows = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase();
@@ -606,23 +591,6 @@ export function CustomerTableView({
     }
     setSortField(field);
     setSortDirection(field === "staleDays" ? "desc" : "asc");
-  };
-
-  const changePreset = (nextPreset: PresetKey) => {
-    setPreset(nextPreset);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(PRESET_STORAGE_KEY, nextPreset);
-    }
-  };
-
-  const toggleCustomField = (field: ColumnKey) => {
-    const next = customFields.includes(field)
-      ? customFields.filter((item) => item !== field)
-      : [...customFields, field];
-    setCustomFields(next);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(CUSTOM_FIELDS_STORAGE_KEY, JSON.stringify(next));
-    }
   };
 
   const toggleRow = (customerId: string) => {
@@ -696,24 +664,14 @@ export function CustomerTableView({
   };
 
   const exportCsv = () => {
-    if (typeof window === "undefined" || typeof document === "undefined") return;
-    const content = [
-      ["序号", ...visibleFields.map((field) => COLUMN_LABEL[field])].map(escapeCsvCell).join(","),
-      ...rows.map((customer, index) =>
-        [String(index + 1), ...visibleFields.map((field) => csvValue(field, customer, today))]
-          .map(escapeCsvCell)
-          .join(","),
-      ),
-    ].join("\r\n");
-    const blob = new Blob(["\uFEFF", content], { type: "text/csv;charset=utf-8" });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `客户看板-${today}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url);
+    downloadCsv({
+      filename: `客户看板-${today}.csv`,
+      headers: ["序号", ...visibleFields.map((field) => COLUMN_LABEL[field])],
+      rows: rows.map((customer, index) => [
+        String(index + 1),
+        ...visibleFields.map((field) => csvValue(field, customer, today)),
+      ]),
+    });
   };
 
   return (
@@ -747,54 +705,16 @@ export function CustomerTableView({
               className="h-8 w-44 rounded-md border border-border bg-background pl-8 pr-2 text-xs outline-none focus:border-primary/60"
             />
           </label>
-          <select
-            value={preset}
-            onChange={(event) => changePreset(event.target.value as PresetKey)}
-            className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground outline-none focus:border-primary/60"
-            aria-label="列预设"
-          >
-            {(Object.keys(PRESET_LABEL) as PresetKey[]).map((key) => (
-              <option key={key} value={key}>
-                {PRESET_LABEL[key]}
-              </option>
-            ))}
-          </select>
-          {preset === "custom" && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex h-8 items-center gap-1 rounded-md border border-border px-2 text-xs text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
-                >
-                  <SlidersHorizontal className="h-3.5 w-3.5" />
-                  选择字段
-                </button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-64 p-3">
-                <div className="text-xs font-medium">自定义字段</div>
-                <p className="mt-1 text-[11px] text-muted-foreground">公司名固定为第一列。</p>
-                <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2">
-                  {CUSTOMIZABLE_FIELDS.map((field) => (
-                    <label key={field} className="flex items-center gap-1.5 text-xs cursor-pointer">
-                      <Checkbox
-                        checked={customFields.includes(field)}
-                        onCheckedChange={() => toggleCustomField(field)}
-                      />
-                      <span className="truncate">{COLUMN_LABEL[field]}</span>
-                    </label>
-                  ))}
-                </div>
-              </PopoverContent>
-            </Popover>
-          )}
-          <button
-            type="button"
-            onClick={exportCsv}
-            className="inline-flex h-8 items-center gap-1 rounded-md border border-border px-2 text-xs text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
-          >
-            <Download className="h-3.5 w-3.5" />
-            导出 CSV
-          </button>
+          <TableFieldControls
+            preset={preset}
+            presets={PRESET_OPTIONS}
+            customPreset="custom"
+            fields={CUSTOM_FIELD_OPTIONS}
+            customFields={customFields}
+            onPresetChange={(nextPreset) => changePreset(nextPreset as PresetKey)}
+            onToggleField={(field) => toggleCustomField(field as CustomizableColumnKey)}
+            onExport={exportCsv}
+          />
         </div>
       </div>
 

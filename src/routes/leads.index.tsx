@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import { LeadExitDialog } from "@/components/salesup/lead/LeadExitDialog";
 import { ConvertLeadDialog } from "@/components/salesup/lead/ConvertLeadDialog";
+import { TableFieldControls } from "@/components/salesup/table/TableFieldControls";
 import { AppShell } from "@/components/salesup/AppShell";
 import {
   Table,
@@ -29,7 +30,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { SOURCE_LABEL, SOURCE_ORDER, type CustomerSource } from "@/lib/salesup/customerTypes";
-import { todayKey } from "@/lib/salesup/date";
+import { toDateKey, todayKey } from "@/lib/salesup/date";
+import { downloadCsv } from "@/lib/salesup/csv";
+import { useTableFieldPreferences } from "@/lib/salesup/tableFields";
 import {
   countLegacyLocalLeads,
   hasLegacyLocalLeads,
@@ -40,6 +43,7 @@ import type { ExitLeadInput, LeadPoolLead } from "@/lib/salesup/leadRepository";
 import {
   LEAD_STAGES,
   LEAD_STAGE_LABEL,
+  LEAD_STATUS_LABEL,
   type LeadStage,
   type LeadStageAction,
 } from "@/lib/salesup/leadTypes";
@@ -85,6 +89,153 @@ const STAGE_CARD_CLASS: Record<LeadStage, string> = {
   need_discovery: "lead-stage-card--need-discovery",
   ready_to_convert: "lead-stage-card--ready-to-convert",
 };
+
+type LeadColumnKey =
+  | "company"
+  | "industry"
+  | "companyBackground"
+  | "contactSummary"
+  | "contactName"
+  | "contactTitle"
+  | "contactDepartment"
+  | "phone"
+  | "wechat"
+  | "email"
+  | "priority"
+  | "leadStage"
+  | "status"
+  | "source"
+  | "sourceDetail"
+  | "sourceDate"
+  | "needSummary"
+  | "currentNeed"
+  | "coreProblem"
+  | "keyInfo"
+  | "budgetSignal"
+  | "timeline"
+  | "currentVendor"
+  | "hqCity"
+  | "companySize"
+  | "website"
+  | "score"
+  | "missingInformation"
+  | "nextAction"
+  | "nextActionDate"
+  | "lastContactedAt"
+  | "createdAt"
+  | "researchedAt"
+  | "calledAt"
+  | "wechatAddedAt"
+  | "introSentAt"
+  | "needsCapturedAt"
+  | "signals"
+  | "photoUrls";
+
+type LeadPresetKey = "default" | "all" | "custom";
+type CustomLeadColumnKey = Exclude<LeadColumnKey, "company" | "contactSummary" | "needSummary">;
+
+const LEAD_COLUMN_LABEL: Record<LeadColumnKey, string> = {
+  company: "公司名",
+  industry: "行业",
+  companyBackground: "公司背景",
+  contactSummary: "联系人 / 联系方式",
+  contactName: "联系人",
+  contactTitle: "职位",
+  contactDepartment: "部门",
+  phone: "电话",
+  wechat: "微信",
+  email: "邮箱",
+  priority: "评级",
+  leadStage: "阶段",
+  status: "状态",
+  source: "来源",
+  sourceDetail: "来源详情",
+  sourceDate: "来源日期",
+  needSummary: "需求",
+  currentNeed: "需求",
+  coreProblem: "痛点",
+  keyInfo: "关键信息",
+  budgetSignal: "预算信号",
+  timeline: "时机信号",
+  currentVendor: "当前供应商",
+  hqCity: "总部城市",
+  companySize: "公司规模",
+  website: "网站",
+  score: "评分",
+  missingInformation: "待补信息",
+  nextAction: "下一步动作",
+  nextActionDate: "下一步日期",
+  lastContactedAt: "最近联系",
+  createdAt: "创建时间",
+  researchedAt: "背调时间",
+  calledAt: "致电时间",
+  wechatAddedAt: "加微时间",
+  introSentAt: "发介绍时间",
+  needsCapturedAt: "挖需时间",
+  signals: "线索信号",
+  photoUrls: "照片",
+};
+
+const LEAD_PRESETS: Record<Exclude<LeadPresetKey, "custom">, LeadColumnKey[]> = {
+  default: ["company", "priority", "contactSummary", "needSummary", "source", "leadStage"],
+  all: [
+    "company",
+    "industry",
+    "companyBackground",
+    "contactName",
+    "contactTitle",
+    "contactDepartment",
+    "phone",
+    "wechat",
+    "email",
+    "priority",
+    "leadStage",
+    "status",
+    "source",
+    "sourceDetail",
+    "sourceDate",
+    "currentNeed",
+    "coreProblem",
+    "keyInfo",
+    "budgetSignal",
+    "timeline",
+    "currentVendor",
+    "hqCity",
+    "companySize",
+    "website",
+    "score",
+    "missingInformation",
+    "nextAction",
+    "nextActionDate",
+    "lastContactedAt",
+    "createdAt",
+    "researchedAt",
+    "calledAt",
+    "wechatAddedAt",
+    "introSentAt",
+    "needsCapturedAt",
+    "signals",
+    "photoUrls",
+  ],
+};
+
+const LEAD_PRESET_OPTIONS = [
+  { value: "default", label: "默认字段" },
+  { value: "all", label: "全部字段" },
+  { value: "custom", label: "自定义" },
+];
+
+const LEAD_PRESET_VALUES: LeadPresetKey[] = ["default", "all", "custom"];
+
+const LEAD_CUSTOM_FIELDS = (Object.keys(LEAD_COLUMN_LABEL) as LeadColumnKey[]).filter(
+  (field): field is CustomLeadColumnKey =>
+    field !== "company" && field !== "contactSummary" && field !== "needSummary",
+);
+
+const LEAD_CUSTOM_FIELD_OPTIONS = LEAD_CUSTOM_FIELDS.map((key) => ({
+  key,
+  label: LEAD_COLUMN_LABEL[key],
+}));
 
 function parseSources(value: string): CustomerSource[] {
   return value
@@ -506,6 +657,153 @@ interface LeadTableProps {
   onConverted: () => Promise<void>;
 }
 
+function formatLeadDate(value: string | undefined | null): string {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value.slice(0, 10) : toDateKey(date);
+}
+
+function leadColumnValue(field: LeadColumnKey, lead: LeadPoolLead): string {
+  switch (field) {
+    case "company":
+      return lead.company;
+    case "industry":
+      return lead.industry ?? "";
+    case "companyBackground":
+      return lead.companyBackground ?? "";
+    case "contactSummary":
+      return [lead.contactName, leadContact(lead)].filter(Boolean).join(" · ");
+    case "contactName":
+      return lead.contactName;
+    case "contactTitle":
+      return lead.contactTitle ?? "";
+    case "contactDepartment":
+      return lead.contactDepartment ?? "";
+    case "phone":
+      return lead.phone ?? "";
+    case "wechat":
+      return lead.wechat ?? "";
+    case "email":
+      return lead.email ?? "";
+    case "priority":
+      return PRIORITY_LABEL[lead.priority];
+    case "leadStage":
+      return LEAD_STAGE_LABEL[lead.leadStage];
+    case "status":
+      return LEAD_STATUS_LABEL[lead.status];
+    case "source":
+      return SOURCE_LABEL[lead.source];
+    case "sourceDetail":
+      return lead.sourceDetail ?? "";
+    case "sourceDate":
+      return lead.sourceDate ?? "";
+    case "needSummary":
+      return leadNote(lead);
+    case "currentNeed":
+      return lead.currentNeed ?? "";
+    case "coreProblem":
+      return lead.coreProblem ?? "";
+    case "keyInfo":
+      return lead.keyInfo ?? "";
+    case "budgetSignal":
+      return lead.budgetSignal ?? "";
+    case "timeline":
+      return lead.timeline ?? "";
+    case "currentVendor":
+      return lead.currentVendor ?? "";
+    case "hqCity":
+      return lead.hqCity ?? "";
+    case "companySize":
+      return lead.companySize ?? "";
+    case "website":
+      return lead.website ?? "";
+    case "score":
+      return lead.score === undefined ? "" : String(lead.score);
+    case "missingInformation":
+      return lead.missingInformation ?? "";
+    case "nextAction":
+      return lead.nextAction;
+    case "nextActionDate":
+      return lead.nextActionDate;
+    case "lastContactedAt":
+      return formatLeadDate(lead.lastContactedAt);
+    case "createdAt":
+      return formatLeadDate(lead.createdAt);
+    case "researchedAt":
+      return formatLeadDate(lead.researchedAt);
+    case "calledAt":
+      return formatLeadDate(lead.calledAt);
+    case "wechatAddedAt":
+      return formatLeadDate(lead.wechatAddedAt);
+    case "introSentAt":
+      return formatLeadDate(lead.introSentAt);
+    case "needsCapturedAt":
+      return formatLeadDate(lead.needsCapturedAt);
+    case "signals":
+      return lead.signals?.join("、") ?? "";
+    case "photoUrls":
+      return lead.photoUrls?.join("、") ?? "";
+  }
+}
+
+function LeadFieldCell({
+  field,
+  lead,
+  reclaimed,
+}: {
+  field: LeadColumnKey;
+  lead: LeadPoolLead;
+  reclaimed: boolean;
+}) {
+  if (field === "company") {
+    return (
+      <TableCell className="sticky left-0 z-10 max-w-56 bg-card px-3 py-1.5 font-medium">
+        <span className="block truncate">{lead.company || "（未命名线索）"}</span>
+        {reclaimed && (
+          <span className="mt-0.5 inline-block rounded border border-primary/30 bg-primary/5 px-1.5 py-0.5 text-[10px] font-normal text-primary">
+            已回捞
+          </span>
+        )}
+      </TableCell>
+    );
+  }
+
+  if (field === "priority") {
+    return (
+      <TableCell className="px-3 py-1.5">
+        <span
+          className={cn(
+            "inline-flex h-5 items-center rounded border px-1.5 text-[10px] font-medium",
+            TABLE_PRIORITY_STYLE[lead.priority],
+          )}
+        >
+          {PRIORITY_LABEL[lead.priority]}
+        </span>
+      </TableCell>
+    );
+  }
+
+  if (field === "contactSummary") {
+    return (
+      <TableCell className="max-w-52 px-3 py-1.5 leading-4">
+        <span className="block truncate">{lead.contactName.trim() || "—"}</span>
+        <span className="block truncate text-[10px] text-muted-foreground">
+          {leadContact(lead)}
+        </span>
+      </TableCell>
+    );
+  }
+
+  const value = leadColumnValue(field, lead);
+  return (
+    <TableCell className="max-w-60 px-3 py-1.5">
+      <span className="block truncate text-muted-foreground" title={value || undefined}>
+        {value || "—"}
+      </span>
+    </TableCell>
+  );
+}
+
 function LeadTable({
   leads,
   today,
@@ -518,19 +816,55 @@ function LeadTable({
   const navigate = useNavigate();
   const [exitTarget, setExitTarget] = useState<LeadPoolLead | null>(null);
   const [conversionTarget, setConversionTarget] = useState<LeadPoolLead | null>(null);
+  const { preset, customFields, visibleFields, changePreset, toggleCustomField } =
+    useTableFieldPreferences<LeadColumnKey, LeadPresetKey>({
+      fixedField: "company",
+      allCustomFields: LEAD_CUSTOM_FIELDS,
+      presets: LEAD_PRESETS,
+      presetValues: LEAD_PRESET_VALUES,
+      defaultPreset: "default",
+      customPreset: "custom",
+      presetStorageKey: "salesup:leads:table-preset",
+      customFieldsStorageKey: "salesup:leads:table-custom-fields",
+    });
+
+  const exportCsv = () => {
+    downloadCsv({
+      filename: `线索池-${today}.csv`,
+      headers: visibleFields.map((field) => LEAD_COLUMN_LABEL[field]),
+      rows: leads.map((lead) => visibleFields.map((field) => leadColumnValue(field, lead))),
+    });
+  };
 
   return (
     <>
+      <div className="flex justify-end">
+        <TableFieldControls
+          preset={preset}
+          presets={LEAD_PRESET_OPTIONS}
+          customPreset="custom"
+          fields={LEAD_CUSTOM_FIELD_OPTIONS}
+          customFields={customFields}
+          onPresetChange={(nextPreset) => changePreset(nextPreset as LeadPresetKey)}
+          onToggleField={(field) => toggleCustomField(field as CustomLeadColumnKey)}
+          onExport={exportCsv}
+        />
+      </div>
       <div className="overflow-x-auto rounded-xl border border-border bg-card">
-        <Table className="min-w-[940px] text-xs">
+        <Table className="min-w-max text-xs">
           <TableHeader>
             <TableRow className="h-9 hover:bg-transparent">
-              <TableHead className="sticky left-0 z-20 min-w-44 bg-card px-3">公司</TableHead>
-              <TableHead className="min-w-24 px-3">评级</TableHead>
-              <TableHead className="min-w-44 px-3">联系人 / 联系方式</TableHead>
-              <TableHead className="min-w-48 px-3">需求或备注</TableHead>
-              <TableHead className="min-w-20 px-3">来源</TableHead>
-              <TableHead className="min-w-24 px-3">下一步</TableHead>
+              {visibleFields.map((field) => (
+                <TableHead
+                  key={field}
+                  className={cn(
+                    "min-w-28 px-3",
+                    field === "company" && "sticky left-0 z-20 min-w-44 bg-card",
+                  )}
+                >
+                  {LEAD_COLUMN_LABEL[field]}
+                </TableHead>
+              ))}
               <TableHead className="min-w-40 px-3 text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
@@ -554,43 +888,9 @@ function LeadTable({
                   }}
                   className="h-12 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
-                  <TableCell className="sticky left-0 z-10 max-w-56 bg-card px-3 py-1.5 font-medium">
-                    <span className="block truncate">{lead.company || "（未命名线索）"}</span>
-                    {reclaimed && (
-                      <span className="mt-0.5 inline-block rounded border border-primary/30 bg-primary/5 px-1.5 py-0.5 text-[10px] font-normal text-primary">
-                        已回捞
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell className="px-3 py-1.5">
-                    <span
-                      className={cn(
-                        "inline-flex h-5 items-center rounded border px-1.5 text-[10px] font-medium",
-                        TABLE_PRIORITY_STYLE[lead.priority],
-                      )}
-                    >
-                      {PRIORITY_LABEL[lead.priority]}
-                    </span>
-                  </TableCell>
-                  <TableCell className="max-w-52 px-3 py-1.5 leading-4">
-                    <span className="block truncate">{lead.contactName.trim() || "—"}</span>
-                    <span className="block truncate text-[10px] text-muted-foreground">
-                      {leadContact(lead)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="max-w-60 px-3 py-1.5">
-                    <span className="block truncate" title={leadNote(lead)}>
-                      {leadNote(lead)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="px-3 py-1.5 text-muted-foreground">
-                    {SOURCE_LABEL[lead.source]}
-                  </TableCell>
-                  <TableCell className="px-3 py-1.5">
-                    <span className="text-muted-foreground">
-                      {LEAD_STAGE_LABEL[lead.leadStage]}
-                    </span>
-                  </TableCell>
+                  {visibleFields.map((field) => (
+                    <LeadFieldCell key={field} field={field} lead={lead} reclaimed={reclaimed} />
+                  ))}
                   <TableCell className="px-3 py-1.5">
                     <div
                       className="flex items-center justify-end gap-1.5"
