@@ -76,6 +76,15 @@ const STAGE_ICON: Record<LeadStage, typeof BookOpenCheck> = {
   ready_to_convert: BadgeCheck,
 };
 
+const STAGE_CARD_CLASS: Record<LeadStage, string> = {
+  research: "lead-stage-card--research",
+  call: "lead-stage-card--call",
+  add_wechat: "lead-stage-card--add-wechat",
+  send_intro: "lead-stage-card--send-intro",
+  need_discovery: "lead-stage-card--need-discovery",
+  ready_to_convert: "lead-stage-card--ready-to-convert",
+};
+
 function parseSources(value: string): CustomerSource[] {
   return value
     .split(",")
@@ -280,20 +289,21 @@ function ExpoIndexPage() {
         {LEAD_STAGES.map((stage) => {
           const Icon = STAGE_ICON[stage];
           const selected = search.stage === stage && !search.organize;
-          const convert = stage === "ready_to_convert";
           return (
             <button
               key={stage}
               type="button"
               onClick={() => toggleStage(stage)}
               className={cn(
-                "min-w-0 rounded-xl border p-2.5 text-left transition",
-                convert ? "border-primary/50 bg-primary/5" : "border-border bg-card",
-                selected && "border-primary bg-primary/10 ring-1 ring-primary/20",
+                "min-w-0 rounded-xl border border-border bg-card p-2.5 text-left transition",
+                STAGE_CARD_CLASS[stage],
+                selected && "lead-stage-card--selected",
               )}
             >
-              <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Icon className="h-3.5 w-3.5 shrink-0" />
+              <span className="lead-stage-label flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="lead-stage-icon">
+                  <Icon className="h-3.5 w-3.5" />
+                </span>
                 <span className="truncate">{LEAD_STAGE_LABEL[stage]}</span>
               </span>
               <span className="mt-1.5 block text-2xl font-semibold leading-none tabular-nums">
@@ -596,7 +606,7 @@ function LeadTable({ leads, today, pendingId, onAdvance, onExit, onResume }: Lea
                         className={cn(
                           "inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] disabled:cursor-not-allowed disabled:opacity-50",
                           action.action
-                            ? "bg-primary text-primary-foreground"
+                            ? `lead-stage-action--${lead.leadStage}`
                             : "border border-border bg-muted text-muted-foreground",
                         )}
                       >

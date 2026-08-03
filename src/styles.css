@@ -109,6 +109,23 @@
   --chart-4: oklch(0.68 0.07 258);
   --chart-5: oklch(0.62 0.13 30);
 
+  /* Lead pool stage semantics: process stages use a soft icon tile only. */
+  --lead-stage-research-bg: #eeedfe;
+  --lead-stage-research: #3c3489;
+  --lead-stage-call-bg: #e6f1fb;
+  --lead-stage-call: #0c447c;
+  --lead-stage-add-wechat-bg: #e1f5ee;
+  --lead-stage-add-wechat: #0f6e56;
+  --lead-stage-send-intro-bg: #faeeda;
+  --lead-stage-send-intro: #854f0b;
+  --lead-stage-need-discovery-bg: #faece7;
+  --lead-stage-need-discovery: #993c1d;
+  --lead-stage-ready: var(--primary);
+  --lead-stage-ready-foreground: #ffffff;
+  --lead-stage-ready-icon-bg: oklch(1 0 0 / 0.18);
+  --lead-pool-selected-border: var(--primary);
+  --lead-pool-selected-ring: #cdeee0;
+
   /* Work type colors — clear but soft. Customer-related = warmer/more vivid;
      internal & admin = low-saturation; review = stable indigo. */
   --wt-meeting-customer: oklch(0.62 0.095 168); /* clear blue */
@@ -121,6 +138,93 @@
   --wt-admin: oklch(0.85 0.014 90); /* gray */
   --wt-review: oklch(0.62 0.078 262); /* stable indigo */
   --wt-buffer: oklch(0.91 0.012 92); /* warm neutral */
+}
+
+/* Lead pool: stage visuals are deliberately separated from filter selection. */
+.lead-stage-icon {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+}
+
+.lead-stage-card--research .lead-stage-icon {
+  background: var(--lead-stage-research-bg);
+  color: var(--lead-stage-research);
+}
+
+.lead-stage-card--call .lead-stage-icon {
+  background: var(--lead-stage-call-bg);
+  color: var(--lead-stage-call);
+}
+
+.lead-stage-card--add-wechat .lead-stage-icon {
+  background: var(--lead-stage-add-wechat-bg);
+  color: var(--lead-stage-add-wechat);
+}
+
+.lead-stage-card--send-intro .lead-stage-icon {
+  background: var(--lead-stage-send-intro-bg);
+  color: var(--lead-stage-send-intro);
+}
+
+.lead-stage-card--need-discovery .lead-stage-icon {
+  background: var(--lead-stage-need-discovery-bg);
+  color: var(--lead-stage-need-discovery);
+}
+
+.lead-stage-card--ready-to-convert {
+  border-color: var(--lead-stage-ready);
+  background: var(--lead-stage-ready);
+  color: var(--lead-stage-ready-foreground);
+}
+
+.lead-stage-card--ready-to-convert .lead-stage-icon {
+  background: var(--lead-stage-ready-icon-bg);
+  color: var(--lead-stage-ready-foreground);
+}
+
+.lead-stage-card--selected {
+  border-width: 2px;
+  border-color: var(--lead-pool-selected-border);
+  box-shadow: 0 0 0 3px var(--lead-pool-selected-ring);
+}
+
+.lead-stage-card--selected .lead-stage-label {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.lead-stage-card--ready-to-convert .lead-stage-label {
+  color: var(--lead-stage-ready-foreground);
+}
+
+.lead-stage-action--research {
+  background: var(--lead-stage-research);
+  color: var(--lead-stage-ready-foreground);
+}
+
+.lead-stage-action--call {
+  background: var(--lead-stage-call);
+  color: var(--lead-stage-ready-foreground);
+}
+
+.lead-stage-action--add-wechat {
+  background: var(--lead-stage-add-wechat);
+  color: var(--lead-stage-ready-foreground);
+}
+
+.lead-stage-action--send-intro {
+  background: var(--lead-stage-send-intro);
+  color: var(--lead-stage-ready-foreground);
+}
+
+.lead-stage-action--need-discovery {
+  background: var(--lead-stage-need-discovery);
+  color: var(--lead-stage-ready-foreground);
 }
 
 .dark {
