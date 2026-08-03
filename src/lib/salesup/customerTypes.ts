@@ -191,6 +191,12 @@ export interface StageWinRateEntity {
   winRate: number | null | undefined;
 }
 
+/** 客户与商机共享的阶段停滞判断所需最小结构。 */
+export interface StageTimingEntity {
+  stage: CustomerStage;
+  stageChangedAt: string;
+}
+
 export function getEffectiveWinRate(entity: StageWinRateEntity): number {
   if (entity.winRate !== null && entity.winRate !== undefined) {
     return entity.winRate;
@@ -199,9 +205,9 @@ export function getEffectiveWinRate(entity: StageWinRateEntity): number {
 }
 
 /** 今天减去 stage_changed_at 的天数（按本地日期计算，>= 0）。 */
-export function staleDays(customer: Customer): number {
-  if (!customer.stageChangedAt) return 0;
-  const changed = new Date(customer.stageChangedAt);
+export function staleDays(entity: StageTimingEntity): number {
+  if (!entity.stageChangedAt) return 0;
+  const changed = new Date(entity.stageChangedAt);
   if (Number.isNaN(changed.getTime())) return 0;
   const a = new Date(toDateKey(changed) + "T00:00:00");
   const b = new Date(todayKey() + "T00:00:00");
@@ -210,8 +216,8 @@ export function staleDays(customer: Customer): number {
 }
 
 /** 停滞天数是否超过该阶段阈值。 */
-export function isStale(customer: Customer, thresholds: StageStaleDays): boolean {
-  const threshold = thresholds[customer.stage];
+export function isStale(entity: StageTimingEntity, thresholds: StageStaleDays): boolean {
+  const threshold = thresholds[entity.stage];
   if (threshold === null || threshold === undefined) return false;
-  return staleDays(customer) > threshold;
+  return staleDays(entity) > threshold;
 }

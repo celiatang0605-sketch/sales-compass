@@ -1,390 +1,388 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  closestCorners,
   DndContext,
   DragOverlay,
   PointerSensor,
   TouchSensor,
-  useSensor,
-  useSensors,
   useDraggable,
   useDroppable,
-  closestCorners,
-  type DragStartEvent,
+  useSensor,
+  useSensors,
   type DragEndEvent,
+  type DragStartEvent,
 } from "@dnd-kit/core";
 import {
-  Plus,
-  Loader2,
-  RefreshCw,
   AlertTriangle,
-  Users,
   Columns3,
   LayoutDashboard,
+  Loader2,
+  RefreshCw,
+  Search,
+  Users,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { AppShell } from "@/components/salesup/AppShell";
+import { OpportunityStageChangeDialog } from "@/components/salesup/customer/OpportunityStageChangeDialog";
+import { OpportunityTableView } from "@/components/salesup/customer/OpportunityTableView";
+import { OpportunityViewSummary } from "@/components/salesup/customer/OpportunityViewSummary";
 import { StageAdvanceControl } from "@/components/salesup/customer/StageAdvanceControl";
-import { StageChangeDialog } from "@/components/salesup/customer/StageChangeDialog";
-import { CustomerTableView } from "@/components/salesup/customer/CustomerTableView";
-import { CustomerViewSummary } from "@/components/salesup/customer/CustomerViewSummary";
-import { useCustomers } from "@/lib/salesup/useCustomers";
+import { cn } from "@/lib/utils";
 import { todayKey } from "@/lib/salesup/date";
+import { useOpportunities } from "@/lib/salesup/useOpportunities";
 import { useStageSettings } from "@/lib/salesup/stageSettings";
 import {
+  getEffectiveWinRate,
   isStale,
   staleDays,
-  getEffectiveWinRate,
-  ROLE_LABEL,
   SOURCE_LABEL,
   SOURCE_ORDER,
   STAGE_COLOR_TOKEN,
   STAGE_LABEL,
   STAGE_ORDER,
-  type Customer,
+  STATUS_LABEL,
   type CustomerSource,
   type CustomerStage,
+  type CustomerStatus,
   type StageStaleDays,
 } from "@/lib/salesup/customerTypes";
+import type { OpportunityWithDetails } from "@/lib/salesup/opportunityTypes";
 
-const BOARD_STAGES = STAGE_ORDER;
-const CUSTOMER_VIEW_STORAGE_KEY = "salesup:customers:view";
-type CustomerView = "board" | "table";
+type OpportunityView = "board" | "table";
+type OpportunityStatusFilter = CustomerStatus | "all";
+interface OpportunityBoardSearch {
+  sources?: string;
+  products?: string;
+  status?: OpportunityStatusFilter;
+  q?: string;
+  view?: OpportunityView;
+}
+const VIEW_STORAGE_KEY = "salesup:opportunities:view";
+
+function parseList(value: string | undefined): string[] {
+  return value?.split(",").filter(Boolean) ?? [];
+}
+function isStatus(value: unknown): value is OpportunityStatusFilter {
+  return (
+    value === "all" ||
+    value === "active" ||
+    value === "won" ||
+    value === "lost" ||
+    value === "on_hold"
+  );
+}
+function formatAmount(amount: number, currency: string): string {
+  return `${currency === "CNY" ? "¥" : `${currency} `}${amount.toLocaleString("zh-CN", { maximumFractionDigits: 2 })}`;
+}
+function stageTimestamp(opportunity: OpportunityWithDetails): number {
+  const value = new Date(opportunity.stageChangedAt).getTime();
+  return Number.isNaN(value) ? Number.MAX_SAFE_INTEGER : value;
+}
 
 export const Route = createFileRoute("/customers/")({
+  validateSearch: (search: Record<string, unknown>): OpportunityBoardSearch => ({
+    sources: typeof search.sources === "string" ? search.sources : undefined,
+    products: typeof search.products === "string" ? search.products : undefined,
+    status: isStatus(search.status) ? search.status : undefined,
+    q: typeof search.q === "string" ? search.q : undefined,
+    view: search.view === "table" || search.view === "board" ? search.view : undefined,
+  }),
   head: () => ({
     meta: [
-      { title: "客户看板 · Sales Up" },
-      {
-        name: "description",
-        content: "按阶段查看进行中的客户与商机，识别停滞与逾期跟进。",
-      },
-      { property: "og:title", content: "客户看板 · Sales Up" },
-      {
-        property: "og:description",
-        content: "按阶段查看进行中的客户与商机，识别停滞与逾期跟进。",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
+      { title: "商机看板 · Sales Up" },
+      { name: "description", content: "按阶段查看进行中的商机。" },
     ],
   }),
-  component: CustomersBoardPage,
+  component: OpportunitiesBoardPage,
 });
 
-function formatAmount(amount: number, currency: string): string {
-  const symbol = currency === "CNY" ? "¥" : currency + " ";
-  if (amount >= 10000) {
-    const w = amount / 10000;
-    return `${symbol}${w % 1 === 0 ? w : w.toFixed(1)} 万`;
-  }
-  return `${symbol}${amount.toLocaleString("zh-CN")}`;
-}
-
-function stageChangedAtTimestamp(customer: Customer): number {
-  const timestamp = new Date(customer.stageChangedAt).getTime();
-  return Number.isNaN(timestamp) ? Number.MAX_SAFE_INTEGER : timestamp;
-}
-
-function CustomersBoardPage() {
-  const { customers, loading, error, userId, refresh } = useCustomers();
+function OpportunitiesBoardPage() {
+  const search = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
+  const { opportunities, loading, error, userId, refresh } = useOpportunities();
   const { staleDays: staleThresholds } = useStageSettings();
-  const [sources, setSources] = useState<CustomerSource[]>([]);
-  const [productLines, setProductLines] = useState<string[]>([]);
+  const today = todayKey();
+  const sources = useMemo(
+    () =>
+      parseList(search.sources).filter((source): source is CustomerSource =>
+        SOURCE_ORDER.includes(source as CustomerSource),
+      ),
+    [search.sources],
+  );
+  const products = useMemo(() => parseList(search.products), [search.products]);
+  const status = search.status ?? "active";
+  const query = search.q ?? "";
+  const [view, setView] = useState<OpportunityView>(search.view ?? "board");
   const [stageTarget, setStageTarget] = useState<{
-    customer: Customer;
+    opportunity: OpportunityWithDetails;
     stage: CustomerStage;
   } | null>(null);
-  const [view, setView] = useState<CustomerView>("board");
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const saved = window.localStorage.getItem(CUSTOMER_VIEW_STORAGE_KEY);
-    if (saved === "board" || saved === "table") setView(saved);
-  }, []);
-
-  const active = useMemo(() => customers.filter((c) => c.status === "active"), [customers]);
-
-  const allProductLines = useMemo(() => {
-    const set = new Set<string>();
-    for (const c of customers) for (const p of c.productLines) set.add(p);
-    return Array.from(set).sort();
-  }, [customers]);
-
-  const allFiltered = useMemo(() => {
-    return customers.filter((c) => {
-      if (sources.length > 0 && !sources.includes(c.source)) return false;
-      if (productLines.length > 0 && !c.productLines.some((p) => productLines.includes(p)))
-        return false;
-      return true;
-    });
-  }, [customers, sources, productLines]);
-
-  const filtered = useMemo(
-    () => allFiltered.filter((customer) => customer.status === "active"),
-    [allFiltered],
-  );
-
-  const today = todayKey();
-
-  const boardCustomers = filtered;
-
-  const columns = useMemo(
-    () =>
-      BOARD_STAGES.map((stage) => ({
-        stage,
-        items: boardCustomers
-          .filter((c) => c.stage === stage)
-          .sort((a, b) => stageChangedAtTimestamp(a) - stageChangedAtTimestamp(b)),
-      })),
-    [boardCustomers],
-  );
-
-  const [tableVisibleCustomers, setTableVisibleCustomers] = useState<Customer[]>(filtered);
-  const handleTableVisibleCustomersChange = useCallback((nextCustomers: Customer[]) => {
-    setTableVisibleCustomers(nextCustomers);
-  }, []);
-
-  const toggle = <T,>(list: T[], v: T, set: (n: T[]) => void) => {
-    set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
-  };
-
-  const showBoard = !!userId && !loading && !error;
-
-  const changeView = (nextView: CustomerView) => {
-    setView(nextView);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(CUSTOMER_VIEW_STORAGE_KEY, nextView);
-    }
-  };
-
   const [draggingId, setDraggingId] = useState<string | null>(null);
-  const draggingCustomer = useMemo(
-    () => boardCustomers.find((c) => c.id === draggingId) ?? null,
-    [boardCustomers, draggingId],
-  );
-
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(TouchSensor, {
-      activationConstraint: { delay: 200, tolerance: 8 },
-    }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
   );
 
-  const handleDragStart = (e: DragStartEvent) => {
-    setDraggingId(String(e.active.id));
-  };
+  useEffect(() => {
+    if (search.view) {
+      setView(search.view);
+      return;
+    }
+    if (typeof window === "undefined") return;
+    const saved = window.localStorage.getItem(VIEW_STORAGE_KEY);
+    if (saved === "board" || saved === "table") setView(saved);
+  }, [search.view]);
 
-  const handleDragEnd = (e: DragEndEvent) => {
-    const activeId = String(e.active.id);
+  const setSearch = useCallback(
+    (patch: Partial<OpportunityBoardSearch>) => {
+      void navigate({ to: "/customers", search: (previous) => ({ ...previous, ...patch }) });
+    },
+    [navigate],
+  );
+  const changeView = (nextView: OpportunityView) => {
+    setView(nextView);
+    if (typeof window !== "undefined") window.localStorage.setItem(VIEW_STORAGE_KEY, nextView);
+    setSearch({ view: nextView });
+  };
+  const toggleSource = (source: CustomerSource) =>
+    setSearch({
+      sources:
+        (sources.includes(source)
+          ? sources.filter((item) => item !== source)
+          : [...sources, source]
+        ).join(",") || undefined,
+    });
+  const toggleProduct = (product: string) =>
+    setSearch({
+      products:
+        (products.includes(product)
+          ? products.filter((item) => item !== product)
+          : [...products, product]
+        ).join(",") || undefined,
+    });
+
+  const allProducts = useMemo(
+    () =>
+      Array.from(new Set(opportunities.flatMap((opportunity) => opportunity.productLines))).sort(),
+    [opportunities],
+  );
+  const filtered = useMemo(() => {
+    const keyword = query.trim().toLowerCase();
+    return opportunities.filter((opportunity) => {
+      if (status !== "all" && opportunity.status !== status) return false;
+      if (sources.length && !sources.includes(opportunity.customer.source)) return false;
+      if (products.length && !opportunity.productLines.some((line) => products.includes(line)))
+        return false;
+      if (!keyword) return true;
+      return [
+        opportunity.customer.companyName,
+        opportunity.name,
+        ...opportunity.contacts.map((contact) => contact.name),
+      ].some((value) => value.toLowerCase().includes(keyword));
+    });
+  }, [opportunities, products, query, sources, status]);
+  const columns = useMemo(
+    () =>
+      STAGE_ORDER.map((stage) => ({
+        stage,
+        items: filtered
+          .filter((opportunity) => opportunity.stage === stage)
+          .sort((left, right) => stageTimestamp(left) - stageTimestamp(right)),
+      })),
+    [filtered],
+  );
+  const draggingOpportunity = useMemo(
+    () => filtered.find((opportunity) => opportunity.id === draggingId) ?? null,
+    [draggingId, filtered],
+  );
+  const showContent = !!userId && !loading && !error;
+  const dragStart = (event: DragStartEvent) => setDraggingId(String(event.active.id));
+  const dragEnd = (event: DragEndEvent) => {
     setDraggingId(null);
-    const overStage = e.over?.id ? (String(e.over.id) as CustomerStage) : null;
-    if (!overStage) return;
-    const cust = boardCustomers.find((c) => c.id === activeId);
-    if (!cust || cust.stage === overStage) return;
-    setStageTarget({ customer: cust, stage: overStage });
+    const stage = event.over?.id ? (String(event.over.id) as CustomerStage) : null;
+    const opportunity = filtered.find((item) => item.id === String(event.active.id));
+    if (stage && opportunity && stage !== opportunity.stage) setStageTarget({ opportunity, stage });
   };
 
   return (
     <AppShell>
-      <div className="mb-4 md:mb-6 flex items-start gap-3">
-        <div className="flex-1 min-w-0">
-          <h1 className="text-xl md:text-2xl font-semibold tracking-tight">客户看板</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            按阶段查看进行中的客户，识别停滞与逾期跟进。
-          </p>
+      <div className="mb-4 flex items-start gap-3 md:mb-6">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl font-semibold tracking-tight md:text-2xl">商机看板</h1>
+          <p className="mt-1 text-sm text-muted-foreground">按阶段查看进行中的商机</p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <div className="inline-flex h-9 rounded-lg border border-border bg-card p-0.5">
-            <button
-              type="button"
-              onClick={() => changeView("board")}
-              className={cn(
-                "inline-flex items-center gap-1 rounded-md px-2 text-xs transition",
-                view === "board"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <LayoutDashboard className="h-3.5 w-3.5" />
-              看板
-            </button>
-            <button
-              type="button"
-              onClick={() => changeView("table")}
-              className={cn(
-                "inline-flex items-center gap-1 rounded-md px-2 text-xs transition",
-                view === "table"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <Columns3 className="h-3.5 w-3.5" />
-              表格
-            </button>
-          </div>
-          <Link
-            to="/customers/new"
-            className="inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium shadow-sm hover:bg-primary/90 transition"
+        <div className="inline-flex h-9 shrink-0 rounded-lg border border-border bg-card p-0.5">
+          <button
+            type="button"
+            onClick={() => changeView("board")}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-md px-2 text-xs",
+              view === "board"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
           >
-            <Plus className="w-4 h-4" />
-            新建客户
-          </Link>
+            <LayoutDashboard className="h-3.5 w-3.5" />
+            看板
+          </button>
+          <button
+            type="button"
+            onClick={() => changeView("table")}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-md px-2 text-xs",
+              view === "table"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <Columns3 className="h-3.5 w-3.5" />
+            表格
+          </button>
         </div>
       </div>
-
-      {showBoard && (
-        <CustomerViewSummary
-          customers={view === "table" ? tableVisibleCustomers : boardCustomers}
-          today={today}
-        />
-      )}
-
-      {/* 筛选 */}
-      <div className="space-y-2 mb-4">
+      {showContent && <OpportunityViewSummary opportunities={filtered} today={today} />}
+      <div className="mb-4 space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="relative min-w-52 flex-1 sm:max-w-xs">
+            <Search className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+            <input
+              value={query}
+              onChange={(event) => setSearch({ q: event.target.value || undefined })}
+              placeholder="搜索公司、商机或联系人"
+              className="h-8 w-full rounded-md border border-border bg-background pl-8 pr-2 text-xs outline-none focus:border-primary/60"
+            />
+          </label>
+          <select
+            value={status}
+            onChange={(event) =>
+              setSearch({
+                status:
+                  event.target.value === "active"
+                    ? undefined
+                    : (event.target.value as OpportunityStatusFilter),
+              })
+            }
+            className="h-8 rounded-md border border-border bg-background px-2 text-xs outline-none focus:border-primary/60"
+          >
+            <option value="active">进行中</option>
+            <option value="all">全部状态</option>
+            {(["won", "lost", "on_hold"] as CustomerStatus[]).map((item) => (
+              <option key={item} value={item}>
+                {STATUS_LABEL[item]}
+              </option>
+            ))}
+          </select>
+        </div>
         <FilterRow label="来源">
-          {SOURCE_ORDER.map((s) => (
+          {SOURCE_ORDER.map((source) => (
             <Chip
-              key={s}
-              active={sources.includes(s)}
-              onClick={() => toggle(sources, s, setSources)}
+              key={source}
+              active={sources.includes(source)}
+              onClick={() => toggleSource(source)}
             >
-              {SOURCE_LABEL[s]}
+              {SOURCE_LABEL[source]}
             </Chip>
           ))}
         </FilterRow>
-        {allProductLines.length > 0 && (
+        {allProducts.length > 0 && (
           <FilterRow label="产品线">
-            {allProductLines.map((p) => (
+            {allProducts.map((product) => (
               <Chip
-                key={p}
-                active={productLines.includes(p)}
-                onClick={() => toggle(productLines, p, setProductLines)}
+                key={product}
+                active={products.includes(product)}
+                onClick={() => toggleProduct(product)}
               >
-                {p}
+                {product}
               </Chip>
             ))}
           </FilterRow>
         )}
       </div>
-
-      {/* 状态 */}
       {!userId && !loading && (
-        <div className="rounded-xl border border-dashed border-border py-12 text-center">
-          <div className="text-sm font-medium">请先登录</div>
-          <div className="text-xs text-muted-foreground mt-1">客户数据按账号保存到云端。</div>
-          <Link
-            to="/auth"
-            className="mt-3 inline-flex h-8 px-3 items-center rounded-md bg-primary text-primary-foreground text-xs"
-          >
-            去登录
-          </Link>
-        </div>
+        <EmptyState title="请先登录" description="商机数据按账号保存到云端。" action />
       )}
-
       {userId && loading && (
-        <div className="rounded-xl border border-dashed border-border py-12 text-center text-sm text-muted-foreground inline-flex items-center justify-center gap-2 w-full">
-          <Loader2 className="w-4 h-4 animate-spin" />
+        <div className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border py-12 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
           正在加载…
         </div>
       )}
-
       {userId && !loading && error && (
         <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
           <div className="font-medium">加载失败</div>
-          <div className="text-xs mt-1 break-words">{error}</div>
+          <div className="mt-1 break-words text-xs">{error}</div>
           <button
+            type="button"
             onClick={() => void refresh()}
-            className="mt-3 inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-destructive text-destructive-foreground text-xs"
+            className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-md bg-destructive px-3 text-xs text-destructive-foreground"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
+            <RefreshCw className="h-3.5 w-3.5" />
             重试
           </button>
         </div>
       )}
-
-      {showBoard && view === "board" && boardCustomers.length === 0 && (
-        <div className="rounded-xl border border-dashed border-border py-12 text-center">
-          <Users className="w-5 h-5 mx-auto text-muted-foreground mb-2" />
-          <div className="text-sm font-medium">
-            {active.length === 0
-              ? "还没有进行中的客户"
-              : filtered.length === 0
-                ? "没有匹配的客户"
-                : "暂无机会确认及之后的客户"}
-          </div>
-          <div className="text-xs text-muted-foreground mt-1">
-            {active.length === 0
-              ? "从「新建客户」开始建立你的看板。"
-              : filtered.length === 0
-                ? "试着放宽来源或产品线筛选。"
-                : "在看板中开始推进客户。"}
-          </div>
-        </div>
+      {showContent && view === "table" && (
+        <OpportunityTableView opportunities={filtered} today={today} />
       )}
-
-      {showBoard && view === "board" && boardCustomers.length > 0 && (
+      {showContent && view === "board" && filtered.length === 0 && (
+        <EmptyState title="暂无匹配的商机" description="试着调整来源、产品线、状态或搜索条件。" />
+      )}
+      {showContent && view === "board" && filtered.length > 0 && (
         <DndContext
           sensors={sensors}
           collisionDetection={closestCorners}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
+          onDragStart={dragStart}
+          onDragEnd={dragEnd}
           onDragCancel={() => setDraggingId(null)}
         >
-          <div className="-mx-4 md:-mx-8 px-4 md:px-8 overflow-x-auto pb-4">
-            <div className="flex gap-3 min-w-max items-start">
-              {columns.map((col) => (
+          <div className="-mx-4 overflow-x-auto px-4 pb-4 md:-mx-8 md:px-8">
+            <div className="flex min-w-max items-start gap-3">
+              {columns.map((column) => (
                 <StageColumn
-                  key={col.stage}
-                  stage={col.stage}
-                  count={col.items.length}
+                  key={column.stage}
+                  stage={column.stage}
+                  items={column.items}
                   dragging={!!draggingId}
                 >
-                  {col.items.length === 0 && (
-                    <div className="text-[11px] text-muted-foreground/70 text-center py-4">
-                      暂无客户
+                  {column.items.length === 0 ? (
+                    <div className="py-4 text-center text-[11px] text-muted-foreground/70">
+                      暂无商机
                     </div>
+                  ) : (
+                    column.items.map((opportunity) => (
+                      <DraggableCard key={opportunity.id} id={opportunity.id}>
+                        <KanbanOpportunityCard
+                          opportunity={opportunity}
+                          today={today}
+                          staleThresholds={staleThresholds}
+                          onPickStage={(target, stage) =>
+                            setStageTarget({ opportunity: target, stage })
+                          }
+                        />
+                      </DraggableCard>
+                    ))
                   )}
-                  {col.items.map((c) => (
-                    <DraggableCard key={c.id} id={c.id}>
-                      <KanbanCustomerCard
-                        customer={c}
-                        today={today}
-                        staleThresholds={staleThresholds}
-                        onPickStage={(cust, s) => setStageTarget({ customer: cust, stage: s })}
-                      />
-                    </DraggableCard>
-                  ))}
                 </StageColumn>
               ))}
             </div>
           </div>
           <DragOverlay>
-            {draggingCustomer ? (
-              <div className="w-[240px] md:w-[264px] opacity-90 rotate-1">
-                <KanbanCustomerCard
-                  customer={draggingCustomer}
+            {draggingOpportunity && (
+              <div className="w-[240px] rotate-1 opacity-90 md:w-[264px]">
+                <KanbanOpportunityCard
+                  opportunity={draggingOpportunity}
                   today={today}
                   staleThresholds={staleThresholds}
                   onPickStage={() => {}}
                 />
               </div>
-            ) : null}
+            )}
           </DragOverlay>
         </DndContext>
       )}
-
-      {showBoard && view === "table" && (
-        <CustomerTableView
-          customers={allFiltered}
-          today={today}
-          onRefresh={refresh}
-          onVisibleCustomersChange={handleTableVisibleCustomersChange}
-        />
-      )}
-
       {stageTarget && (
-        <StageChangeDialog
-          customer={stageTarget.customer}
+        <OpportunityStageChangeDialog
+          opportunity={stageTarget.opportunity}
           targetStage={stageTarget.stage}
           onClose={() => setStageTarget(null)}
           onChanged={() => void refresh()}
@@ -396,41 +394,46 @@ function CustomersBoardPage() {
 
 function StageColumn({
   stage,
-  count,
+  items,
   dragging,
   children,
 }: {
   stage: CustomerStage;
-  count: number;
+  items: OpportunityWithDetails[];
   dragging: boolean;
   children: React.ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage });
-  const colorToken = STAGE_COLOR_TOKEN[stage];
+  const amount = items.reduce((sum, opportunity) => sum + (opportunity.amount ?? 0), 0);
+  const color = STAGE_COLOR_TOKEN[stage];
   return (
     <section
       className={cn(
-        "w-[240px] md:w-[264px] shrink-0 rounded-xl border bg-secondary p-2.5 transition",
+        "w-[240px] shrink-0 rounded-xl border bg-secondary p-2.5 transition md:w-[264px]",
         isOver ? "border-primary ring-1 ring-primary/20" : "border-border",
       )}
     >
-      <header className="flex items-center gap-2 px-1 py-0.5 pb-2.5">
+      <header className="flex items-center gap-2 px-1 pb-2.5">
         <span
           className="h-2 w-2 shrink-0 rounded-full"
-          style={{ backgroundColor: `var(${colorToken})` }}
+          style={{ backgroundColor: `var(${color})` }}
         />
         <span className="flex-1 text-sm font-medium">{STAGE_LABEL[stage]}</span>
-        <span className="min-w-5 rounded-full bg-background px-1.5 py-0.5 text-center text-[11px] text-muted-foreground tabular-nums">
-          {count}
+        <span className="rounded-full bg-background px-1.5 py-0.5 text-[11px] tabular-nums text-muted-foreground">
+          {items.length}
         </span>
       </header>
-      <div ref={setNodeRef} className={cn("space-y-2 min-h-[80px]", dragging && "min-h-[120px]")}>
+      <div className="mb-2 px-1 text-[11px] tabular-nums text-muted-foreground">
+        {items.some((item) => item.amount !== null)
+          ? formatAmount(amount, items.find((item) => item.amount !== null)?.currency ?? "CNY")
+          : "金额待定"}
+      </div>
+      <div ref={setNodeRef} className={cn("min-h-[80px] space-y-2", dragging && "min-h-[120px]")}>
         {children}
       </div>
     </section>
   );
 }
-
 function DraggableCard({ id, children }: { id: string; children: React.ReactNode }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id });
   return (
@@ -444,126 +447,105 @@ function DraggableCard({ id, children }: { id: string; children: React.ReactNode
     </div>
   );
 }
-
-function KanbanCustomerCard({
-  customer,
+function KanbanOpportunityCard({
+  opportunity,
   today,
   staleThresholds,
   onPickStage,
 }: {
-  customer: Customer;
+  opportunity: OpportunityWithDetails;
   today: string;
   staleThresholds: StageStaleDays;
-  onPickStage: (customer: Customer, stage: CustomerStage) => void;
+  onPickStage: (opportunity: OpportunityWithDetails, stage: CustomerStage) => void;
 }) {
-  const showsStale = customer.stage !== "signed";
-  const stale = showsStale && isStale(customer, staleThresholds);
-  const days = staleDays(customer);
-  const winRate = getEffectiveWinRate(customer);
+  const contact = opportunity.contacts.find((item) => item.isPrimary);
+  const stale = opportunity.stage !== "signed" && isStale(opportunity, staleThresholds);
   const overdue =
-    !!customer.nextAction && !!customer.nextActionDate && customer.nextActionDate < today;
-  const colorToken = STAGE_COLOR_TOKEN[customer.stage];
-
+    !!opportunity.nextAction && !!opportunity.nextActionDate && opportunity.nextActionDate < today;
+  const winRate = getEffectiveWinRate(opportunity);
+  const color = STAGE_COLOR_TOKEN[opportunity.stage];
   return (
     <div
       className={cn(
-        "rounded-xl border bg-card px-3 py-2.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md",
+        "rounded-xl border bg-card px-3 py-2.5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md",
         stale
           ? "border-warning-border bg-linear-to-r from-warning-bg via-warning-bg/35 to-card"
           : "border-border",
       )}
     >
-      <Link to="/customers/$id" params={{ id: customer.id }} className="block min-w-0">
-        <div className="flex items-center gap-2">
-          <div className="flex min-w-0 flex-1 items-center gap-1.5 text-sm font-semibold tracking-tight">
+      <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-1.5 text-sm font-semibold tracking-tight">
+          <span
+            className="h-1.5 w-1.5 shrink-0 rounded-full"
+            style={{ backgroundColor: `var(${color})` }}
+          />
+          <span className="truncate">{opportunity.customer.companyName}</span>
+        </div>
+        {stale ? (
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-warning-bg px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-warning">
+            <AlertTriangle className="h-3 w-3" />
+            停滞 {staleDays(opportunity)} 天
+          </span>
+        ) : (
+          <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+            停滞 {staleDays(opportunity)} 天
+          </span>
+        )}
+      </div>
+      <div className="mt-0.5 truncate text-xs font-medium text-primary">{opportunity.name}</div>
+      <div className="mt-0.5 truncate text-xs text-muted-foreground">
+        {contact ? `${contact.name}${contact.title ? ` · ${contact.title}` : ""}` : ""}
+      </div>
+      <div className="mt-2 flex items-end justify-between gap-3">
+        {opportunity.amount === null ? (
+          <span className="text-xs text-muted-foreground">金额待定</span>
+        ) : (
+          <span className="text-lg font-semibold leading-none tabular-nums text-primary">
+            {formatAmount(opportunity.amount, opportunity.currency)}
+          </span>
+        )}
+        <span className="text-[11px] tabular-nums text-muted-foreground">
+          赢率 {winRate}%{opportunity.winRate !== null ? " · 手动" : ""}
+        </span>
+      </div>
+      {opportunity.productLines.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {opportunity.productLines.map((line) => (
             <span
-              className="h-1.5 w-1.5 shrink-0 rounded-full"
-              style={{ backgroundColor: `var(${colorToken})` }}
-            />
-            <span className="truncate">{customer.companyName}</span>
-          </div>
-          {showsStale &&
-            (stale ? (
-              <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-warning-bg px-1.5 py-0.5 text-[11px] font-semibold text-warning tabular-nums">
-                <AlertTriangle className="h-3 w-3" />
-                停滞 {days} 天
-              </span>
-            ) : (
-              <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
-                停滞 {days} 天
-              </span>
-            ))}
-        </div>
-
-        <div className="mt-0.5 truncate text-xs text-muted-foreground">
-          {customer.contactName ?? "未填联系人"}
-          {customer.contactTitle ? ` · ${customer.contactTitle}` : ""}
-          {customer.decisionRole !== "unknown" ? ` · ${ROLE_LABEL[customer.decisionRole]}` : ""}
-        </div>
-
-        <div className="mt-2 flex items-center justify-between gap-3">
-          {customer.amount === null ? (
-            <span className="text-xs text-muted-foreground">金额待定</span>
-          ) : (
-            <span className="text-[21px] font-semibold leading-none tracking-tight text-primary tabular-nums">
-              {formatAmount(customer.amount, customer.currency)}
+              key={line}
+              className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
+            >
+              {line}
             </span>
-          )}
-          <div className="w-24 shrink-0">
-            <div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
-              <span>赢率</span>
-              <span className="flex items-center gap-1 tabular-nums">
-                <span
-                  className={cn("text-foreground", customer.winRate !== null && "font-semibold")}
-                >
-                  {winRate}%
-                </span>
-                {customer.winRate !== null && (
-                  <span className="rounded border border-primary/30 bg-primary/5 px-1 py-px text-[9px] font-medium text-primary">
-                    手动
-                  </span>
-                )}
-              </span>
-            </div>
-            <div className="h-[3px] overflow-hidden rounded-full bg-border/70">
-              <div className="h-full rounded-full bg-primary" style={{ width: `${winRate}%` }} />
-            </div>
-          </div>
+          ))}
         </div>
-      </Link>
-
+      )}
       <div className="mt-2 flex items-center gap-2 border-t border-border pt-2">
-        <Link
-          to="/customers/$id"
-          params={{ id: customer.id }}
-          className="min-w-0 flex-1 truncate text-xs text-muted-foreground"
-        >
-          下一步：{customer.nextAction ?? "待补充"}
-          {customer.nextActionDate && (
+        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+          下一步：{opportunity.nextAction ?? "待补充"}
+          {opportunity.nextActionDate && (
             <span className={cn("ml-1 tabular-nums", overdue && "font-semibold text-overdue")}>
-              {customer.nextActionDate}
+              {opportunity.nextActionDate}
               {overdue ? "（逾期）" : ""}
             </span>
           )}
-        </Link>
+        </span>
         <StageAdvanceControl
-          currentStage={customer.stage}
-          onPick={(stage) => onPickStage(customer, stage)}
+          currentStage={opportunity.stage}
+          onPick={(stage) => onPickStage(opportunity, stage)}
         />
       </div>
     </div>
   );
 }
-
 function FilterRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="shrink-0 text-[11px] text-muted-foreground w-10">{label}</span>
-      <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-0.5">{children}</div>
+      <span className="w-10 shrink-0 text-[11px] text-muted-foreground">{label}</span>
+      <div className="no-scrollbar flex gap-1.5 overflow-x-auto py-0.5">{children}</div>
     </div>
   );
 }
-
 function Chip({
   active,
   onClick,
@@ -578,13 +560,38 @@ function Chip({
       type="button"
       onClick={onClick}
       className={cn(
-        "shrink-0 px-2.5 h-7 rounded-full text-xs border transition",
+        "h-7 shrink-0 rounded-full border px-2.5 text-xs transition",
         active
-          ? "bg-primary text-primary-foreground border-primary"
-          : "bg-background text-muted-foreground border-border hover:text-foreground",
+          ? "border-primary bg-primary text-primary-foreground"
+          : "border-border bg-background text-muted-foreground hover:text-foreground",
       )}
     >
       {children}
     </button>
+  );
+}
+function EmptyState({
+  title,
+  description,
+  action = false,
+}: {
+  title: string;
+  description: string;
+  action?: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-dashed border-border py-12 text-center">
+      <Users className="mx-auto mb-2 h-5 w-5 text-muted-foreground" />
+      <div className="text-sm font-medium">{title}</div>
+      <div className="mt-1 text-xs text-muted-foreground">{description}</div>
+      {action && (
+        <Link
+          to="/auth"
+          className="mt-3 inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs text-primary-foreground"
+        >
+          去登录
+        </Link>
+      )}
+    </div>
   );
 }

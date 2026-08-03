@@ -52,8 +52,12 @@ export interface OpportunityCustomer {
   id: string;
   companyName: string;
   industry: string | null;
+  companySize: string | null;
   hqCity: string | null;
+  website: string | null;
+  currentVendor: string | null;
   source: CustomerSource;
+  sourceDate: string | null;
 }
 
 export interface OpportunityWithDetails extends Opportunity {

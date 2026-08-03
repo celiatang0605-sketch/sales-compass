@@ -20,8 +20,12 @@ type CustomerProjection = {
   id: string;
   company_name: string;
   industry: string | null;
+  company_size: string | null;
   hq_city: string | null;
+  website: string | null;
+  current_vendor: string | null;
   source: string;
+  source_date: string | null;
 };
 type OpportunityQueryRow = Row & { customers: CustomerProjection | null };
 type ContactLinkRow = {
@@ -74,8 +78,12 @@ function rowToCustomerProjection(row: CustomerProjection | null): OpportunityCus
     id: row.id,
     companyName: row.company_name,
     industry: row.industry,
+    companySize: row.company_size,
     hqCity: row.hq_city,
+    website: row.website,
+    currentVendor: row.current_vendor,
     source: row.source as CustomerSource,
+    sourceDate: row.source_date,
   };
 }
 
@@ -120,7 +128,9 @@ export async function listOpportunities(
   const userId = await requireUserId();
   let query = supabase
     .from("opportunities")
-    .select("*, customers!inner(id,company_name,industry,hq_city,source)")
+    .select(
+      "*, customers!inner(id,company_name,industry,company_size,hq_city,website,current_vendor,source,source_date)",
+    )
     .eq("user_id", userId)
     .eq("customers.user_id", userId)
     .order("stage_changed_at", { ascending: true });
@@ -134,18 +144,25 @@ export async function listOpportunities(
   if (error) throw error;
   const rows = (data ?? []) as OpportunityQueryRow[];
   const keyword = filters.search?.trim().toLowerCase();
+  const contactsByOpportunity = await contactsForOpportunities(
+    rows.map((row) => row.id),
+    userId,
+  );
   const matchedRows = keyword
     ? rows.filter((row) => {
         const customer = row.customers;
-        return [row.name, customer?.company_name, customer?.industry, customer?.hq_city]
+        const contacts = contactsByOpportunity.get(row.id) ?? [];
+        return [
+          row.name,
+          customer?.company_name,
+          customer?.industry,
+          customer?.hq_city,
+          ...contacts.map((contact) => contact.name),
+        ]
           .filter(Boolean)
           .some((value) => value!.toLowerCase().includes(keyword));
       })
     : rows;
-  const contactsByOpportunity = await contactsForOpportunities(
-    matchedRows.map((row) => row.id),
-    userId,
-  );
 
   return matchedRows.map((row) => ({
     ...rowToOpportunity(row),
@@ -158,7 +175,9 @@ export async function getOpportunity(id: string): Promise<OpportunityWithDetails
   const userId = await requireUserId();
   const { data, error } = await supabase
     .from("opportunities")
-    .select("*, customers!inner(id,company_name,industry,hq_city,source)")
+    .select(
+      "*, customers!inner(id,company_name,industry,company_size,hq_city,website,current_vendor,source,source_date)",
+    )
     .eq("user_id", userId)
     .eq("customers.user_id", userId)
     .eq("id", id)
@@ -316,6 +335,42 @@ export async function advanceOpportunityStage(
   stage: CustomerStage,
 ): Promise<Opportunity> {
   return updateOpportunity(id, { stage, stageChangedAt: new Date().toISOString() });
+}
+
+export interface ChangeOpportunityStageInput {
+  opportunity: Opportunity;
+  fromStage: CustomerStage;
+  toStage: CustomerStage;
+  reason?: string;
+  relatedBlockId?: string | null;
+  markWon?: boolean;
+}
+
+/**
+ * 商机阶段变更保留既有 stage_history 审计链。history.customer_id 是必填的归属客户，
+ * opportunity_id 则精确指向本次变更的商机；两者都由当前商机填入。
+ */
+export async function changeOpportunityStage(
+  input: ChangeOpportunityStageInput,
+): Promise<Opportunity> {
+  const userId = await requireUserId();
+  const now = new Date().toISOString();
+  const updated = await updateOpportunity(input.opportunity.id, {
+    stage: input.toStage,
+    stageChangedAt: now,
+    ...(input.markWon ? { status: "won" } : {}),
+  });
+  const { error } = await supabase.from("stage_history").insert({
+    user_id: userId,
+    customer_id: input.opportunity.customerId,
+    opportunity_id: input.opportunity.id,
+    from_stage: input.fromStage,
+    to_stage: input.toStage,
+    reason: input.reason?.trim() || null,
+    related_block_id: input.relatedBlockId ?? null,
+  });
+  if (error) throw error;
+  return updated;
 }
 
 export async function getOpportunityStageSummaries(

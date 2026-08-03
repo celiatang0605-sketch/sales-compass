@@ -18,6 +18,7 @@ export function TableFieldControls({
   customPreset,
   fields,
   customFields,
+  fixedFieldLabel = "公司名",
   onPresetChange,
   onToggleField,
   onExport,
@@ -27,6 +28,7 @@ export function TableFieldControls({
   customPreset: string;
   fields: TableFieldOption[];
   customFields: string[];
+  fixedFieldLabel?: string;
   onPresetChange: (preset: string) => void;
   onToggleField: (field: string) => void;
   onExport: () => void;
@@ -58,7 +60,9 @@ export function TableFieldControls({
           </PopoverTrigger>
           <PopoverContent align="end" className="w-64 p-3">
             <div className="text-xs font-medium">自定义字段</div>
-            <p className="mt-1 text-[11px] text-muted-foreground">公司名固定为第一列。</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {fixedFieldLabel}固定为第一列。
+            </p>
             <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2">
               {fields.map((field) => (
                 <label key={field.key} className="flex cursor-pointer items-center gap-1.5 text-xs">
