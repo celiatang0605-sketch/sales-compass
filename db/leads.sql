@@ -11,14 +11,6 @@ create table if not exists public.leads (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
 
-  source text not null
-    check (source in (
-      'expo', 'marketing_assigned', 'list_claimed', 'existing_upsell',
-      'referral', 'self_developed', 'other'
-    )),
-  source_date date,
-  source_detail text,
-
   event_name text,
   event_date date,
   hall text,
@@ -26,14 +18,10 @@ create table if not exists public.leads (
 
   company_name text,
   industry text,
-  company_size text,
-  hq_city text,
-  website text,
   company_background text,
 
   contact_name text,
   contact_title text,
-  contact_department text,
   phone text,
   wechat text,
   email text,
@@ -73,7 +61,41 @@ create table if not exists public.leads (
   photo_urls text[] not null default '{}',
 
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  converted_customer_id uuid,
+
+  source text not null default 'other'
+    check (source in (
+      'expo', 'marketing_assigned', 'list_claimed', 'existing_upsell',
+      'referral', 'self_developed', 'other'
+    )),
+  source_date date,
+  source_detail text,
+  hq_city text,
+  company_size text,
+  contact_department text,
+  website text,
+
+  researched_at timestamptz,
+  called_at timestamptz,
+  wechat_added_at timestamptz,
+  intro_sent_at timestamptz,
+  needs_captured_at timestamptz,
+
+  exit_reason text,
+  exit_at timestamptz,
+  resume_on date,
+
+  lead_stage text generated always as (
+    CASE
+      WHEN (needs_captured_at IS NOT NULL) THEN 'ready_to_convert'::text
+      WHEN (intro_sent_at IS NOT NULL) THEN 'need_discovery'::text
+      WHEN (wechat_added_at IS NOT NULL) THEN 'send_intro'::text
+      WHEN (called_at IS NOT NULL) THEN 'add_wechat'::text
+      WHEN (researched_at IS NOT NULL) THEN 'call'::text
+      ELSE 'research'::text
+    END
+  ) stored
 );
 
 grant select, insert, update, delete on public.leads to authenticated;
