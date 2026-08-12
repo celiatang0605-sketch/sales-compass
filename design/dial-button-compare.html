@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>＋拨打 按钮位置对比</title>
+<style>
+  :root{
+    --bg:#F5F2EC;--surface:#FFFDF9;--forest:#1E4636;
+    --ink:#1B1D1A;--muted:#7A7A72;--hair:#E2DDD2;--dim:#B8B4A8;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg);color:var(--ink);padding:36px 24px 70px;
+    font-family:-apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  }
+  .wrap{max-width:1180px;margin:0 auto}
+  h2{font-size:15px;margin-bottom:5px}
+  .sub{font-size:12.5px;color:var(--muted);margin-bottom:16px;line-height:1.6}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:26px}
+  .panel{background:var(--surface);border:1px solid var(--hair);border-radius:13px;padding:8px 18px 14px}
+  .row{
+    display:flex;align-items:center;gap:14px;
+    padding:13px 2px;border-bottom:1px solid #F0ECE4;font-size:13px;
+  }
+  .row:last-child{border-bottom:none}
+  .co{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stg{width:56px;color:var(--muted);font-size:12.5px;flex:none}
+  .acts{display:flex;align-items:center;gap:7px;flex:none}
+  .b-main{
+    background:var(--forest);color:#fff;border:none;border-radius:8px;
+    padding:7px 13px;font-size:12px;font-weight:600;font-family:inherit;
+    white-space:nowrap;cursor:pointer;
+  }
+  .b-dial{
+    background:var(--surface);color:var(--forest);border:1px solid var(--forest);
+    border-radius:8px;padding:7px 11px;font-size:12px;font-weight:600;
+    font-family:inherit;white-space:nowrap;cursor:pointer;
+  }
+  .b-more{
+    background:none;border:1px solid var(--hair);border-radius:8px;
+    width:29px;height:29px;color:var(--muted);cursor:pointer;font-size:14px;
+  }
+  .menu{
+    width:190px;background:var(--surface);border:1px solid var(--hair);
+    border-radius:10px;padding:6px;box-shadow:0 8px 22px rgba(0,0,0,.1);
+    margin:12px 0 0 auto;
+  }
+  .mh{font-size:10px;letter-spacing:.09em;color:var(--muted);padding:7px 9px 4px;font-weight:600}
+  .mi{padding:7px 9px;border-radius:6px;font-size:12.5px;display:flex;justify-content:space-between}
+  .mi:hover{background:#F3EFE7}
+  .mi.hl{background:#E6EDE8;color:var(--forest);font-weight:600}
+  .mi small{font-size:10.5px;color:var(--dim)}
+  .mi.dis{color:var(--dim)}
+  .mi.danger{color:#9B3B32}
+  .sep{height:1px;background:var(--hair);margin:5px 4px}
+  .verdict{
+    font-size:12.5px;color:var(--muted);line-height:1.7;
+    margin-top:14px;padding-top:13px;border-top:1px solid var(--hair);
+  }
+  .verdict b{color:var(--ink)}
+  @media(max-width:860px){.cols{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="cols">
+
+  <div>
+    <h2>方案一 · 行内</h2>
+    <div class="sub">每行三个控件。打完电话手就在这一行，顺手点。</div>
+    <div class="panel">
+      <div class="row"><span class="co">百事食品（中国）有限公司</span><span class="stg">待致电</span>
+        <span class="acts"><button class="b-dial">＋ 拨打</button><button class="b-main">标记已致电</button><button class="b-more">⋯</button></span></div>
+      <div class="row"><span class="co">康师傅饮品投资（中国）有限公司</span><span class="stg">待致电</span>
+        <span class="acts"><button class="b-dial">＋ 拨打</button><button class="b-main">标记已致电</button><button class="b-more">⋯</button></span></div>
+      <div class="row"><span class="co">上海自然堂集团有限公司</span><span class="stg">待致电</span>
+        <span class="acts"><button class="b-dial">＋ 拨打</button><button class="b-main">标记已致电</button><button class="b-more">⋯</button></span></div>
+      <div class="row"><span class="co">上海妙可蓝多食品科技股份有限公司</span><span class="stg">待致电</span>
+        <span class="acts"><button class="b-dial">＋ 拨打</button><button class="b-main">标记已致电</button><button class="b-more">⋯</button></span></div>
+      <div class="row"><span class="co">波司登股份有限公司</span><span class="stg">待致电</span>
+        <span class="acts"><button class="b-dial">＋ 拨打</button><button class="b-main">标记已致电</button><button class="b-more">⋯</button></span></div>
+      <div class="row"><span class="co">玛氏食品（北京）有限公司</span><span class="stg">待致电</span>
+        <span class="acts"><button class="b-dial">＋ 拨打</button><button class="b-main">标记已致电</button><button class="b-more">⋯</button></span></div>
+      <div class="row"><span class="co">达能（中国）食品饮料有限公司</span><span class="stg">待致电</span>
+        <span class="acts"><button class="b-dial">＋ 拨打</button><button class="b-main">标记已致电</button><button class="b-more">⋯</button></span></div>
+      <div class="row"><span class="co">内蒙古伊利实业集团股份有限公司</span><span class="stg">待致电</span>
+        <span class="acts"><button class="b-dial">＋ 拨打</button><button class="b-main">标记已致电</button><button class="b-more">⋯</button></span></div>
+    </div>
+    <div class="verdict">
+      <b>一次点击</b>就记一通。<br>
+      但公司名被挤窄了，长名字全被截断。<br>
+      「＋ 拨打」重复 19 次，视线往下扫时是一列绿框。
+    </div>
+  </div>
+
+  <div>
+    <h2>方案二 · 收进 ⋯ 菜单</h2>
+    <div class="sub">每行两个控件。拨打记录藏在菜单第一项。</div>
+    <div class="panel">
+      <div class="row"><span class="co">百事食品（中国）有限公司</span><span class="stg">待致电</span>
+        <span class="acts"><button class="b-main">标记已致电</button><button class="b-more">⋯</button></span></div>
+      <div class="row"><span class="co">康师傅饮品投资（中国）有限公司</span><span class="stg">待致电</span>
+        <span class="acts"><button class="b-main">标记已致电</button><button class="b-more">⋯</button></span></div>
+      <div class="row"><span class="co">上海自然堂集团有限公司</span><span class="stg">待致电</span>
+        <span class="acts"><button class="b-main">标记已致电</button><button class="b-more">⋯</button></span></div>
+      <div class="row"><span class="co">上海妙可蓝多食品科技股份有限公司</span><span class="stg">待致电</span>
+        <span class="acts"><button class="b-main">标记已致电</button><button class="b-more">⋯</button></span></div>
+      <div class="row"><span class="co">波司登股份有限公司</span><span class="stg">待致电</span>
+        <span class="acts"><button class="b-main">标记已致电</button><button class="b-more">⋯</button></span></div>
+      <div class="row"><span class="co">玛氏食品（北京）有限公司</span><span class="stg">待致电</span>
+        <span class="acts"><button class="b-main">标记已致电</button><button class="b-more">⋯</button></span></div>
+      <div class="row"><span class="co">达能（中国）食品饮料有限公司</span><span class="stg">待致电</span>
+        <span class="acts"><button class="b-main">标记已致电</button><button class="b-more">⋯</button></span></div>
+      <div class="row"><span class="co">内蒙古伊利实业集团股份有限公司</span><span class="stg">待致电</span>
+        <span class="acts"><button class="b-main">标记已致电</button><button class="b-more">⋯</button></span></div>
+
+      <div class="menu">
+        <div class="mi hl">＋ 记一通拨打</div>
+        <div class="sep"></div>
+        <div class="mh">回退到</div>
+        <div class="mi dis">暂无可回退的动作</div>
+        <div class="sep"></div>
+        <div class="mi">暂停跟进</div>
+        <div class="mi danger">标记无效</div>
+      </div>
+    </div>
+    <div class="verdict">
+      <b>两次点击</b>才记一通。<br>
+      公司名有完整空间，表格安静得多。<br>
+      但记录这件事被藏起来了 —— 看不见的功能，容易变成不用的功能。
+    </div>
+  </div>
+
+</div>
+</div>
+</body>
+</html>
