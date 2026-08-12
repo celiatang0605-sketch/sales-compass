@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Sparkles,
+  PhoneCall,
   Users,
   PanelLeftClose,
   PanelLeftOpen,
@@ -36,6 +37,7 @@ const NAV_ITEMS: { to: string; label: string; icon: typeof Clock }[] = [
   { to: "/monthly", label: "月复盘", icon: CalendarDays },
   { to: "/reminders", label: "提醒中心", icon: Bell },
   { to: "/leads", label: "线索池", icon: Sparkles },
+  { to: "/calls", label: "拨打打卡", icon: PhoneCall },
   { to: "/customers", label: "客户看板", icon: Users },
 ];
 

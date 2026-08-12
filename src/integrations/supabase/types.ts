@@ -37,6 +37,12 @@ export type Database = {
         Update: OpportunityContactUpdate;
         Relationships: [];
       };
+      call_attempts: {
+        Row: CallAttemptRow;
+        Insert: CallAttemptInsert;
+        Update: CallAttemptUpdate;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -242,3 +248,21 @@ export type OpportunityContactRow = {
 
 export type OpportunityContactInsert = OpportunityContactRow;
 export type OpportunityContactUpdate = Partial<OpportunityContactRow>;
+
+export type CallAttemptRow = {
+  id: string;
+  user_id: string;
+  lead_id: string | null;
+  called_at: string;
+  outcome: string | null;
+  note: string | null;
+  created_at: string;
+};
+
+export type CallAttemptInsert = Omit<CallAttemptRow, "id" | "called_at" | "created_at"> & {
+  id?: string;
+  called_at?: string;
+  created_at?: string;
+};
+
+export type CallAttemptUpdate = Partial<Omit<CallAttemptInsert, "user_id">>;

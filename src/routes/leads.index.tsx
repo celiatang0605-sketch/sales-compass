@@ -58,6 +58,8 @@ import {
   type LeadStageAction,
 } from "@/lib/salesup/leadTypes";
 import { useLeadPool } from "@/lib/salesup/useLeadPool";
+import { useCallTracker } from "@/lib/salesup/useCallTracker";
+import { useCallSettings } from "@/lib/salesup/callSettings";
 import { cn } from "@/lib/utils";
 
 const PRIORITY_FILTERS: (LeadPriority | "all")[] = ["all", "A", "B", "C", "D", "unrated"];
@@ -297,6 +299,8 @@ function LeadIndexPage() {
   const navigate = useNavigate({ from: Route.fullPath });
   const today = todayKey();
   const { pool, loading, error, userId, refresh, advance, rollback, exit, resume } = useLeadPool();
+  const { stats: callStats } = useCallTracker();
+  const { dailyGoal: callDailyGoal } = useCallSettings();
   const priority = search.priority ?? "all";
   const query = search.q ?? "";
   const sources = useMemo(() => parseSources(search.sources ?? ""), [search.sources]);
@@ -470,6 +474,8 @@ function LeadIndexPage() {
   };
 
   const activeTotal = pool?.leads.length ?? 0;
+  const callTodayCount = callStats?.todayCount ?? 0;
+  const callProgress = Math.min(100, (callTodayCount / callDailyGoal) * 100);
 
   return (
     <AppShell>
@@ -477,6 +483,54 @@ function LeadIndexPage() {
         <h1 className="text-xl font-semibold tracking-tight md:text-2xl">线索池</h1>
         <p className="mt-1 text-sm text-muted-foreground">围绕下一步动作，集中推进活跃线索。</p>
       </div>
+
+      <Link
+        to="/calls"
+        className="mb-4 flex items-center gap-[18px] rounded-xl border border-border bg-card px-[18px] py-[14px] transition hover:border-primary"
+      >
+        <span className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-[9px] bg-accent text-accent-foreground">
+          <PhoneCall className="h-4 w-4" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="mb-[7px] flex items-baseline gap-[9px]">
+            {callTodayCount === 0 ? (
+              <>
+                <span className="text-[13.5px] font-semibold text-primary">今天还没拨第一通</span>
+                <span className="text-[13.5px] text-muted-foreground">目标 {callDailyGoal} 通</span>
+              </>
+            ) : callTodayCount >= callDailyGoal ? (
+              <>
+                <span className="text-[13.5px] font-semibold">今日目标已达成</span>
+                <span className="text-[13.5px] text-muted-foreground">
+                  <b className="text-base text-primary">{callTodayCount}</b> / {callDailyGoal}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="text-[13.5px] font-semibold">今日拨打</span>
+                <span className="text-[13.5px] text-muted-foreground">
+                  <b className="text-base text-primary">{callTodayCount}</b> / {callDailyGoal}
+                </span>
+              </>
+            )}
+          </span>
+          <span className="block h-[5px] overflow-hidden rounded-full bg-muted">
+            <span
+              className="block h-full rounded-full bg-primary"
+              style={{ width: `${callProgress}%` }}
+            />
+          </span>
+        </span>
+        <span className="hidden shrink-0 items-center gap-3.5 text-xs text-muted-foreground sm:flex">
+          <span>
+            连续 <b className="font-semibold text-foreground">{callStats?.streakDays ?? 0}</b> 天
+          </span>
+          <span>
+            累计 <b className="font-semibold text-foreground">{callStats?.totalCount ?? 0}</b> 通
+          </span>
+          <span className="text-base text-muted-foreground/70">›</span>
+        </span>
+      </Link>
 
       {showLegacy && (
         <div className="mb-4 flex items-start gap-3 rounded-[var(--radius)] border border-border bg-secondary/50 p-3 md:p-4">
