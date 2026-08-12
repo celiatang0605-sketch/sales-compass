@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpRight,
   BadgeCheck,
@@ -21,6 +21,16 @@ import { LeadExitDialog } from "@/components/salesup/lead/LeadExitDialog";
 import { ConvertLeadDialog } from "@/components/salesup/lead/ConvertLeadDialog";
 import { TableFieldControls } from "@/components/salesup/table/TableFieldControls";
 import { AppShell } from "@/components/salesup/AppShell";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Table,
   TableBody,
@@ -89,6 +99,18 @@ const STAGE_CARD_CLASS: Record<LeadStage, string> = {
   need_discovery: "lead-stage-card--need-discovery",
   ready_to_convert: "lead-stage-card--ready-to-convert",
 };
+
+const COMPLETED_ACTIONS = [
+  { action: "research", label: "已背调", timestamp: "researchedAt" },
+  { action: "call", label: "已致电", timestamp: "calledAt" },
+  { action: "add_wechat", label: "已加微信", timestamp: "wechatAddedAt" },
+  { action: "send_intro", label: "已发介绍", timestamp: "introSentAt" },
+  { action: "need_discovery", label: "已挖到需求", timestamp: "needsCapturedAt" },
+] as const satisfies ReadonlyArray<{
+  action: LeadStageAction;
+  label: string;
+  timestamp: keyof LeadPoolLead;
+}>;
 
 type LeadColumnKey =
   | "company"
@@ -274,7 +296,7 @@ function LeadIndexPage() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const today = todayKey();
-  const { pool, loading, error, userId, refresh, advance, exit, resume } = useLeadPool();
+  const { pool, loading, error, userId, refresh, advance, rollback, exit, resume } = useLeadPool();
   const priority = search.priority ?? "all";
   const query = search.q ?? "";
   const sources = useMemo(() => parseSources(search.sources ?? ""), [search.sources]);
@@ -282,6 +304,28 @@ function LeadIndexPage() {
   const [legacyCount, setLegacyCount] = useState(0);
   const [importing, setImporting] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const undoToastId = useRef<string | number | undefined>(undefined);
+
+  const dismissUndoToast = () => {
+    if (undoToastId.current !== undefined) {
+      toast.dismiss(undoToastId.current);
+      undoToastId.current = undefined;
+    }
+  };
+
+  const showUndoToast = (label: string, undo: () => Promise<void>) => {
+    dismissUndoToast();
+    undoToastId.current = toast.success(`已标记为「${label}」`, {
+      duration: 5000,
+      action: {
+        label: "撤销",
+        onClick: () => {
+          dismissUndoToast();
+          void undo();
+        },
+      },
+    });
+  };
 
   const setSearch = useCallback(
     (patch: Partial<typeof search>) => {
@@ -355,10 +399,14 @@ function LeadIndexPage() {
 
   const runAdvance = async (leadId: string, action: LeadStageAction) => {
     if (pendingId) return;
+    dismissUndoToast();
     setPendingId(leadId);
     try {
       await advance(leadId, action);
-      toast.success("已推进到下一步");
+      const completedAction = COMPLETED_ACTIONS.find((item) => item.action === action);
+      showUndoToast(completedAction?.label ?? "下一步", async () => {
+        await runRollback(leadId, action);
+      });
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "推进失败，请稍后重试");
     } finally {
@@ -367,10 +415,41 @@ function LeadIndexPage() {
   };
 
   const runExit = async (leadId: string, input: ExitLeadInput) => {
+    if (pendingId) return;
+    dismissUndoToast();
     setPendingId(leadId);
     try {
       await exit(leadId, input);
-      toast.success(input.type === "paused" ? "已暂不跟进，到期后会自动回捞" : "已移出线索池");
+      showUndoToast(input.type === "paused" ? "暂不跟进" : "无法推进", async () => {
+        if (pendingId) return;
+        setPendingId(leadId);
+        try {
+          await resume(leadId);
+          await refresh();
+        } catch (cause) {
+          toast.error(cause instanceof Error ? cause.message : "撤销失败，请稍后重试");
+        } finally {
+          setPendingId(null);
+        }
+      });
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "移出失败，请稍后重试");
+      throw cause;
+    } finally {
+      setPendingId(null);
+    }
+  };
+
+  const runRollback = async (leadId: string, action: LeadStageAction) => {
+    if (pendingId) return;
+    dismissUndoToast();
+    setPendingId(leadId);
+    try {
+      await rollback(leadId, action);
+      await refresh();
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "回退失败，请稍后重试");
+      throw cause;
     } finally {
       setPendingId(null);
     }
@@ -378,6 +457,7 @@ function LeadIndexPage() {
 
   const runResume = async (leadId: string) => {
     if (pendingId) return;
+    dismissUndoToast();
     setPendingId(leadId);
     try {
       await resume(leadId);
@@ -556,6 +636,7 @@ function LeadIndexPage() {
             today={today}
             pendingId={pendingId}
             onAdvance={runAdvance}
+            onRollback={runRollback}
             onExit={runExit}
             onResume={runResume}
             onConverted={refresh}
@@ -652,6 +733,7 @@ interface LeadTableProps {
   today: string;
   pendingId: string | null;
   onAdvance: (leadId: string, action: LeadStageAction) => Promise<void>;
+  onRollback: (leadId: string, action: LeadStageAction) => Promise<void>;
   onExit: (leadId: string, input: ExitLeadInput) => Promise<void>;
   onResume: (leadId: string) => Promise<void>;
   onConverted: () => Promise<void>;
@@ -809,6 +891,7 @@ function LeadTable({
   today,
   pendingId,
   onAdvance,
+  onRollback,
   onExit,
   onResume,
   onConverted,
@@ -816,6 +899,13 @@ function LeadTable({
   const navigate = useNavigate();
   const [exitTarget, setExitTarget] = useState<LeadPoolLead | null>(null);
   const [conversionTarget, setConversionTarget] = useState<LeadPoolLead | null>(null);
+  const [rollbackTarget, setRollbackTarget] = useState<{
+    lead: LeadPoolLead;
+    action: LeadStageAction;
+    label: string;
+  } | null>(null);
+  const [rollbackMenuId, setRollbackMenuId] = useState<string | null>(null);
+  const [rollbackSaving, setRollbackSaving] = useState(false);
   const { preset, customFields, visibleFields, changePreset, toggleCustomField } =
     useTableFieldPreferences<LeadColumnKey, LeadPresetKey>({
       fixedField: "company",
@@ -834,6 +924,19 @@ function LeadTable({
       headers: visibleFields.map((field) => LEAD_COLUMN_LABEL[field]),
       rows: leads.map((lead) => visibleFields.map((field) => leadColumnValue(field, lead))),
     });
+  };
+
+  const confirmRollback = async () => {
+    if (!rollbackTarget || rollbackSaving) return;
+    setRollbackSaving(true);
+    try {
+      await onRollback(rollbackTarget.lead.id, rollbackTarget.action);
+      setRollbackTarget(null);
+    } catch {
+      // onRollback has already shown a clear error toast; keep the dialog open for retry.
+    } finally {
+      setRollbackSaving(false);
+    }
   };
 
   return (
@@ -874,6 +977,9 @@ function LeadTable({
               const ActionIcon = action.icon;
               const reclaimed = isReclaimed(lead, today);
               const busy = pendingId === lead.id;
+              const completedActions = COMPLETED_ACTIONS.filter(
+                ({ timestamp }) => !!lead[timestamp],
+              );
               return (
                 <TableRow
                   key={lead.id}
@@ -933,6 +1039,43 @@ function LeadTable({
                         )}
                         {action.label}
                       </button>
+                      {completedActions.length > 0 && (
+                        <div className="relative">
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() =>
+                              setRollbackMenuId((current) => (current === lead.id ? null : lead.id))
+                            }
+                            className="inline-flex h-7 items-center gap-1 rounded-md border border-border px-2 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+                            aria-expanded={rollbackMenuId === lead.id}
+                          >
+                            <RotateCcw className="h-3 w-3" />
+                            回退
+                          </button>
+                          {rollbackMenuId === lead.id && (
+                            <div className="absolute right-0 top-8 z-30 w-32 rounded-md border border-border bg-popover p-1 shadow-md">
+                              {completedActions.map((completedAction) => (
+                                <button
+                                  key={completedAction.action}
+                                  type="button"
+                                  onClick={() => {
+                                    setRollbackMenuId(null);
+                                    setRollbackTarget({
+                                      lead,
+                                      action: completedAction.action,
+                                      label: completedAction.label,
+                                    });
+                                  }}
+                                  className="flex w-full items-center rounded-sm px-2 py-1.5 text-left text-xs text-foreground hover:bg-muted"
+                                >
+                                  {completedAction.label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                       <button
                         type="button"
                         onClick={() => setExitTarget(lead)}
@@ -965,6 +1108,48 @@ function LeadTable({
           onConverted={() => onConverted()}
         />
       )}
+      <AlertDialog
+        open={!!rollbackTarget}
+        onOpenChange={(open) => {
+          if (!open && !rollbackSaving) setRollbackTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认回退动作</AlertDialogTitle>
+            <AlertDialogDescription>
+              {rollbackTarget &&
+                rollbackDescription(
+                  rollbackTarget.lead,
+                  rollbackTarget.action,
+                  rollbackTarget.label,
+                )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={rollbackSaving}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={rollbackSaving}
+              onClick={(event) => {
+                event.preventDefault();
+                void confirmRollback();
+              }}
+            >
+              {rollbackSaving && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+              确认清除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
+}
+
+function rollbackDescription(lead: LeadPoolLead, action: LeadStageAction, label: string): string {
+  const actionIndex = COMPLETED_ACTIONS.findIndex((item) => item.action === action);
+  const laterActions = COMPLETED_ACTIONS.slice(actionIndex + 1)
+    .filter(({ timestamp }) => !!lead[timestamp])
+    .map((item) => item.label);
+  if (laterActions.length === 0) return `清除「${label}」。此操作不可撤销。`;
+  return `清除「${label}」将同时清除其后的 ${laterActions.length} 个动作（${laterActions.join("、")}）。此操作不可撤销。`;
 }

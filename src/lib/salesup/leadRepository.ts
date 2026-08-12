@@ -429,6 +429,14 @@ const STAGE_ACTION_TIMESTAMP: Record<
   need_discovery: "needs_captured_at",
 };
 
+const LEAD_STAGE_ACTIONS: LeadStageAction[] = [
+  "research",
+  "call",
+  "add_wechat",
+  "send_intro",
+  "need_discovery",
+];
+
 /**
  * 完成当前步骤并推进数据库生成的 lead_stage。
  * lead_stage 是 generated stored 列；此处特意只写动作时间戳。
@@ -439,6 +447,36 @@ export async function advanceLeadStage(
 ): Promise<LeadPoolLead> {
   const userId = await requireUserId();
   const update: LeadUpdate = { [STAGE_ACTION_TIMESTAMP[action]]: new Date().toISOString() };
+  const { data, error } = await supabase
+    .from("leads")
+    .update(update)
+    .eq("user_id", userId)
+    .eq("id", leadId)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return rowToLeadPool(data as LeadRow);
+}
+
+/**
+ * 回退指定动作，并级联清除它之后所有动作的时间戳。
+ *
+ * lead_stage 是由这些时间戳生成的列，绝不可写入。一次 update 同时完成
+ * 全部清除，避免留下未完成前序动作却完成后序动作的非单调数据。
+ */
+export async function rollbackLeadStage(
+  leadId: string,
+  action: LeadStageAction,
+): Promise<LeadPoolLead> {
+  const userId = await requireUserId();
+  const startAt = LEAD_STAGE_ACTIONS.indexOf(action);
+  if (startAt < 0) throw new Error("无效的回退动作。");
+
+  const update: LeadUpdate = {};
+  for (const stageAction of LEAD_STAGE_ACTIONS.slice(startAt)) {
+    update[STAGE_ACTION_TIMESTAMP[stageAction]] = null;
+  }
+
   const { data, error } = await supabase
     .from("leads")
     .update(update)

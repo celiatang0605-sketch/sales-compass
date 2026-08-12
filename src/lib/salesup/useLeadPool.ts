@@ -4,6 +4,7 @@ import {
   advanceLeadStage,
   exitLead,
   getLeadPool,
+  rollbackLeadStage,
   resumeLead,
   type ExitLeadInput,
   type LeadPool,
@@ -18,6 +19,7 @@ export interface LeadPoolState {
   userId: string | null;
   refresh: () => Promise<void>;
   advance: (leadId: string, action: LeadStageAction) => Promise<LeadPoolLead>;
+  rollback: (leadId: string, action: LeadStageAction) => Promise<LeadPoolLead>;
   exit: (leadId: string, input: ExitLeadInput) => Promise<LeadPoolLead>;
   resume: (leadId: string) => Promise<LeadPoolLead>;
 }
@@ -105,6 +107,12 @@ export function useLeadPool(): LeadPoolState {
     return updated;
   }, []);
 
+  const rollback = useCallback(async (leadId: string, action: LeadStageAction) => {
+    const updated = await rollbackLeadStage(leadId, action);
+    setPool((current) => (current ? replaceActiveLead(current, updated) : current));
+    return updated;
+  }, []);
+
   const exit = useCallback(async (leadId: string, input: ExitLeadInput) => {
     const updated = await exitLead(leadId, input);
     setPool((current) => (current ? removeActiveLead(current, leadId) : current));
@@ -117,5 +125,5 @@ export function useLeadPool(): LeadPoolState {
     return updated;
   }, []);
 
-  return { pool, loading, error, userId, refresh, advance, exit, resume };
+  return { pool, loading, error, userId, refresh, advance, rollback, exit, resume };
 }
