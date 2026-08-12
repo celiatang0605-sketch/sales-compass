@@ -32,12 +32,13 @@ function dateAfter(days: number): string {
 
 interface Props {
   lead: LeadPoolLead;
+  initialType?: ExitType;
   onClose: () => void;
   onConfirm: (input: ExitLeadInput) => Promise<void>;
 }
 
-export function LeadExitDialog({ lead, onClose, onConfirm }: Props) {
-  const [type, setType] = useState<ExitType>("paused");
+export function LeadExitDialog({ lead, initialType = "paused", onClose, onConfirm }: Props) {
+  const [type, setType] = useState<ExitType>(initialType);
   const [resumeOn, setResumeOn] = useState(() => dateAfter(30));
   const [pausedReason, setPausedReason] = useState("");
   const [invalidReason, setInvalidReason] = useState<(typeof INVALID_REASONS)[number] | "">("");

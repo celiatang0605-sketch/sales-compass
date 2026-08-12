@@ -4,15 +4,14 @@ import {
   ArrowUpRight,
   BadgeCheck,
   BookOpenCheck,
-  CircleMinus,
   ClipboardCheck,
   Database,
   Loader2,
   MessageCirclePlus,
+  MoreHorizontal,
   PhoneCall,
   Plus,
   RefreshCw,
-  RotateCcw,
   Search,
   Send,
 } from "lucide-react";
@@ -39,6 +38,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { SOURCE_LABEL, SOURCE_ORDER, type CustomerSource } from "@/lib/salesup/customerTypes";
 import { toDateKey, todayKey } from "@/lib/salesup/date";
 import { downloadCsv } from "@/lib/salesup/csv";
@@ -299,7 +306,7 @@ function LeadIndexPage() {
   const navigate = useNavigate({ from: Route.fullPath });
   const today = todayKey();
   const { pool, loading, error, userId, refresh, advance, rollback, exit, resume } = useLeadPool();
-  const { stats: callStats } = useCallTracker();
+  const { stats: callStats, logCall, undoCall } = useCallTracker();
   const { dailyGoal: callDailyGoal } = useCallSettings();
   const priority = search.priority ?? "all";
   const query = search.q ?? "";
@@ -308,6 +315,7 @@ function LeadIndexPage() {
   const [legacyCount, setLegacyCount] = useState(0);
   const [importing, setImporting] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [callPendingId, setCallPendingId] = useState<string | null>(null);
   const undoToastId = useRef<string | number | undefined>(undefined);
 
   const dismissUndoToast = () => {
@@ -326,6 +334,22 @@ function LeadIndexPage() {
         onClick: () => {
           dismissUndoToast();
           void undo();
+        },
+      },
+    });
+  };
+
+  const showCallUndoToast = (undo: () => Promise<void>) => {
+    dismissUndoToast();
+    undoToastId.current = toast.success("已记一通", {
+      duration: 5000,
+      action: {
+        label: "撤销",
+        onClick: () => {
+          dismissUndoToast();
+          void undo().catch((cause) => {
+            toast.error(cause instanceof Error ? cause.message : "撤销失败，请稍后重试");
+          });
         },
       },
     });
@@ -470,6 +494,22 @@ function LeadIndexPage() {
       toast.error(cause instanceof Error ? cause.message : "恢复失败，请稍后重试");
     } finally {
       setPendingId(null);
+    }
+  };
+
+  const runLogCall = async (leadId: string) => {
+    if (pendingId || callPendingId) return;
+    dismissUndoToast();
+    setCallPendingId(leadId);
+    try {
+      const attempt = await logCall({ leadId });
+      showCallUndoToast(async () => {
+        await undoCall(attempt.id);
+      });
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "记录失败，请稍后重试");
+    } finally {
+      setCallPendingId(null);
     }
   };
 
@@ -689,10 +729,12 @@ function LeadIndexPage() {
             leads={list}
             today={today}
             pendingId={pendingId}
+            callPendingId={callPendingId}
             onAdvance={runAdvance}
             onRollback={runRollback}
             onExit={runExit}
             onResume={runResume}
+            onLogCall={runLogCall}
             onConverted={refresh}
           />
         )}
@@ -786,10 +828,12 @@ interface LeadTableProps {
   leads: LeadPoolLead[];
   today: string;
   pendingId: string | null;
+  callPendingId: string | null;
   onAdvance: (leadId: string, action: LeadStageAction) => Promise<void>;
   onRollback: (leadId: string, action: LeadStageAction) => Promise<void>;
   onExit: (leadId: string, input: ExitLeadInput) => Promise<void>;
   onResume: (leadId: string) => Promise<void>;
+  onLogCall: (leadId: string) => Promise<void>;
   onConverted: () => Promise<void>;
 }
 
@@ -944,21 +988,25 @@ function LeadTable({
   leads,
   today,
   pendingId,
+  callPendingId,
   onAdvance,
   onRollback,
   onExit,
   onResume,
+  onLogCall,
   onConverted,
 }: LeadTableProps) {
   const navigate = useNavigate();
-  const [exitTarget, setExitTarget] = useState<LeadPoolLead | null>(null);
+  const [exitTarget, setExitTarget] = useState<{
+    lead: LeadPoolLead;
+    initialType: "paused" | "invalid";
+  } | null>(null);
   const [conversionTarget, setConversionTarget] = useState<LeadPoolLead | null>(null);
   const [rollbackTarget, setRollbackTarget] = useState<{
     lead: LeadPoolLead;
     action: LeadStageAction;
     label: string;
   } | null>(null);
-  const [rollbackMenuId, setRollbackMenuId] = useState<string | null>(null);
   const [rollbackSaving, setRollbackSaving] = useState(false);
   const { preset, customFields, visibleFields, changePreset, toggleCustomField } =
     useTableFieldPreferences<LeadColumnKey, LeadPresetKey>({
@@ -1030,7 +1078,9 @@ function LeadTable({
               const action = STAGE_ACTION[lead.leadStage];
               const ActionIcon = action.icon;
               const reclaimed = isReclaimed(lead, today);
-              const busy = pendingId === lead.id;
+              const stageBusy = pendingId === lead.id;
+              const callBusy = callPendingId === lead.id;
+              const busy = stageBusy || callBusy;
               const completedActions = COMPLETED_ACTIONS.filter(
                 ({ timestamp }) => !!lead[timestamp],
               );
@@ -1053,24 +1103,17 @@ function LeadTable({
                   ))}
                   <TableCell className="px-3 py-1.5">
                     <div
-                      className="flex items-center justify-end gap-1.5"
+                      className="flex shrink-0 items-center justify-end gap-[7px] whitespace-nowrap"
                       onClick={(event) => event.stopPropagation()}
                     >
-                      {reclaimed && (
-                        <button
-                          type="button"
-                          onClick={() => void onResume(lead.id)}
-                          disabled={busy}
-                          className="inline-flex h-7 items-center gap-1 rounded-md border border-primary/40 px-2 text-[11px] text-primary disabled:opacity-60"
-                        >
-                          {busy ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <RotateCcw className="h-3 w-3" />
-                          )}
-                          恢复跟进
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => void onLogCall(lead.id)}
+                        disabled={busy}
+                        className="inline-flex h-[29px] items-center rounded-lg border border-primary bg-card px-[11px] py-[7px] text-xs font-semibold text-primary hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {callBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : "＋ 拨打"}
+                      </button>
                       <button
                         type="button"
                         disabled={busy}
@@ -1080,66 +1123,98 @@ function LeadTable({
                             : setConversionTarget(lead)
                         }
                         className={cn(
-                          "inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] disabled:cursor-not-allowed disabled:opacity-50",
-                          action.action
-                            ? `lead-stage-action--${lead.leadStage}`
-                            : "bg-primary text-primary-foreground hover:bg-primary/90",
+                          "inline-flex h-[29px] items-center gap-1 rounded-lg bg-primary px-[13px] py-[7px] text-xs font-semibold text-primary-foreground whitespace-nowrap hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50",
                         )}
                       >
-                        {busy ? (
+                        {stageBusy ? (
                           <Loader2 className="h-3 w-3 animate-spin" />
                         ) : (
                           <ActionIcon className="h-3 w-3" />
                         )}
                         {action.label}
                       </button>
-                      {completedActions.length > 0 && (
-                        <div className="relative">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
                           <button
                             type="button"
                             disabled={busy}
-                            onClick={() =>
-                              setRollbackMenuId((current) => (current === lead.id ? null : lead.id))
-                            }
-                            className="inline-flex h-7 items-center gap-1 rounded-md border border-border px-2 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
-                            aria-expanded={rollbackMenuId === lead.id}
+                            className="inline-flex h-[29px] w-[29px] items-center justify-center rounded-lg border border-border text-muted-foreground hover:border-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                            aria-label="更多操作"
+                            title="更多操作"
                           >
-                            <RotateCcw className="h-3 w-3" />
-                            回退
+                            <MoreHorizontal className="h-4 w-4" />
                           </button>
-                          {rollbackMenuId === lead.id && (
-                            <div className="absolute right-0 top-8 z-30 w-32 rounded-md border border-border bg-popover p-1 shadow-md">
-                              {completedActions.map((completedAction) => (
-                                <button
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="end"
+                          sideOffset={8}
+                          className="w-[190px] rounded-[10px] border-border bg-popover p-1.5 shadow-lg"
+                        >
+                          <DropdownMenuLabel className="px-[9px] pb-1 pt-[7px] text-[10px] font-semibold tracking-[0.09em] text-muted-foreground">
+                            回退到
+                          </DropdownMenuLabel>
+                          {completedActions.length === 0 ? (
+                            <DropdownMenuItem disabled className="px-[9px] py-[7px] text-[12.5px]">
+                              暂无可回退的动作
+                            </DropdownMenuItem>
+                          ) : (
+                            completedActions.map((completedAction) => {
+                              const actionIndex = COMPLETED_ACTIONS.findIndex(
+                                (item) => item.action === completedAction.action,
+                              );
+                              const clearedCount = COMPLETED_ACTIONS.slice(actionIndex + 1).filter(
+                                ({ timestamp }) => !!lead[timestamp],
+                              ).length;
+                              return (
+                                <DropdownMenuItem
                                   key={completedAction.action}
-                                  type="button"
-                                  onClick={() => {
-                                    setRollbackMenuId(null);
+                                  onSelect={() => {
                                     setRollbackTarget({
                                       lead,
                                       action: completedAction.action,
                                       label: completedAction.label,
                                     });
                                   }}
-                                  className="flex w-full items-center rounded-sm px-2 py-1.5 text-left text-xs text-foreground hover:bg-muted"
+                                  className="justify-between gap-2 px-[9px] py-[7px] text-[12.5px]"
                                 >
-                                  {completedAction.label}
-                                </button>
-                              ))}
-                            </div>
+                                  <span>{completedAction.label}</span>
+                                  {clearedCount > 0 && (
+                                    <span className="text-[10.5px] text-muted-foreground">
+                                      清除后续 {clearedCount} 项
+                                    </span>
+                                  )}
+                                </DropdownMenuItem>
+                              );
+                            })
                           )}
-                        </div>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setExitTarget(lead)}
-                        disabled={busy}
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
-                        aria-label="移出线索池"
-                        title="移出线索池"
-                      >
-                        <CircleMinus className="h-4 w-4" />
-                      </button>
+                          {reclaimed && (
+                            <>
+                              <DropdownMenuSeparator className="my-[5px] bg-border" />
+                              <DropdownMenuItem
+                                onSelect={() => void onResume(lead.id)}
+                                className="px-[9px] py-[7px] text-[12.5px]"
+                              >
+                                恢复跟进
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          <DropdownMenuSeparator className="my-[5px] bg-border" />
+                          {!reclaimed && (
+                            <DropdownMenuItem
+                              onSelect={() => setExitTarget({ lead, initialType: "paused" })}
+                              className="px-[9px] py-[7px] text-[12.5px]"
+                            >
+                              暂停跟进
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem
+                            onSelect={() => setExitTarget({ lead, initialType: "invalid" })}
+                            className="px-[9px] py-[7px] text-[12.5px] text-destructive focus:bg-destructive/10 focus:text-destructive"
+                          >
+                            标记无效
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -1150,9 +1225,10 @@ function LeadTable({
       </div>
       {exitTarget && (
         <LeadExitDialog
-          lead={exitTarget}
+          lead={exitTarget.lead}
+          initialType={exitTarget.initialType}
           onClose={() => setExitTarget(null)}
-          onConfirm={(input) => onExit(exitTarget.id, input)}
+          onConfirm={(input) => onExit(exitTarget.lead.id, input)}
         />
       )}
       {conversionTarget && (
