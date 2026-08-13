@@ -436,14 +436,24 @@ export function WeekTimeline({
               <div
                 key={d}
                 className={cn(
-                  "border-b border-l border-border px-2 py-2 text-center",
-                  isToday && "bg-primary/10",
-                  isHl && !isToday && "bg-accent",
-                  isWeekend && !isToday && !isHl && "bg-muted/30",
+                  "relative sticky top-0 z-30 border-b border-l border-border bg-card px-2 py-2 text-center",
                 )}
               >
-                <div className="text-[11px] text-muted-foreground">{WEEKDAY_LABELS[idx]}</div>
-                <div className={cn("text-sm font-semibold mt-0.5", isToday && "text-primary")}>
+                <div
+                  aria-hidden
+                  className={cn(
+                    "pointer-events-none absolute inset-0",
+                    isToday && "bg-primary/10",
+                    isHl && !isToday && "bg-accent",
+                    isWeekend && !isToday && !isHl && "bg-muted/30",
+                  )}
+                />
+                <div className="relative text-[11px] text-muted-foreground">
+                  {WEEKDAY_LABELS[idx]}
+                </div>
+                <div
+                  className={cn("relative text-sm font-semibold mt-0.5", isToday && "text-primary")}
+                >
                   {dt.getMonth() + 1}/{dt.getDate()}
                 </div>
               </div>
