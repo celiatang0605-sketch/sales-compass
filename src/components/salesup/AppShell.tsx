@@ -21,6 +21,7 @@ import {
   PanelLeftOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { QuickCapture } from "@/components/salesup/QuickCapture";
 import { useAuth, signOut } from "@/lib/salesup/auth";
 import {
   initSync,
@@ -316,6 +317,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       >
         <div className="px-4 md:px-8 py-4 md:py-6 max-w-[1400px] mx-auto">{children}</div>
       </main>
+      <QuickCapture />
     </div>
   );
 }
