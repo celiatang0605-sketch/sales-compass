@@ -19,6 +19,7 @@ import {
   Users,
   PanelLeftClose,
   PanelLeftOpen,
+  Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { QuickCapture } from "@/components/salesup/QuickCapture";
@@ -57,6 +58,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [migrating, setMigrating] = useState(false);
   const [sync, setSync] = useState<SyncState | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [quickCaptureOpen, setQuickCaptureOpen] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -315,9 +317,19 @@ export function AppShell({ children }: { children: ReactNode }) {
           sidebarCollapsed ? "md:pl-16" : "md:pl-60",
         )}
       >
+        <header className="hidden md:flex sticky top-0 z-30 justify-end border-b border-border bg-card/95 px-8 py-3 backdrop-blur">
+          <button
+            type="button"
+            onClick={() => setQuickCaptureOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+          >
+            <Plus className="h-4 w-4" />
+            快速记录
+          </button>
+        </header>
         <div className="px-4 md:px-8 py-4 md:py-6 max-w-[1400px] mx-auto">{children}</div>
       </main>
-      <QuickCapture />
+      <QuickCapture open={quickCaptureOpen} onOpenChange={setQuickCaptureOpen} />
     </div>
   );
 }

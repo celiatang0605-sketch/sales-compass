@@ -27,11 +27,16 @@ const QUADRANTS: { value: EntryQuadrant; label: string }[] = [
 
 type OptionalField = "customer" | "dueDate" | "quadrant";
 
-export function QuickCapture() {
+export function QuickCapture({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const isMobile = useIsMobile();
   const { customers, loading: customersLoading } = useCustomers();
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
-  const [open, setOpen] = useState(false);
   const [content, setContent] = useState("");
   const [entryType, setEntryType] = useState<EntryType | null>(null);
   const [customerId, setCustomerId] = useState<string | null>(null);
@@ -53,32 +58,19 @@ export function QuickCapture() {
   }, []);
 
   const close = useCallback(() => {
-    setOpen(false);
+    onOpenChange(false);
     reset();
-  }, [reset]);
+  }, [onOpenChange, reset]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && open) {
-        event.preventDefault();
-        close();
-        return;
-      }
-      if (isMobile || open || event.defaultPrevented || event.key.toLowerCase() !== "k") return;
-      if (!event.ctrlKey && !event.metaKey) return;
-      const target = event.target as HTMLElement | null;
-      if (
-        target?.isContentEditable ||
-        target?.closest("input, textarea, select, [contenteditable='true']")
-      ) {
-        return;
-      }
+      if (event.key !== "Escape" || !open) return;
       event.preventDefault();
-      setOpen(true);
+      close();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [close, isMobile, open]);
+  }, [close, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -130,7 +122,7 @@ export function QuickCapture() {
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => onOpenChange(true)}
         className="fixed bottom-5 right-5 z-40 grid h-12 w-12 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105 md:hidden"
         aria-label="快速捕获"
       >
