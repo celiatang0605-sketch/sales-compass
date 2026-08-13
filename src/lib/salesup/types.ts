@@ -5,6 +5,50 @@ import type { WorkTypeId } from "./workTypes";
 
 export type ValueLevel = "high" | "medium" | "low";
 
+export type EntryType = "progress" | "pitfall" | "note" | "todo" | "idea";
+export type EntryQuadrant = "q1" | "q2" | "q3" | "q4";
+export type EntryStatus = "open" | "done" | "dropped";
+
+export const ENTRY_TYPE_LABELS = {
+  progress: "进展",
+  pitfall: "踩坑",
+  note: "注意",
+  todo: "待办",
+  idea: "想法",
+} as const;
+
+export const ENTRY_QUADRANT_LABELS = {
+  q1: "重要且紧急",
+  q2: "重要不紧急",
+  q3: "紧急不重要",
+  q4: "不重要不紧急",
+} as const;
+
+export const ENTRY_STATUS_LABELS = {
+  open: "进行中",
+  done: "已完成",
+  dropped: "已放弃",
+} as const;
+
+export interface Entry {
+  id: string;
+  user_id: string | null;
+  entry_type: EntryType;
+  content: string;
+  entry_date: string; // YYYY-MM-DD
+  quadrant: EntryQuadrant | null;
+  focus_date: string | null; // YYYY-MM-DD
+  due_date: string | null; // YYYY-MM-DD
+  status: EntryStatus;
+  customer_id: string | null;
+  opportunity_id: string | null;
+  related_block_id: string | null;
+  tags: string[];
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface TimeBlock {
   id: string;
   user_id: string | null; // reserved for Supabase auth

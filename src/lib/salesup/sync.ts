@@ -8,7 +8,7 @@
 
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import type { TimeBlock, Reminder } from "./types";
+import type { TimeBlock, Reminder, Entry } from "./types";
 
 const KEY_PREFIX = "salesup:v1:";
 
@@ -81,7 +81,14 @@ export function scopedKey(bare: string): string {
   return _userId ? `${KEY_PREFIX}${bare}:u:${_userId}` : `${KEY_PREFIX}${bare}`;
 }
 
-const ALL_KEYS = ["time_blocks", "reminders", "daily_reviews", "weekly_reviews", "monthly_reviews"];
+const ALL_KEYS = [
+  "time_blocks",
+  "reminders",
+  "entries",
+  "daily_reviews",
+  "weekly_reviews",
+  "monthly_reviews",
+];
 
 function setUser(uid: string | null, email: string | null) {
   if (_userId === uid && _userEmail === email) return;
@@ -126,9 +133,10 @@ export function initSync() {
 
 async function pullAll(uid: string) {
   setState({ status: "syncing" });
-  const [tb, rm] = await Promise.all([
+  const [tb, rm, en] = await Promise.all([
     supabase.from("time_blocks").select("*").eq("user_id", uid),
     supabase.from("reminders").select("*").eq("user_id", uid),
+    supabase.from("entries").select("*").eq("user_id", uid),
   ]);
   const errors: string[] = [];
   if (tb.error) {
@@ -142,6 +150,12 @@ async function pullAll(uid: string) {
     console.error("[salesup] reminders pull", rm.error);
   } else {
     writeScoped<Reminder[]>("reminders", (rm.data ?? []) as Reminder[]);
+  }
+  if (en.error) {
+    errors.push(`entries: ${en.error.message}`);
+    console.error("[salesup] entries pull", en.error);
+  } else {
+    writeScoped<Entry[]>("entries", (en.data ?? []) as Entry[]);
   }
   if (errors.length > 0) {
     setState({ status: "error", lastError: errors.join("；") });
@@ -197,6 +211,27 @@ function rmRow(r: Reminder, uid: string) {
     note: r.note,
     created_at: r.created_at,
     updated_at: r.updated_at,
+  };
+}
+
+function entryRow(e: Entry, uid: string) {
+  return {
+    id: e.id,
+    user_id: uid,
+    entry_type: e.entry_type,
+    content: e.content,
+    entry_date: e.entry_date,
+    quadrant: e.quadrant,
+    focus_date: e.focus_date || null,
+    due_date: e.due_date || null,
+    status: e.status,
+    customer_id: e.customer_id,
+    opportunity_id: e.opportunity_id,
+    related_block_id: e.related_block_id,
+    tags: e.tags,
+    position: e.position,
+    created_at: e.created_at,
+    updated_at: e.updated_at,
   };
 }
 
@@ -259,6 +294,46 @@ export function pushDeleteTimeBlock(id: string) {
       if (error) console.error("[salesup] delete time_block", error);
       endWrite(error, "删除时间块");
     });
+}
+
+export async function pushEntry(e: Entry): Promise<boolean> {
+  if (!_userId) {
+    notSignedInToast();
+    return true;
+  }
+  beginWrite();
+  try {
+    const { error } = await supabase
+      .from("entries")
+      .upsert(entryRow(e, _userId), { onConflict: "id" });
+    if (error) console.error("[salesup] upsert entry", error);
+    endWrite(error, "记录");
+    return !error;
+  } catch (error) {
+    const syncError = error instanceof Error ? error : new Error("网络连接失败");
+    console.error("[salesup] upsert entry", syncError);
+    endWrite(syncError, "记录");
+    return false;
+  }
+}
+
+export async function deleteEntryRemote(id: string): Promise<boolean> {
+  if (!_userId) {
+    notSignedInToast();
+    return true;
+  }
+  beginWrite();
+  try {
+    const { error } = await supabase.from("entries").delete().eq("id", id);
+    if (error) console.error("[salesup] delete entry", error);
+    endWrite(error, "删除记录");
+    return !error;
+  } catch (error) {
+    const syncError = error instanceof Error ? error : new Error("网络连接失败");
+    console.error("[salesup] delete entry", syncError);
+    endWrite(syncError, "删除记录");
+    return false;
+  }
 }
 
 export function pushTimeBlocksBulk(blocks: TimeBlock[]) {

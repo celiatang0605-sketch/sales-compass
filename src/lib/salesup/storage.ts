@@ -10,7 +10,7 @@
 //   prototype data captured before login is preserved for migration.
 
 import { useEffect, useState, useCallback } from "react";
-import type { TimeBlock, DailyReview, WeeklyReview, MonthlyReview, Reminder } from "./types";
+import type { TimeBlock, DailyReview, WeeklyReview, MonthlyReview, Reminder, Entry } from "./types";
 import { uid, nowIso } from "./date";
 import {
   scopedKey,
@@ -23,6 +23,8 @@ import {
   pushDeleteTimeBlocksByDates,
   pushReminder,
   pushDeleteReminder,
+  pushEntry,
+  deleteEntryRemote,
 } from "./sync";
 
 function read<T>(key: string, fallback: T): T {
@@ -170,6 +172,75 @@ export function deleteTimeBlock(id: string) {
   const list = read<TimeBlock[]>(TB_KEY, []).filter((b) => b.id !== id);
   write(TB_KEY, list);
   pushDeleteTimeBlock(id);
+}
+
+// -------- Entries --------
+
+const ENTRIES_KEY = "entries";
+
+export function useEntries(): Entry[] {
+  return useCollection<Entry[]>(ENTRIES_KEY, []);
+}
+
+export function useEntriesForDate(date: string): Entry[] {
+  const all = useEntries();
+  return all
+    .filter((entry) => entry.entry_date === date)
+    .sort((a, b) => a.position - b.position || b.created_at.localeCompare(a.created_at));
+}
+
+export function upsertEntry(
+  entry: Partial<Entry> & Pick<Entry, "entry_type" | "entry_date">,
+): Entry {
+  const list = read<Entry[]>(ENTRIES_KEY, []);
+  const now = nowIso();
+  let saved: Entry;
+  if (entry.id) {
+    const idx = list.findIndex((item) => item.id === entry.id);
+    if (idx >= 0) {
+      saved = { ...list[idx], ...entry, updated_at: now } as Entry;
+      list[idx] = saved;
+    } else {
+      saved = newEntry(entry, now);
+      list.push(saved);
+    }
+  } else {
+    saved = newEntry(entry, now);
+    list.push(saved);
+  }
+  write(ENTRIES_KEY, list);
+  pushEntry(saved);
+  return saved;
+}
+
+function newEntry(
+  entry: Partial<Entry> & Pick<Entry, "entry_type" | "entry_date">,
+  now: string,
+): Entry {
+  return {
+    id: uid(),
+    user_id: currentUserId(),
+    entry_type: entry.entry_type,
+    content: entry.content ?? "",
+    entry_date: entry.entry_date,
+    quadrant: entry.quadrant ?? null,
+    focus_date: entry.focus_date ?? null,
+    due_date: entry.due_date ?? null,
+    status: entry.status ?? "open",
+    customer_id: entry.customer_id ?? null,
+    opportunity_id: entry.opportunity_id ?? null,
+    related_block_id: entry.related_block_id ?? null,
+    tags: entry.tags ?? [],
+    position: entry.position ?? 0,
+    created_at: now,
+    updated_at: now,
+  };
+}
+
+export function deleteEntry(id: string): void {
+  const list = read<Entry[]>(ENTRIES_KEY, []).filter((entry) => entry.id !== id);
+  write(ENTRIES_KEY, list);
+  void deleteEntryRemote(id);
 }
 
 export function copyBlocksFromDate(fromDate: string, toDate: string): number {
