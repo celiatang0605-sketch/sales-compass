@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WeeklyBoardRouteImport } from './routes/weekly-board'
 import { Route as WeeklyRouteImport } from './routes/weekly'
 import { Route as RemindersRouteImport } from './routes/reminders'
 import { Route as MonthlyRouteImport } from './routes/monthly'
@@ -23,6 +24,11 @@ import { Route as LeadsIdRouteImport } from './routes/leads.$id'
 import { Route as CustomersNewRouteImport } from './routes/customers.new'
 import { Route as CustomersIdRouteImport } from './routes/customers.$id'
 
+const WeeklyBoardRoute = WeeklyBoardRouteImport.update({
+  id: '/weekly-board',
+  path: '/weekly-board',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WeeklyRoute = WeeklyRouteImport.update({
   id: '/weekly',
   path: '/weekly',
@@ -97,6 +103,7 @@ export interface FileRoutesByFullPath {
   '/monthly': typeof MonthlyRoute
   '/reminders': typeof RemindersRoute
   '/weekly': typeof WeeklyRoute
+  '/weekly-board': typeof WeeklyBoardRoute
   '/customers/$id': typeof CustomersIdRoute
   '/customers/new': typeof CustomersNewRoute
   '/leads/$id': typeof LeadsIdRoute
@@ -112,6 +119,7 @@ export interface FileRoutesByTo {
   '/monthly': typeof MonthlyRoute
   '/reminders': typeof RemindersRoute
   '/weekly': typeof WeeklyRoute
+  '/weekly-board': typeof WeeklyBoardRoute
   '/customers/$id': typeof CustomersIdRoute
   '/customers/new': typeof CustomersNewRoute
   '/leads/$id': typeof LeadsIdRoute
@@ -128,6 +136,7 @@ export interface FileRoutesById {
   '/monthly': typeof MonthlyRoute
   '/reminders': typeof RemindersRoute
   '/weekly': typeof WeeklyRoute
+  '/weekly-board': typeof WeeklyBoardRoute
   '/customers/$id': typeof CustomersIdRoute
   '/customers/new': typeof CustomersNewRoute
   '/leads/$id': typeof LeadsIdRoute
@@ -145,6 +154,7 @@ export interface FileRouteTypes {
     | '/monthly'
     | '/reminders'
     | '/weekly'
+    | '/weekly-board'
     | '/customers/$id'
     | '/customers/new'
     | '/leads/$id'
@@ -160,6 +170,7 @@ export interface FileRouteTypes {
     | '/monthly'
     | '/reminders'
     | '/weekly'
+    | '/weekly-board'
     | '/customers/$id'
     | '/customers/new'
     | '/leads/$id'
@@ -175,6 +186,7 @@ export interface FileRouteTypes {
     | '/monthly'
     | '/reminders'
     | '/weekly'
+    | '/weekly-board'
     | '/customers/$id'
     | '/customers/new'
     | '/leads/$id'
@@ -191,6 +203,7 @@ export interface RootRouteChildren {
   MonthlyRoute: typeof MonthlyRoute
   RemindersRoute: typeof RemindersRoute
   WeeklyRoute: typeof WeeklyRoute
+  WeeklyBoardRoute: typeof WeeklyBoardRoute
   CustomersIdRoute: typeof CustomersIdRoute
   CustomersNewRoute: typeof CustomersNewRoute
   LeadsIdRoute: typeof LeadsIdRoute
@@ -201,6 +214,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/weekly-board': {
+      id: '/weekly-board'
+      path: '/weekly-board'
+      fullPath: '/weekly-board'
+      preLoaderRoute: typeof WeeklyBoardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/weekly': {
       id: '/weekly'
       path: '/weekly'
@@ -303,6 +323,7 @@ const rootRouteChildren: RootRouteChildren = {
   MonthlyRoute: MonthlyRoute,
   RemindersRoute: RemindersRoute,
   WeeklyRoute: WeeklyRoute,
+  WeeklyBoardRoute: WeeklyBoardRoute,
   CustomersIdRoute: CustomersIdRoute,
   CustomersNewRoute: CustomersNewRoute,
   LeadsIdRoute: LeadsIdRoute,

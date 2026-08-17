@@ -8,6 +8,7 @@ export type ValueLevel = "high" | "medium" | "low";
 export type EntryType = "progress" | "pitfall" | "note" | "todo" | "idea";
 export type EntryQuadrant = "q1" | "q2" | "q3" | "q4";
 export type EntryStatus = "open" | "done" | "dropped";
+export type EntryWorkArea = "internal" | "learning" | "method";
 
 export const ENTRY_TYPE_LABELS = {
   progress: "进展",
@@ -30,6 +31,12 @@ export const ENTRY_STATUS_LABELS = {
   dropped: "已放弃",
 } as const;
 
+export const ENTRY_WORK_AREA_LABELS = {
+  internal: "内部流程",
+  learning: "能力建设",
+  method: "方法论复盘",
+} as const;
+
 export interface Entry {
   id: string;
   user_id: string | null;
@@ -40,6 +47,7 @@ export interface Entry {
   focus_date: string | null; // YYYY-MM-DD
   due_date: string | null; // YYYY-MM-DD
   status: EntryStatus;
+  work_area: EntryWorkArea | null;
   customer_id: string | null;
   opportunity_id: string | null;
   related_block_id: string | null;

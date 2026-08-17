@@ -227,6 +227,7 @@ function newEntry(
     focus_date: entry.focus_date ?? null,
     due_date: entry.due_date ?? null,
     status: entry.status ?? "open",
+    work_area: entry.work_area ?? null,
     customer_id: entry.customer_id ?? null,
     opportunity_id: entry.opportunity_id ?? null,
     related_block_id: entry.related_block_id ?? null,

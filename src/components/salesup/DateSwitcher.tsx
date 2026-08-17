@@ -34,7 +34,7 @@ export function DateSwitcher({ date, onChange }: Props) {
         className="px-3 py-1.5 rounded-lg border border-border bg-card text-xs hover:bg-secondary disabled:opacity-50"
         disabled={isToday}
       >
-        回到今天
+        今天
       </button>
       <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-card text-xs hover:bg-secondary cursor-pointer">
         <CalendarDays className="w-3.5 h-3.5" />

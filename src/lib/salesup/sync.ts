@@ -225,6 +225,7 @@ function entryRow(e: Entry, uid: string) {
     focus_date: e.focus_date || null,
     due_date: e.due_date || null,
     status: e.status,
+    work_area: e.work_area ?? null,
     customer_id: e.customer_id,
     opportunity_id: e.opportunity_id,
     related_block_id: e.related_block_id,
