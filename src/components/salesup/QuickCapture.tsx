@@ -8,7 +8,12 @@ import { cn } from "@/lib/utils";
 import { todayKey } from "@/lib/salesup/date";
 import { useCustomers } from "@/lib/salesup/useCustomers";
 import { upsertEntry } from "@/lib/salesup/storage";
-import type { EntryQuadrant, EntryType } from "@/lib/salesup/types";
+import {
+  ENTRY_WORK_AREA_LABELS,
+  type EntryQuadrant,
+  type EntryType,
+  type EntryWorkArea,
+} from "@/lib/salesup/types";
 
 const ENTRY_TYPES: { value: EntryType; label: string }[] = [
   { value: "progress", label: "进展" },
@@ -25,6 +30,8 @@ const QUADRANTS: { value: EntryQuadrant; label: string }[] = [
   { value: "q4", label: "不重要不紧急" },
 ];
 
+const WORK_AREAS: EntryWorkArea[] = ["internal", "learning", "method"];
+
 type OptionalField = "customer" | "dueDate" | "quadrant";
 
 export function QuickCapture({
@@ -39,16 +46,19 @@ export function QuickCapture({
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const [content, setContent] = useState("");
   const [entryType, setEntryType] = useState<EntryType | null>(null);
+  const [workArea, setWorkArea] = useState<EntryWorkArea | null>(null);
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [dueDate, setDueDate] = useState<string | null>(null);
   const [quadrant, setQuadrant] = useState<EntryQuadrant | null>(null);
   const [focusToday, setFocusToday] = useState(false);
   const [activeOptional, setActiveOptional] = useState<OptionalField | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const isSavingRef = useRef(false);
 
   const reset = useCallback(() => {
     setContent("");
     setEntryType(null);
+    setWorkArea(null);
     setCustomerId(null);
     setDueDate(null);
     setQuadrant(null);
@@ -63,16 +73,6 @@ export function QuickCapture({
   }, [onOpenChange, reset]);
 
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || !open) return;
-      event.preventDefault();
-      close();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [close, open]);
-
-  useEffect(() => {
     if (!open) return;
     const frame = window.requestAnimationFrame(() => inputRef.current?.focus());
     return () => window.cancelAnimationFrame(frame);
@@ -85,13 +85,17 @@ export function QuickCapture({
     textarea.style.overflowY = textarea.scrollHeight > 200 ? "auto" : "hidden";
   };
 
-  const save = () => {
+  const save = useCallback(() => {
     const trimmed = content.trim();
     if (!trimmed) {
       setError("请先写下内容");
       inputRef.current?.focus();
       return;
     }
+
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
+
     try {
       upsertEntry({
         content: trimmed,
@@ -101,6 +105,7 @@ export function QuickCapture({
         focus_date: !isMobile && focusToday ? todayKey() : null,
         due_date: isMobile ? null : dueDate,
         status: "open",
+        work_area: isMobile ? null : workArea,
         customer_id: isMobile ? null : customerId,
         opportunity_id: null,
         related_block_id: null,
@@ -110,9 +115,28 @@ export function QuickCapture({
       toast.success("已记录");
       close();
     } catch (cause) {
+      isSavingRef.current = false;
       setError(cause instanceof Error ? cause.message : "保存失败，请重试");
     }
-  };
+  }, [close, content, customerId, dueDate, entryType, focusToday, isMobile, quadrant, workArea]);
+
+  useEffect(() => {
+    if (open) isSavingRef.current = false;
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || isMobile || typeof window === "undefined") return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        close();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [close, isMobile, open]);
 
   const toggleOptional = (field: OptionalField) => {
     setActiveOptional((current) => (current === field ? null : field));
@@ -158,6 +182,7 @@ export function QuickCapture({
               customersLoading={customersLoading}
               dueDate={dueDate}
               entryType={entryType}
+              workArea={workArea}
               error={error}
               focusToday={focusToday}
               inputRef={inputRef}
@@ -170,11 +195,15 @@ export function QuickCapture({
               onEntryTypeChange={(type) =>
                 setEntryType((current) => (current === type ? null : type))
               }
+              onWorkAreaChange={(area) =>
+                setWorkArea((current) => (current === area ? null : area))
+              }
               onFocusTodayChange={setFocusToday}
               onOptionalToggle={toggleOptional}
               onCustomerChange={setCustomerId}
               onDueDateChange={setDueDate}
               onQuadrantChange={setQuadrant}
+              onClose={close}
               onSave={save}
             />
           )}
@@ -192,6 +221,7 @@ function DesktopCapture({
   customersLoading,
   dueDate,
   entryType,
+  workArea,
   error,
   focusToday,
   inputRef,
@@ -200,9 +230,11 @@ function DesktopCapture({
   onCustomerChange,
   onDueDateChange,
   onEntryTypeChange,
+  onWorkAreaChange,
   onFocusTodayChange,
   onOptionalToggle,
   onQuadrantChange,
+  onClose,
   onSave,
 }: {
   activeOptional: OptionalField | null;
@@ -212,6 +244,7 @@ function DesktopCapture({
   customersLoading: boolean;
   dueDate: string | null;
   entryType: EntryType | null;
+  workArea: EntryWorkArea | null;
   error: string | null;
   focusToday: boolean;
   inputRef: React.RefObject<HTMLTextAreaElement | null>;
@@ -220,28 +253,33 @@ function DesktopCapture({
   onCustomerChange: (value: string | null) => void;
   onDueDateChange: (value: string | null) => void;
   onEntryTypeChange: (value: EntryType) => void;
+  onWorkAreaChange: (value: EntryWorkArea) => void;
   onFocusTodayChange: (checked: boolean) => void;
   onOptionalToggle: (field: OptionalField) => void;
   onQuadrantChange: (value: EntryQuadrant) => void;
+  onClose: () => void;
   onSave: () => void;
 }) {
+  const canSave = content.trim().length > 0;
+
   return (
-    <div className="space-y-4 p-5">
+    <div className="relative space-y-4 p-5">
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        aria-label="关闭"
+      >
+        <X className="h-4 w-4" />
+      </button>
       <textarea
         ref={inputRef}
         rows={1}
         value={content}
         onChange={(event) => onChange(event.target.value, event.target)}
-        onKeyDown={(event) => {
-          if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
-            event.preventDefault();
-            onSave();
-          }
-        }}
         placeholder="记点什么…"
-        className="block max-h-[200px] min-h-7 w-full resize-none overflow-hidden bg-transparent p-0 text-base leading-7 outline-none placeholder:text-muted-foreground"
+        className="block max-h-[200px] min-h-7 w-full resize-none overflow-hidden bg-transparent p-0 pr-10 text-base leading-7 outline-none placeholder:text-muted-foreground"
       />
-      {error && <p className="text-xs text-destructive">{error}</p>}
 
       <div className="flex flex-wrap gap-2">
         {ENTRY_TYPES.map((type) => (
@@ -258,6 +296,25 @@ function DesktopCapture({
             )}
           >
             {type.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap gap-2 border-t border-border pt-3">
+        {WORK_AREAS.map((area) => (
+          <button
+            key={area}
+            type="button"
+            aria-pressed={workArea === area}
+            onClick={() => onWorkAreaChange(area)}
+            className={cn(
+              "rounded-full border px-3 py-1.5 text-xs transition-colors",
+              workArea === area
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border text-muted-foreground hover:bg-secondary hover:text-foreground",
+            )}
+          >
+            {ENTRY_WORK_AREA_LABELS[area]}
           </button>
         ))}
       </div>
@@ -355,9 +412,29 @@ function DesktopCapture({
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-3 border-t border-border pt-3 text-[11px] text-muted-foreground">
-        <span>未选类型时默认存为「注意」</span>
-        <span className="shrink-0">Ctrl+Enter 保存 · Esc 关闭</span>
+      <div className="flex items-center justify-between gap-3 border-t border-border pt-4 text-xs">
+        {error ? (
+          <span className="text-destructive">{error}</span>
+        ) : (
+          <span className="text-muted-foreground">Esc 关闭</span>
+        )}
+        <div className="flex shrink-0 items-center gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-10 rounded-xl border border-border bg-card px-6 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={!canSave}
+            className="h-10 rounded-xl bg-primary px-6 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:bg-muted disabled:text-primary-foreground"
+          >
+            保存
+          </button>
+        </div>
       </div>
     </div>
   );
